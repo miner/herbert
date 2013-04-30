@@ -48,31 +48,31 @@ https://clojars.org/com.velisco/herbert
 
 ## Notation
 
-* Literal constants match themselves:  
+* Literal constants match themselves: <BR>  
 **nil**, **true**, **false**, *numbers*, *"strings"*, *:keywords*
 
-* Simple types: 
+* Simple types: <BR>
 **int**, **str**, **kw**, **sym**, **vec**, **list**, **seq**, **map**
 
-* Quantified types, adding a ** * **, **+** or **?** at the end of a simple type for zero-or-more,
-  one-or-more, or zero-or-one (optional):  
+* Quantified types, adding a __*__, __+__ or __?__ at the end of a simple type for zero-or-more,
+  one-or-more, or zero-or-one (optional): <BR>
 **int***, **str+**, **sym?**
   
-* Constraints are written as lists and start with a simple type as the first element:
+* Constraints are written as lists and start with a simple type as the first element: <BR>
 (int x (<= 3 x 10)) -- an int named x with the constraint that x is between 3 and 10
 	
-* Compound constraints, using **and**, **or** and **not**
-(or sym+ nil)  -- one or more symbols or nil
+* Compound constraints, using **and**, **or** and **not** <BR>
+(or sym+ nil)  -- one or more symbols or nil <BR>
 (or (vec int*) (list kw+))  -- either a vector of ints or a list of one or more keywords
 
-* Quantified constraints, a list beginning with **\***, **+** or **?** as the first element.
+* Quantified constraints, a list beginning with __*__, __+__ or __?__ as the first element. <BR>
 (* kw sym)  -- zero or more pairs of keywords and symbols
 
-* Square brackets match any seq (not just a vector) with the contained pattern
+* Square brackets match any seq (not just a vector) with the contained pattern <BR>
 [(* kw sym)]  -- matches '(:a foo :b bar :c baz)
 
 * Curly braces match any map with the given keys and value types.  Optional keywords are written
-  with a ? suffix such as **:kw?**
+  with a ? suffix such as **:kw?** <BR>
 {:a int :b sym :c? [int*]}  -- matches {:a 10 :b foo :c [1 2 3]}
 
 
