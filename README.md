@@ -48,31 +48,32 @@ https://clojars.org/com.velisco/herbert
 
 ## Notation
 
-* Literal constants match themselves:
-  - **nil**, **true**, **false**, *numbers*, *"strings"*, *:keywords*
+* Literal constants match themselves:  
+**nil**, **true**, **false**, *numbers*, *"strings"*, *:keywords*
 
-* Simple types: **int**, **str**, **kw**, **sym**, **vec**, **list**, **seq**, **map**
+* Simple types: 
+**int**, **str**, **kw**, **sym**, **vec**, **list**, **seq**, **map**
 
 * Quantified types, adding a ** * **, **+** or **?** at the end of a simple type for zero-or-more,
-  one-or-more, or zero-or-one (optional):
-  - **int***, **str+**, **sym?**
+  one-or-more, or zero-or-one (optional):  
+**int***, **str+**, **sym?**
   
 * Constraints are written as lists and start with a simple type as the first element:
-  - (int x (<= 3 x 10)) -- an int named x with the constraint that x is between 3 and 10
+(int x (<= 3 x 10)) -- an int named x with the constraint that x is between 3 and 10
 	
 * Compound constraints, using **and**, **or** and **not**
-  - (or sym+ nil)  -- one or more symbols or nil
-  - (or (vec int*) (list kw+))  -- either a vector of ints or a list of one or more keywords
+(or sym+ nil)  -- one or more symbols or nil
+(or (vec int*) (list kw+))  -- either a vector of ints or a list of one or more keywords
 
 * Quantified constraints, a list beginning with **\***, **+** or **?** as the first element.
-  - (* kw sym)  -- zero or more pairs of keywords and symbols
+(* kw sym)  -- zero or more pairs of keywords and symbols
 
 * Square brackets match any seq (not just a vector) with the contained pattern
-  - [(* kw sym)]  -- matches '(:a foo :b bar :c baz)
+[(* kw sym)]  -- matches '(:a foo :b bar :c baz)
 
 * Curly braces match any map with the given keys and value types.  Optional keywords are written
   with a ? suffix such as **:kw?**
-  - {:a int :b sym :c? [int*]}  -- matches {:a 10 :b foo :c [1 2 3]}
+{:a int :b sym :c? [int*]}  -- matches {:a 10 :b foo :c [1 2 3]}
 
 
 ## Examples
