@@ -4,7 +4,7 @@ A schema for **edn** data.
 
 __Warning__: This project is new and rapidly changing.  It's probably not ready for other people to use yet.
 
-The _extensible data noation_ (**edn**) defines a useful subset of Clojure data types.  The goal
+The _extensible data noation_ ( **edn** ) defines a useful subset of Clojure data types.  The goal
 of the *Herbert* project is to provide a schema for defining **edn** data structures that can be
 used for documentation, validation and conformance testing.
 
@@ -12,7 +12,7 @@ A significant feature of Clojure programming is that it doesn't require type dec
 you're trying to get a project started, you don't want to be forced to declare every term.
 Refactoring is also simpler without type declarations.  On the other hand, there are times when you
 know the required *shape* of your data and you would like to guarantee that it conforms to
-expectations.  Clojure has `assert` statements and pre-conditions that be used to test data.  I
+expectations.  Clojure has `assert` statements and *pre-conditions* that be used to test data.  I
 usually end up writing custom predicates as a sanity check on my data.  They often catch simple
 typos and careless errors in my code and data files.
 
@@ -48,30 +48,31 @@ https://clojars.org/com.velisco/herbert
 
 ## Notation
 
-* Literal constants match themselves: **nil**, **true**, **false**, *numbers*, *"strings"*,
-*:keywords*
+* Literal constants match themselves:
+  - **nil**, **true**, **false**, *numbers*, *"strings"*, *:keywords*
 
 * Simple types: **int**, **str**, **kw**, **sym**, **vec**, **list**, **seq**, **map**
 
-* Quantified types, adding a **\***, **+** or **?** at the end of a simple type for zero or more,
-  one or more, or optional (zero or one)
+* Quantified types, adding a ** * **, **+** or **?** at the end of a simple type for zero-or-more,
+  one-or-more, or zero-or-one (optional):
+  - **int***, **str+**, **sym?**
   
 * Constraints are written as lists and start with a simple type as the first element:
-    (int x (<= 3 x 10)) -- an int named x with the constraint that x is between 3 and 10
+  - (int x (<= 3 x 10)) -- an int named x with the constraint that x is between 3 and 10
 	
 * Compound constraints, using **and**, **or** and **not**
-    (or sym+ nil)  -- one or more symbols or nil
-	(or (vec int*) (list kw+))  -- either a vector of ints or a list of one or more keywords
+  - (or sym+ nil)  -- one or more symbols or nil
+  - (or (vec int*) (list kw+))  -- either a vector of ints or a list of one or more keywords
 
 * Quantified constraints, a list beginning with **\***, **+** or **?** as the first element.
-    (* kw sym)  -- zero or more pairs of keywords and symbols
+  - (* kw sym)  -- zero or more pairs of keywords and symbols
 
 * Square brackets match any seq (not just a vector) with the contained pattern
-    [(* kw sym)]  -- matches '(:a foo :b bar :c baz)
+  - [(* kw sym)]  -- matches '(:a foo :b bar :c baz)
 
 * Curly braces match any map with the given keys and value types.  Optional keywords are written
   with a ? suffix such as **:kw?**
-	 {:a int :b sym :c? [int*]}  -- matches {:a 10 :b foo :c [1 2 3]}
+  - {:a int :b sym :c? [int*]}  -- matches {:a 10 :b foo :c [1 2 3]}
 
 
 ## Examples
@@ -101,9 +102,9 @@ https://clojars.org/com.velisco/herbert
 Star Trek, _The Way to Eden_  
 stardate 5832.3
 
-Space Hippies: "Herbert, Herbert, Herbert ..."  
-Spock: "Herbert was a minor official notorious for his rigid and limited patterns of thought."  
-Kirk: "Well, I shall try to be less rigid in my thinking."  
+**Space Hippies**: "Herbert, Herbert, Herbert ..."  
+**Spock**: "Herbert was a minor official notorious for his rigid and limited patterns of thought."  
+**Kirk**: "Well, I shall try to be less rigid in my thinking."  
 
 video clip:  http://www.youtube.com/watch?v=PQONBf9xMss
 
