@@ -48,7 +48,7 @@ https://clojars.org/com.velisco/herbert
 
 ## Notation
 
-* Literal constants match themselves: <BR>  
+* Literal constants match themselves: <BR>
 **nil**, **true**, **false**, *numbers*, *"strings"*, *:keywords*
 
 * Simple types: <BR>
