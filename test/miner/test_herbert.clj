@@ -33,7 +33,14 @@
        {:a 1 :b 'foo :d 'bar}   true  
        {:a 1 :b 'foo :c 'bar}   false
        {:a :kw :b 'foo}   false
-       {:b 'foo :c "foo"} false))
+       {:b 'foo :c "foo"} false)
+  (are [val result] (= (conforms? '{:a int :b sym :c? nil} val) result)
+       ;; :c is essentiall disallowed, technically can only have nil value
+       {:a 1 :b 'foo :c "foo"}   false
+       {:a 1 :b 'foo}   true
+       {:a 1 :b 'foo :d 'bar}   true  
+       {:a 1 :b 'foo :c 'bar}   false
+       {:a 1 :b 'foo :c nil}  true))
 
 (deftest sets []
   (are [val result] (= (conforms? '#{:a :b :c} val) result)

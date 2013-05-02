@@ -1,13 +1,6 @@
 Herbert -- a schema notation for EDN
 
-Space Hippies: "Herbert, Herbert, Herbert ..."
-Spock: "Herbert was a minor official notorious for his rigid and limited patterns of thought."
-Kirk: "Well, I shall try to be less rigid in my thinking."
-
-Star Trek, "The Way to Eden"
-stardate 5832.3
-
- video clip:  http://www.youtube.com/watch?v=PQONBf9xMss
+These are just notes to myself.  Probably not useful to anyone else.
 
 ----------------------------------------------------------------------
 
@@ -50,7 +43,6 @@ Look at clj-schema lib:
 https://github.com/runa-dev/clj-schema
 
 
-
 Nice, new parser lib:
 https://github.com/Engelberg/instaparse
 
@@ -75,26 +67,17 @@ Shape of data
 Maybe like UML data modeling but simpler and less work.
 
 
-My old stuff is at home in the Sevrin project.  I think I like the Herbert name better for the Spock
-quote.
-
-Sevrin might be the name for a datomic schema.
-
-Recreating some ideas
-
 Use core.logic to implement matching or satisfaction or really parsing.  Probably need to do some
 research.
 
-
 Trade-off: compact type notation and Clojure/Java type names.  Probably better to go with Clojure in
 general for ease of understanding.  Could use abbreviations for some things.
-
 
 Idea from Stuart Sierra's strange loop "Functional Design Patterns" talk:  define protocol for
 Acceptors.  Then have the data type decide which acceptor to call.  Or maybe have the schema type
 decide.  Not sure.
 
-Sierra gave an older talk about the shape of data.  Look for that.
+Sierra gave an older talk about the shape of data:
 
 http://www.infoq.com/presentations/Thinking-in-Data
 
@@ -115,18 +98,12 @@ SEM says: OK so we want a simple notation for an informal schema (required keys 
 ----------------------------------------------------------------------
 
 Big Question: inline [vec] or require prefix & [vec].  Latter is more like destructuring but maybe a
-bit noisy.
+bit noisy. 
 
-Another advantage is inlining maps to mean keyword-val pairs in any order:
-  & {:a int :b str}
-
-matches :a 10 b "foo" or :b "baz" :a 2
-
-For now, I'm using [brackets] to match any seq.  Inlining is done only with splice ops (* + ? N)
+Decision: [int*] means seq of ints, not inlined.  You can use (= int sym) for
+inlining.   Inlining is also done with "splice" ops (* + ? N)
 
 ----------------------------------------------------------------------
-
-
 
 
 * Binding
@@ -164,7 +141,8 @@ but maybe conflicts with some other notations
 ([(str name) (str name2)] :when (== (count name) (count name2)))
 
 
-
+== Maybe not on grammar approach.  We're using fns and combinators so just define them with vars.
+Maybe later, we could take a map grammar and do the right thing.
 
 * Grammar specification
 need a start rule (start :start S), or specify on use
@@ -261,6 +239,10 @@ utag
 (N t1 t2 t3) -- exactly N total elements, cycling through types
 
 (= t1 t2 t3) -- exactly 1 inlined seq of elements, same as (N t1 t2 ... tN) where N=count(ts)
+
+
+Note:  maybe should remove the Numbered quantifier -- not sure if it's worth the complexity?
+Especially with the multiple items: is the count total elements or cycles?
 
 If N is * then any length is allowed. Also, + and ?, and [N M]. 
 [N] means N or more  (sort of like [N *] but that's not used
