@@ -7,6 +7,8 @@
 (defn unimplemented [x]
   (println "Unimplemented " x))
 
+(defn literal? [con]
+  (or (keyword? con) (number? con) (string? con) (false? con) (true? con) (nil? con)))
 
 (defn str-last-char [^String s]
   (when-not (str/blank? s)
@@ -25,90 +27,6 @@
     (keyword ns name1)
     (symbol ns name1))))
 
-;; wrong -- don't add extra vars
-(def int? integer?)
-(def str? string?)
-
-;; wrong -- not a collection, just multiple values inline
-(defn sym->pred [sym]
-  (let [sname (name sym)
-        ch (last-char sname)]
-    (case ch
-      \+ (every-pred coll? (comp pos? count))
-      \* coll?
-      \? (every-pred coll? #(<= (count %) 1))
-      (resolve (symbol (str sym "?"))))))
-
-
-
-;; probably need a protocol to refactor code
-
-(def simple? (complement coll?))
-
-(defn wildcard? [x]
-  (case x
-    (* ? +) true
-    false))
-
-(defn basetype? [x]
-  (case x
-    (int float str char tag num sym kw nil true false bool) true
-    false))
-
-(defn colltype? [x]
-  (case x
-    (list vec seq map coll keys set) true
-    false))
-
-
-;; maybe need a protocol here
-(defn process-map-spec [mspec]
-  ;; FIXME
-  mspec)
-
-(defn process-vector-spec [vspec]
-  ;; FIXME
-  vspec)
-
-(defn process-compound-spec [cspec]
-  ;; FIXME
-  cspec)
-
-
-(defn process-spec [spec]
-  ;; walk spec to canonicalize it
-  (cond (simple? spec) spec
-        (map? spec) (process-map-spec spec)
-        (vector? spec) (process-vector-spec spec)
-        (seq? spec) (process-compound-spec spec)
-        :else (throw (java.lang.IllegalStateException. (str "Bad spec " (pr-str spec))))))
-  
-(defn process-compound-spec [spec]
-  (let [head (first spec)]
-    (cond (integer? head) (vec (repeat head (map process-spec (rest spec))))
-          (wildcard? head) (list* head (map process-spec (rest spec)))
-          ;;(comparison? head)
-          )))
-
-(defn schema [spec-map]
-  "Returns a Sevrin schema for the spec-map"
-  (reduce-kv (fn [m k v] (assoc m k (process-spec v))) {} spec-map))
-
-
-(defn one-of? [type-set data]
-  (let [c (class data)]
-    (or (contains? type-set c)
-        (some (or (supers c) #{}) type-set))))
-
-(defn start-rule [schema]
-  (get schema 'start))
-
-  
-;; needs work
-(defn XXX-literal? [x]
-  (or (not (coll? x))
-      (let [[a b] x]
-        (and (= a 'quote) (recur b)))))
 
 (defrecord TaggedValue [tag value])
 
@@ -150,28 +68,6 @@
 (def test-fn (merge single-test-fn coll-test-fn other-test-fn))
 
 
-;; record per type with guard
-;; or is it just a fn?
-
-(defn map->test [m]
-  (unimplemented "map->test"))
-
-(defn coll->test [c]
-  ;; handle guard etc
-  (unimplemented "coll->test"))
-
-(defn symbol->test [sym]
-  (or (get test-fn sym)
-      (sym->pred sym)
-      (resolve sym)))
-
-(defn spec->test [spec]
-  (cond (symbol? spec) (symbol->test spec)
-        (map? spec) (map->test spec)
-        (coll? spec) (coll->test spec)
-        :else (throw (ex-info "Unknown spec" {:spec spec}))))
-
-
 (defn guard-spec-fn [spec]
   (unimplemented 'guard-spec-fn)
   (constantly true))
@@ -182,116 +78,7 @@
 (defn single-spec-fn [spec]
   (every-pred (single-test-fn spec) (guard-spec-fn spec)))
 
-
 (def single-spec-types (keys single-test-fn))
-
-(defn accepts? [spec datum]
-  ((spec->test spec) datum))
-
-(defn accept [spec data]
-  ;; data must be a sequence, typically a vector
-  ;; returns map {:accepted stuff :remaining stuff}
-  (if (single-item-spec? spec)
-    (when ((single-spec-fn spec) (first data))
-      {:accepted (first data) :remaining (rest data)})
-    (when coll-test-fn
-      ;; unfinished
-      )))
-
-;;; processing  :accepted :remaining :binding
-
-(defn conforms? [data schema]
-  (accepts? (start-rule schema) data))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; SP rule takes 4 args:   input, bindings, context and memo.
-;; Or it can be called like a fn with a sequence as input, and it parses as much as possible
-;; 
-;; (defn succeed
-;;   [return sreturn input bindings memo]
-;;   {:i input :b bindings :r return :s sreturn :m memo})
-
-;; sp/end terminates a collection rule so that nothing else is allowed
-
-
-
-;; "ac" short for "accept" -- a rule that accepts whatever
-(sp/defrule ac-int (sp/mkpr integer?))
-(sp/defrule ac-int* (sp/mkzom ac-int))
-(sp/defrule ac-int+ (sp/mk1om ac-int))
-(sp/defrule ac-int? (sp/mkopt ac-int))
-
-(sp/defrule ac-int*end (sp/mkseq (sp/mkzom ac-int) sp/end))
-
-;; make a macro to expand the quantified versions from the mkpr
-
-(sp/defrule ac-vec (sp/mkpr vector?))
-(sp/defrule ac-vec* (sp/mkzom ac-vec))
-(sp/defrule ac-vec+ (sp/mk1om ac-vec))
-(sp/defrule ac-vec? (sp/mkopt ac-vec))
-
-(sp/defrule ac-sym (sp/mkpr symbol?))
-(sp/defrule ac-sym* (sp/mkzom ac-sym))
-(sp/defrule ac-sym+ (sp/mk1om ac-sym))
-(sp/defrule ac-sym? (sp/mkopt ac-sym))
-
-(sp/defrule ac-two-by-two (sp/mkseq ac-int ac-int ac-sym ac-sym))
-
-
-(sp/defrule ac-sym-int-alt (sp/mk1om (sp/mkseq ac-sym ac-int)))
-
-;; Note the rules are greedy and won't backtrack on failure.  Once a subrule succeeds, it's
-;; committed.  That's it.  Some ambiguous `sym? sym int` might fail on a `sym int`, but `sym sym?
-;; int` would succeed.
-;;
-;; This is intentional.  See the paper on PEGs. ? * + are greedy.  But you can use & to be
-;; non-greedy.
-;; 
-;; http://pdos.csail.mit.edu/papers/parsing:popl04.pdf
-
-;; surprisingly no backtracking
-(sp/defrule ac-sosi (sp/mkseq ac-sym? ac-sym ac-int))
-
-;; better
-(sp/defrule ac-ssi (sp/mkseq ac-sym ac-sym? ac-int))
-
-
-;; Issue, parsing mksub ignores extra junk.  Have to use my sp/end to force termination with nothing
-;; extra.
-
-
-
-(sp/defrule ac-iopt-si+ (sp/mkseq ac-int? (sp/mk1om (sp/mkseq ac-sym ac-int+))))
-
-(sp/defrule ac-s-vint (sp/mkseq ac-sym (sp/mksub ac-int+)))
-
-(sp/defrule ac-vsi (sp/mksub (sp/mkseq (sp/mkzom (sp/mkseq ac-sym ac-int)) sp/end)))
-
-(sp/defrule ac-vsix (sp/mksub (sp/mkzom (sp/mkseq ac-sym ac-int))))                    
-
-(sp/defrule ac-vsix2 (sp/mkret (sp/mkbind ac-vsix :contents)
-                              (fn [b con] (vec (:contents b)))))
-
-(sp/defrule ac-vsix1  (sp/mkbind ac-vsix :contents))
-                     
-
-(sp/defrule ac-s-vsix-s (sp/mkseq ac-sym (sp/mksub (sp/mkzom (sp/mkseq ac-sym ac-int))) ac-sym))
-
-
-(sp/defrule ac-svs (sp/mkseq ac-sym ac-vsix ac-sym))
-
-(sp/defrule ac-map (sp/mkpr map?))
-(sp/defrule ac-map* (sp/mkzom ac-map))
-
-
-(defn plant? [p]
-  (and (map? p) 
-       (when-let [id (:id p)]
-         (zero? (mod (count id) 4)))))
-
-
-(sp/defrule ac-plant* (sp/mkseq (sp/mkzom (sp/mkpr plant?)) sp/end))
 
 
 (defn tcon-pred [tcon]
@@ -518,10 +305,6 @@ The others are guard rules that should not consume any input."
                  (and (contains? m sk)
                       (sp/success? (rule (list (get m sk)) {} {} {}))))))))
 
-(defn literal? [con]
-  (or (keyword? con) (number? con) (string? con) (false? con) (true? con) (nil? con)))
-
-
 (defn tcon-map-constraint [mexpr]
   (mkmap (map tcon-map-entry mexpr)))
 
@@ -530,9 +313,9 @@ The others are guard rules that should not consume any input."
         rule (tconstraint simple)]
     (case (last-char sym)
       \* (sp/mkpr (fn [s] (every? #(sp/success? (rule (list %) {} {} {})) s)))
-      \+ (sp/mkpr (fn [s] (some #(sp/success? (rule (list %) {} {} {})) s)))
+      \+ (sp/mkpr (fn [s] (and (seq s) (every? #(sp/success? (rule (list %) {} {} {})) s))))
       \? (sp/mkpr (fn [s] (or (empty? s) 
-                              (and (== (count s) 1)
+                              (and (empty? (rest s))
                                    (sp/success? (rule (seq s) {} {} {}))))))
       ;; else simple
       (sp/mkpr (fn [s] (some #(sp/success? (rule (list %) {} {} {})) s))))))
@@ -588,11 +371,6 @@ The others are guard rules that should not consume any input."
      (apply sp/mkseq (tconstraint expr) (tconstraint expr2) (map tconstraint more))))
 
 
-
-(defn between-pred [lo hi]
-  ;; inclusive
-  #(<= lo % hi))
-
 (defn confn [con]
   (let [cfn (tconstraint con)]
     (fn ff
@@ -600,9 +378,12 @@ The others are guard rules that should not consume any input."
       ([item context] (ff item context {} {}))
       ([item context bindings memo] (cfn (list item) context bindings memo)))))
 
+(defn conformitor [con]
+  (if (fn? con) con #(sp/success? ((confn con) %))))
+
 ;; Too Clever?  Single arg creates predicate (for reuse).  Second arg immediately tests.
 ;; Con can be a fn already (presumed to be a predicate), or a "constraint expression" which
 ;; is compiled into a predicate.
 (defn conforms? 
-  ([con] (if (fn? con) con #(sp/success? ((confn con) %))))
-  ([con x] ((conforms? con) x)))
+  ([con] (conformitor con))
+  ([con x] ((conformitor con) x)))
