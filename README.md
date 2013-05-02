@@ -2,7 +2,7 @@
 
 A schema for **edn** data.
 
-[![Way to Eden](https://github.com/miner/herbert/raw/master/img/way-to-eden.png)](#Star Trek reference)
+[![Way to Eden](https://github.com/miner/herbert/raw/master/img/way-to-eden.png)](#star-trek-reference)
 
 __Warning__: This project is new and rapidly changing.  It's probably not ready for other people to use yet.
 
