@@ -1,5 +1,6 @@
 (ns miner.herbert
   (:require [clojure.string :as str]
+            [clojure.set :as set]
             [squarepeg.core :as sp]))
 
 
@@ -104,7 +105,7 @@
 
   
 ;; needs work
-(defn literal? [x]
+(defn XXX-literal? [x]
   (or (not (coll? x))
       (let [[a b] x]
         (and (= a 'quote) (recur b)))))
@@ -327,7 +328,22 @@
     (case lch
       (\+ \* \?) (symbol (subs sname 0 (dec (.length sname))))
       sym)))
-  
+
+(defn simple-sym? [sym]
+  (= sym (simple-sym sym)))
+
+(defn quantified-sym? [sym]
+  (not= sym (simple-sym sym)))
+
+
+;; Unused by maybe better
+(defn expand-sym [sym]
+  (let [sname (name sym)
+        lch (str-last-char sname)]
+    (case lch
+      (\+ \* \?) (list (symbol (str lch)) (symbol (subs sname 0 (dec (.length sname)))))
+      sym)))
+
 (declare tconstraint)
 
 (defn tcon-symbol-constraint [sym]
@@ -356,6 +372,9 @@
 (defn tcon-quoted-sym [sym]
   ;; no special interpretation of symbol
   (sp/mkpr (tcon-pred sym)))
+
+;; SEM FIXME -- drop support for (N t) -- just spell it out N times [t t t] or make a repeat op
+;; SEM FIXME -- should use total cycle, not element count
 
 ;; n is the total number of desired items,
 ;; cs might have to be repeated to fill
@@ -499,14 +518,61 @@ The others are guard rules that should not consume any input."
                  (and (contains? m sk)
                       (sp/success? (rule (list (get m sk)) {} {} {}))))))))
 
+(defn literal? [con]
+  (or (keyword? con) (number? con) (string? con) (false? con) (true? con) (nil? con)))
+
+
 (defn tcon-map-constraint [mexpr]
   (mkmap (map tcon-map-entry mexpr)))
+
+(defn tcon-set-sym [sym]
+  (let [simple (simple-sym sym)
+        rule (tconstraint simple)]
+    (case (last-char sym)
+      \* (sp/mkpr (fn [s] (every? #(sp/success? (rule (list %) {} {} {})) s)))
+      \+ (sp/mkpr (fn [s] (some #(sp/success? (rule (list %) {} {} {})) s)))
+      \? (sp/mkpr (fn [s] (or (empty? s) 
+                              (and (== (count s) 1)
+                                   (sp/success? (rule (seq s) {} {} {}))))))
+      ;; else simple
+      (sp/mkpr (fn [s] (some #(sp/success? (rule (list %) {} {} {})) s))))))
+
+(defn tcon-set-list [lst]
+  (let [[op con unexpected] lst
+        quantified (case op (* + ?) true false)
+        rule  (if quantified (tconstraint con) (tconstraint lst))]
+    (when (and quantified unexpected)
+      (throw (ex-info "Unexpectedly more" {:con lst})))
+    (case op
+      * (sp/mkpr (fn [s] (every? #(sp/success? (rule (list %) {} {} {})) s)))
+      + (sp/mkpr (fn [s] (some #(sp/success? (rule (list %) {} {} {})) s)))
+      ? (sp/mkpr (fn [s] (or (empty? s) 
+                              (and (== (count s) 1)
+                                   (sp/success? (rule (seq s) {} {} {}))))))
+      ;; else quantified
+      (sp/mkpr (fn [s] (some #(sp/success? (rule (list %) {} {} {})) s))))))
+
+
+(defn tcon-set-element [con]
+  (cond (symbol? con) (tcon-set-sym con)
+        (list? con) (tcon-set-list con)
+        (literal? con) (throw (ex-info "Literals should be handled separately" {:con con}))
+        :else (throw (ex-info "I didn't think of that" {:con con}))))
+
+
+(defn tcon-set-constraint [sexpr]
+  (let [nonlits (remove literal? sexpr)
+        litset (if (seq nonlits) (set (filter literal? sexpr)) sexpr)]
+    (apply mkand (sp/mkpr #(set/subset? litset %)) (map tcon-set-element nonlits))))
+           
+
 
 (defn tconstraint 
   ([expr]
      (cond (symbol? expr) (tcon-symbol-constraint expr)
            (list? expr) (tcon-list-constraint expr)
            (vector? expr) (tcon-seq-constraint expr)
+           (set? expr) (tcon-set-constraint expr)
            (map? expr) (tcon-map-constraint expr) 
            (string? expr) (sp/mklit expr)
            (keyword? expr) (sp/mklit expr)
@@ -514,7 +580,7 @@ The others are guard rules that should not consume any input."
            (false? expr) (sp/mkpr false?)
            (true? expr) (sp/mkpr true?)
            (number? expr) (sp/mklit expr)
-             :else (throw (ex-info "Unknown constraint form" {:form expr}))))
+             :else (throw (ex-info "Unknown constraint form" {:con expr}))))
      
   ([expr expr2]
      (sp/mkseq (tconstraint expr) (tconstraint expr2)))
