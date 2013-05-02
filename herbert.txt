@@ -1,0 +1,562 @@
+Herbert -- a schema notation for EDN
+
+Space Hippies: "Herbert, Herbert, Herbert ..."
+Spock: "Herbert was a minor official notorious for his rigid and limited patterns of thought."
+Kirk: "Well, I shall try to be less rigid in my thinking."
+
+Star Trek, "The Way to Eden"
+stardate 5832.3
+
+ video clip:  http://www.youtube.com/watch?v=PQONBf9xMss
+
+----------------------------------------------------------------------
+
+Movitvations:  want simple language for describing data and function requirements.  Better, more
+precise doc.  Also, it can be used for transformations (like XSLT) and validation.
+
+Nice to have bindings like a parser.  But mostly want validation for "shape of data".
+
+But a parser can also give you the parse tree with named bindings which might be useful.  Or maybe
+just bindings is good enough since Clojure has lots of ways for transforming the data.
+
+We should restrict ourselves to EDN types.  No records, but you can use the convention that
+#my.ns/Rec {:a x :b y} refers to a record my.ns.Rec.  No Java types, but you could maybe use tags
+for that as well.  Although, it may be too tricky to impose a convention for language-specific
+types.
+
+But really, we won't get any literal tagged values because we have to read that data first.  Use a
+default-tagged-value-reader fn to convert all tagged values to a TaggedValue record.  (Also,
+override #uuid and #inst -- really should do everything in default-data-readers.)
+
+----------------------------------------------------------------------
+** Ideas **
+
+Typed Racket has lots of ideas
+http://docs.racket-lang.org/ts-guide/types.html
+
+Clojure -- Core.Typed is similar to Typed Racket
+https://github.com/clojure/core.typed
+
+Haskell Type notation might be useful or at least a common translation format
+http://www.infoq.com/presentations/Type-Functional-Design
+
+Relax/NG
+ http://www.relaxng.org/compact-tutorial-20030326.html
+ http://infohost.nmt.edu/tcc/help/pubs/rnc/
+
+EDN   https://github.com/edn-format/edn
+
+Look at clj-schema lib:
+https://github.com/runa-dev/clj-schema
+
+
+
+Nice, new parser lib:
+https://github.com/Engelberg/instaparse
+
+Another parser:
+https://github.com/mthvedt/clearley
+
+Yet another parser, says it also works with seqs, not just chars
+https://github.com/ericnormand/squarepeg
+
+----------------------------------------------------------------------
+
+===> SquarePeg looks very promising as a basis for Herbert.  Let's start there.
+
+issue: squarepeg bindings use keywords.  I was planning to use normal Clojure destructuring.  Maybe
+use a macro to compile into a let with destructuring?
+
+----------------------------------------------------------------------
+
+
+Shape of data
+
+Maybe like UML data modeling but simpler and less work.
+
+
+My old stuff is at home in the Sevrin project.  I think I like the Herbert name better for the Spock
+quote.
+
+Sevrin might be the name for a datomic schema.
+
+Recreating some ideas
+
+Use core.logic to implement matching or satisfaction or really parsing.  Probably need to do some
+research.
+
+
+Trade-off: compact type notation and Clojure/Java type names.  Probably better to go with Clojure in
+general for ease of understanding.  Could use abbreviations for some things.
+
+
+Idea from Stuart Sierra's strange loop "Functional Design Patterns" talk:  define protocol for
+Acceptors.  Then have the data type decide which acceptor to call.  Or maybe have the schema type
+decide.  Not sure.
+
+Sierra gave an older talk about the shape of data.  Look for that.
+
+http://www.infoq.com/presentations/Thinking-in-Data
+
+
+Haskell Pattern Matching
+
+http://www.haskell.org/tutorial/patterns.html
+
+interesting question about lazy patterns, infinite streams and recursive structures
+
+
+Martin Fowler on schemaless data structures
+  conclusion: schemaless => implicit schema (bad), so prefer explicit schemas
+http://martinfowler.com/articles/schemaless/
+
+SEM says: OK so we want a simple notation for an informal schema (required keys for a map, etc.)
+
+----------------------------------------------------------------------
+
+Big Question: inline [vec] or require prefix & [vec].  Latter is more like destructuring but maybe a
+bit noisy.
+
+Another advantage is inlining maps to mean keyword-val pairs in any order:
+  & {:a int :b str}
+
+matches :a 10 b "foo" or :b "baz" :a 2
+
+For now, I'm using [brackets] to match any seq.  Inlining is done only with splice ops (* + ? N)
+
+----------------------------------------------------------------------
+
+
+
+
+* Binding
+we want an easy way to bind matches
+(as x <expr>)  -- binding a new name to an expression that might use previous names
+
+alternatives:  
+(int x)
+(let name type)
+(as name type)
+
+
+* Constraints and Guards
+match an expression only if some other constraints are satisfied
+for example: monotonically increasing integers, capitalized words, N-element list
+maybe use 
+  (cond guard1 pat1 guard2 pat ...)
+
+(int x :when guard)
+(int x :when (<= 1 x 10))
+(int :when (<= 1 % 10))
+(int x (and (pos? x) (even? x)))
+(int (and (pos? %) (even? %)))
+
+Still want something like even? odd? which isn't in Typed Clojure as far as I can tell.
+look at test.generative for how they specify types
+
+
+* Clojure destructuring
+try to reuse as much as possible
+but maybe conflicts with some other notations
+
+* inline sequence with cross-constraints
+
+([(str name) (str name2)] :when (== (count name) (count name2)))
+
+
+
+
+* Grammar specification
+need a start rule (start :start S), or specify on use
+rules kept in a map
+{typename texpr
+ t2 e2
+...}
+
+Or take a vector and assume first is the start.
+
+
+any non-reserved symbol can be defined as a new type expression
+
+* literals
+nil, true, false
+:keywords
+:ns/kw
+'symbols
+'ns/symbols
+"literal string"
+\C
+
+* wildcard
+_  match anything and ignore it (multiple _s match independently)
+
+* types (reserved)
+bool
+str
+char
+sym
+kw
+int
+float
+list
+vec
+map
+set
+tag
+
+* synonyms
+long == int
+double == float
+integer == int
+etc.
+
+* abstract or specialized types (reserved)
+element or any -- anything
+seq   -- same as (or list vec)
+num  -- (or int float)
+qsym -- qualified symbol
+usym -- unqualified symbol
+qkw
+ukw
+qtag
+utag
+
+
+* regex? -- but not EDN type, but maybe should use a tagged literal
+#herbert/regex "regex"
+(regex "regex") -- instead?
+
+
+* parameterized simple types
+(str N) -- length
+(str "pat") -- matches glob or regex?
+(int N M) -- between <= (inclusive?)
+(sym "ns" "name") -- matches ns and name (regex?)
+(sym "name")  -- unqualified
+(kw "ns" "name")
+(kw "name")  -- unqualified
+
+(quote foo)
+'foo -- matches exactly symbol foo, turns a symbol into a literal
+
+
+* operators
+(or t1 t2)  -- one element that satisfies either type
+(and t1 t2) -- one element that satisfies both types
+(not t) -- one element that is not t
+
+(quote X) -- literal, no special interpretation (same as 'X)
+(ns MY.NS) -- symbol or kw with given namespace
+(name NAME) -- symbol, kw or string with given name
+
+* cycles and splices -- notice inline (no explicit collection)
+(* t) zero or more
+(+ t) one or more
+(? t) zero or one
+(N t) exactly N
+([M N] t)  between M and N (inclusive)
+(* t1 t2 t3) -- matches empty, t1 t2 t3 t1 t2 t3 ...
+(+ t1 t2 t3) -- matches (non-empty) t1 t2 t3 t1 t2 t3 ...
+(? t1 t2 t3) -- matches empty or exactly t1 t2 t3
+(N t1 t2 t3) -- exactly N total elements, cycling through types
+
+(= t1 t2 t3) -- exactly 1 inlined seq of elements, same as (N t1 t2 ... tN) where N=count(ts)
+
+If N is * then any length is allowed. Also, + and ?, and [N M]. 
+[N] means N or more  (sort of like [N *] but that's not used
+
+* compact quantifiers for simple names
+t* === (* t)
+t? === (? t)
+t+ === (+ t)
+
+
+* sequences
+
+(vec t1 t2 ... tN)  -- vector of elements in exact order
+(list t1 t2 ... tN)  -- list of elements in exact order
+(seq t1 t2 ... tN)  -- seq of elements in exact order
+(set t1 t2 ... tN) -- set with all elements, unordered
+
+(vec (N t)) -- vector of N elements all t
+(vec (3 t1 t2)) -- vector of 6 elements: t1 t2 t1 t2 t1 t2
+(vec (* t)) -- vector of any number of t
+
+square brackets match any seq
+[t1 t2 t3]  -- any seq (vec or list) containing exactly (t1 t2 t3)
+
+
+* map
+(map kw t .. kwN tN)  -- kw must be present, val must be t
+{:a int :b float :c str}  -- literal keys (required) and type exprs
+(keys :a :b :c) -- required keys, but others allowed, except for (not :x)
+
+Question: optional keys?  going with first form -- :a?
+{:a? int :b? str}
+{:a int? :b str?}
+
+disallowed key -- literally it's optional and must be nil, but effectively disallowed
+{:a? nil}
+
+
+with second form since :a is required, it's not very useful to int? (as opposed to int)
+
+
+* REJECTED IDEAS
+no inline map {t1 t2 .. tN tN+1}  -- all elements in pairwise order  -- NOT SURE
+
+* inline -- NO, use cycle and splices instead
+[t1 t2 ... tN] -- in that order (not nested in vector)
+#{t1 t2 ... tN} -- a set with all elements required in no particular order, see also OR
+
+
+
+----------------------------------------------------------------------
+* Issues
+
+Kind of not liking the (N t t2) operator, probably better just to spell it out for N times
+similarly ([L H] t t2 ...) looks noisy
+	  something like this should work (= t t t t? t?)
+
+remember that a number is a literal to match in most postions so it looks funny as an op
+
+If you need a huge number, try an explicit (repeat N t)
+
+----------------------------------------------------------------------
+maybe :start special key for start of schema
+or else just require user to give start symbol, allowing multiple entry points
+
+{foo [int str baz]
+ baz (keys :a :b)
+ :start foo}
+
+;; rarely needed
+(keys (not :a)) ==> (and map (not (keys :a)))
+-- map without :a as a key
+
+(not (keys :a))  -- not necessarily a map at all
+
+or use {:a? nil} for effectively disallowing the :a key
+
+----------------------------------------------------------------------
+implementation approach
+
+convert schema map to canonical form and then to a logic program
+
+----------------------------------------------------------------------
+examples
+
+(int x :when (< x 10))
+(string :when (< (count string) 25))  -- reuse type name as binding?
+(string :as s :when (< (count s) 25))  -- reuse type name as binding?
+(string :when (< (count %) 25))  -- % as single arg
+
+(int x even?)
+(int x :pred even?)
+(int x :pred #'even?) -- not EDN
+(int x :when even?)
+(int x (even? x))
+(int x #(even? x))   -- not EDN
+(int x :when (even? x))
+
+(int x (<= 5 x 10))
+(int x :when (<= 5 x 10))
+(int :when (<= 5 % 10))
+(int x 5 10)  -- default op is <=
+
+(str x "foo.bar")
+(str x :when (re-matches #"foo.bar"))
+
+(map m :a int :b int :c str :when (< (:a m) (:b m)))
+
+(map {:keys [a b c] :as m} :when (< a b))
+
+(keys :a :b :c)  ===> (map {:keys [a b c] :or {a ::missing b ::missing c ::missing}} 
+      	    	      	   :when (and (not= a ::missing) (not= b ::missing) (not= c ::missing)))
+
+
+----------------------------------------------------------------------
+Why Relax/NG is better than XML-Schemas
+http://www.infoq.com/news/2007/10/relaxng
+----------------------------------------------------------------------
+
+
+Relax/NG Compact form in Clojure prefix notation
+
+grammar is a map of {element pattern}
+'start' is the reserved name for the starting (root) element of the grammar
+elements are just symbols, by convention capitalized
+patterns are usually list expressions, but can be predefined symbols
+
+{start AddressBook
+ AddressBook (vec (* Card))
+ Card (map :name Name :email Email)
+ Name (str #"\w")
+ Email (str #".*@.*")}
+
+Question:  prefix or postfix * ?
+ AddressBook (vec (* Card))
+ AddressBook (vec Card*))
+ AddressBook [Card*]
+
+for limited numbers:
+ AddressBook (vec Card+)
+ AddressBook (vec Card?)
+ AddressBook (vec (3 Card))
+ AddressBook (vec [2 3] Card)
+ AddressBook (or (vec 2 Card) (vec 3 Card))
+
+[{:name "Steve" :email "sm@gm.com"} {:name "Lisa" :email "lisa@lm.com"}]
+
+
+;; vector with an even number of ints
+(vec (* int int))
+
+Interleaving (probably not needed as defined in RNC)
+
+RNC external is for including another *.rnc file.  By analogy, we might want to include another
+grammar map.  Maybe use @notation?  (or #')?
+
+(def grammar1 '{start AddressBook AddressBook (vec Card) ...})
+
+(def grammar2 '{start {:first str :last str :abk AddrBk}  AddrBk @grammar1})
+
+
+Extra bonus feature
+Nesting names, should follow lexical scope.  (parent Name) allows outer reference if needed
+
+what about a rewrite rule to avoid name clashes? (rename @grammar1 {foo bar baz quux}) or whatever
+ns require does?
+
+or just use namespaces properly and there's no conflict?
+----------------------------------------------------------------------
+
+Totally wild and mostly separate idea for tagged args: evaluate normally to the arg symbol (so the
+compiler doesn't see anything different, but can add assertions when flags set.
+
+(defnx foo [(int x (<= 3 x 10)) (str y)]
+  (apply str (repeat x y)))
+
+(defn foo [(int x) (str y)]
+  {:pre [(<= 3 x 10)]}
+  (apply str (repeat x y)))
+
+(defcon int3t (contype int (<= 3 % 10)))
+
+(defn foo [(int3t x) (str y)]
+  (apply str (repeat x y)))
+
+(defn foo [x y]
+  {:pre [(and (integer? x) (<= 3 x 10)) (string? y)]}
+  (apply str (repeat x y)))
+
+
+
+----------------------------------------------------------------------
+type expressions
+symbol -- just the base type named by symbol
+(symbol name) -- symbol is base type, name is bound to value
+(symbol name constraint) -- constraint is an expression treated as the body of a single arg pred
+
+if name = :when that's the same as _ (meaning don't care, no binding)
+
+
+"Clojure in the Wild Web–7 Reflections"
+http://www.infoq.com/presentations/Clojure-ReadyforZero
+around 11:00
+common bug: non-existent key
+----------------------------------------------------------------------
+
+Why I use eval to create the runtime functions
+
+;; example from http://tojava3.appspot.com/question/5080fdf94f1eba38a4dd174e
+#_ (defmacro make-primitive-affine-function [t a b]
+  (let [cast #(list (symbol (name t)) %)
+        x (gensym "x")]
+    `(fn [~x] (+ (* ~(cast a) ~(cast x)) ~(cast b)))))
+
+#_ ((make-primitive-affine-function :int 31 47) 5)
+; => 202
+
+;; need to use eval
+;; http://stackoverflow.com/questions/1824932/clojure-how-to-create-a-function-at-runtime
+
+----------------------------------------------------------------------
+so what about #{set} notation for any order but all required?
+actually, handle it like a map but just keys
+must be a set
+set as whole must satisfy all of the contained expressions
+
+makes sense with literals
+more complicated with types
+
+#{int*}  -- any number of ints
+#{int sym} -- one int and one sym, or at least one?
+#{:a :b :c} -- exact literals
+#{int* sym?} -- any number of ints, zero or one sym -- but really not constrained
+
+means that other things are also allowed unless you say (and (not #{:c}) #{:a :b})
+
+compile #{(not foo) x y}  ---> (and #{x y} (not #{foo}))
+
+also has implications for maps when you handle other key types
+you could say that just literal keys are allowed for literal {} and #{}
+
+sort constraints:
+literals -- exact match, one rule per lit or combine into a set and check intersection
+singles -- one rule per single, test every element so that it matches at least one rule
+	one element could actually match more than one rule
+multiples  -- one multiple means every element matches the single version of the rule
+
+A set may contain other things so we don't want to say every element must match some rule.
+Every rule must match some element? Even the same one?
+
+Really, int* doesn't constrain much since zero is easy.  int+ isn't much different from int.  So
+let's say * and ? items dropped completely and + is just the same as base.
+
+Allow one multiple int* to mean only ints.  int+ one or more but only ints
+
+#{int*} -- a set of ints and nothing but ints
+#{int+} -- a set of one or more ints, nothing else
+#{int?} -- a set of one int or empty
+
+
+;; a mixed set of ints or syms
+#{(* (or int sym))}  -- or something like #{isym*}
+
+literals are required, but others OK
+#{:a "foo" 10}  -- required elements 
+
+
+use same interpretation for a map (keys c c2...)
+
+----------------------------------------------------------------------
+
+Issue: what about (* int*)  -- should be same as int*
+quantifier ops should simple-sym their underlying types
+(* (or int* sym*))  -- same as (* (or int sym))
+
+probably should be an error to mix qsyms with qop
+
+----------------------------------------------------------------------
+Maybe should predefine all int*, etc. rather than runtime computation.  But "runtime" isn't
+necessarily bad since you can "compile" the constraint fns with (conforms? con)
+
+Guards on quantified types?
+  apply per element?  -- no
+  apply to whole matching collection? -- seems fair
+
+:step two-arg function applies to previous and current
+:step inc
+first element is initial value, untested
+
+(ints* :when <) -- 3 4 5
+(inst* :step inc)
+
+but that's inconsistent with explicit naming of args
+
+(ints* ns :when (apply < ns)) -- 3 4 5
+
+(ints* [n & more :as ns] :step (inc n))
+
+(* int int int)

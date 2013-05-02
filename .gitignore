@@ -3,4 +3,6 @@ pom.xml
 /lib/
 /classes/
 /targets/
-.lein-deps-sum
+/target/
+/notes/
+.lein*
