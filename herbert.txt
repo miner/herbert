@@ -59,6 +59,9 @@ https://github.com/ericnormand/squarepeg
 issue: squarepeg bindings use keywords.  I was planning to use normal Clojure destructuring.  Maybe
 use a macro to compile into a let with destructuring?
 
+It would be interesting to compare an implementation using core.logic to the squarepeg version.
+[org.clojure/core.logic "0.8.3"]
+
 ----------------------------------------------------------------------
 
 
