@@ -2,6 +2,8 @@
 
 A schema for **edn** data.
 
+[![Way to Eden](https://github.com/miner/herbert/raw/master/img/way-to-eden.png)](#Star Trek reference)
+
 __Warning__: This project is new and rapidly changing.  It's probably not ready for other people to use yet.
 
 The _extensible data notation_ ( **edn** ) defines a useful subset of Clojure data types.  The goal
