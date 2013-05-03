@@ -2,7 +2,7 @@
 
 A schema for **edn** data.
 
-[![Way to Eden](https://github.com/miner/herbert/raw/master/img/way-to-eden.png)](#star-trek-reference)
+[![Way to Eden](img/way-to-eden.png)](#star-trek-reference)
 
 __Warning__: This project is new and rapidly changing.  It's probably not ready for other people to use yet.
 
@@ -111,7 +111,7 @@ stardate 5832.3
 
 video clip:  http://www.youtube.com/watch?v=PQONBf9xMss
 
-![Way to Eden](img/way-to-eden.png)
+[![Way to Eden](img/way-to-eden.png)](http://www.youtube.com/watch?v=PQONBf9xMss)
 
 ## Copyright and License
 
