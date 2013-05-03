@@ -111,7 +111,7 @@ stardate 5832.3
 
 video clip:  http://www.youtube.com/watch?v=PQONBf9xMss
 
-[![Way to Eden](img/way-to-eden.png)](http://www.youtube.com/watch?v=PQONBf9xMss)
+[![Way to Eden](img/way-to-eden2.jpg)](http://www.youtube.com/watch?v=PQONBf9xMss)
 
 ## Copyright and License
 
