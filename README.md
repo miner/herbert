@@ -6,7 +6,7 @@ A schema for **edn** data.
 
 __Warning__: This project is new and rapidly changing.  It's probably not ready for other people to use yet.
 
-The _extensible data notation_ ( **edn** ) defines a useful subset of Clojure data types.  The goal
+The _extensible data notation_ **(edn)** defines a useful subset of Clojure data types.  The goal
 of the *Herbert* project is to provide a schema for defining **edn** data structures that can be
 used for documentation, validation and conformance testing.
 
@@ -111,6 +111,7 @@ stardate 5832.3
 
 video clip:  http://www.youtube.com/watch?v=PQONBf9xMss
 
+![Way to Eden](img/way-to-eden.png)
 
 ## Copyright and License
 
@@ -121,3 +122,4 @@ which can be found in the file epl-v10.html at the root of this distribution.
 By using this software in any fashion, you are agreeing to be bound by
 the terms of this license.
 You must not remove this notice, or any other, from this software.
+

@@ -545,3 +545,8 @@ but that's inconsistent with explicit naming of args
 (ints* [n & more :as ns] :step (inc n))
 
 (* int int int)
+----------------------------------------------------------------------
+
+Datomic -- we should be able to create datomic schemas from Herbert constraints.
+
+http://blog.markwatson.com/2012/07/a-little-clojure-wrapper-for-datomic/
