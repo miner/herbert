@@ -65,7 +65,38 @@
   {'tag taggedValue?
    })
 
-(def test-fn (merge single-test-fn coll-test-fn other-test-fn))
+(def alias-types
+  '{integer int
+    Integer int
+    long int
+    Long int
+    Int int
+    double float
+    Double float
+    Float float
+    Str str
+    String str
+    string str
+    Keyword kw
+    keyword kw
+    Symbol sym
+    symbol sym
+    List list
+    Char char
+    Character char
+    character char
+    True true
+    False false
+    vector vec
+    Vector vec
+    Map map
+    Set set
+    TaggedValue tag
+    Tag tag})
+
+(def basic-test-fn (merge single-test-fn coll-test-fn other-test-fn))
+    
+(def test-fn (into basic-test-fn (map (fn [[a b]] [a (get basic-test-fn b)]) alias-types)))
 
 
 (defn guard-spec-fn [spec]
@@ -167,7 +198,7 @@
 ;; cs might have to be repeated to fill
 (defn tcon-nseq 
   ([n cs]
-     (case n
+     (case (long n)
        0 (sp/mkseq)
        1 (tconstraint (first cs))
        (apply sp/mkseq (take n (cycle (map tconstraint cs))))))
@@ -378,6 +409,9 @@ The others are guard rules that should not consume any input."
       ([item context] (ff item context {} {}))
       ([item context bindings memo] (cfn (list item) context bindings memo)))))
 
+;; Conformitor is a silly name I just made up, by analogy to comparator.  Returns a predicate that
+;; tests if a value conforms to a constraint expression, con.  Maybe "validator" would be more
+;; conventional.
 (defn conformitor [con]
   (if (fn? con) con #(sp/success? ((confn con) %))))
 
@@ -387,3 +421,4 @@ The others are guard rules that should not consume any input."
 (defn conforms? 
   ([con] (conformitor con))
   ([con x] ((conformitor con) x)))
+

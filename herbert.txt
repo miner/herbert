@@ -550,3 +550,70 @@ but that's inconsistent with explicit naming of args
 Datomic -- we should be able to create datomic schemas from Herbert constraints.
 
 http://blog.markwatson.com/2012/07/a-little-clojure-wrapper-for-datomic/
+----------------------------------------------------------------------
+
+Major revision.  No binding names, maybe just :kw.
+No "code expressions" for guards, just var names.  Maybe also anonymous fn, but that's not
+edn-compatible, and it would be nice if the schema was all edn.
+
+
+(int even?)
+(int pos? odd?)
+
+(int :a) (int :b) (int :c)
+((= int int int) >)
+
+
+;; tests if coll matches the result of (take (count coll) (iter f (first coll)))
+
+(defn iter1? [f coll]
+  (reduce (fn [cur x] (if (= x (f cur)) x (reduced false)))
+            (first coll)
+	    (rest coll)))
+
+(defn iter? [f coll]
+     (= coll (take (count coll) (iterate f (first coll)))))
+
+(int* :iter inc)
+(int* >)
+
+(int* :step 3)   matches [4 7 10]
+
+(int :in [0 10])
+(int :in #{7 11})
+(int :in 10)
+(str :in "regex")
+(str :in ["a" "m"])   -- any first letter between "a...m"
+(str :in ["AAA" "zzz"])   -- any first three letter between "AAA...zzz"  (< upper lower)
+
+(sym :in #{foo bar baz})
+
+
+New syntax for (list expr)
+first item is the type descriptor
+second+ symbols name predicates (even? odd? etc)
+at end of list can be kw + single args
+
+(defn dplus [x] (* 2 (inc x)))
+
+
+(int :in val)  -- inclusive between (implemented as protocol)
+(vec :as v)  -- bind match to symbol
+(int* :step 3)  -- matching ints should be +3 apart (like range assuming first int is start)
+(int* :iter dplus) -- matches if iterate over fn would produce the elements, first is start
+
+(type pred1 :in literal :as bind)
+(int* pred :step 3)
+
+(int* :iter dplus)
+
+(int* :iter dec)  ===> (10 9 8 7)
+(int* :step -1)  ===> (10 9 8 7)
+
+(int :is (+ 3 n))
+(int :is (plus3 n))  -- not predicate but function result, tested with =, n from previous binding
+
+
+----------------------------------------------------------------------
+
+Don't use = for splice, maybe splice or repeat
