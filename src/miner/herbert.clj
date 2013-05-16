@@ -4,6 +4,56 @@
             [squarepeg.core :as sp]))
 
 
+
+
+(defprotocol Betweenable
+  ;; inclusive
+  (between? [x lo hi]))
+
+(extend-protocol Betweenable
+  nil
+  (between? [x lo hi] (= nil lo hi))
+
+  Number
+  (between? [n lo hi] (<= lo n hi))
+
+  Comparable
+  (between? [x lo hi] (and (not (neg? (compare x lo)))  (not (neg? (compare hi x)))))
+
+  ;; vectors are Comparable but seqs and lists aren't
+
+  ;;clojure.lang.Sequential
+  ;;(between? [x lo hi] (and (not (neg? (compare x lo)))  (not (neg? (compare hi x)))))
+
+)
+
+
+(defprotocol Inable
+  (in? [inval x]))
+
+(extend-protocol Inable
+  clojure.lang.PersistentVector
+  (in? [[lo hi] x]
+    (between? x lo hi))
+
+  clojure.lang.IPersistentSet
+  (in? [pset x] (get pset x))
+
+  Number
+  (in? [n x] (if (neg? n) (between? x n 0) (between? x 0 n)))
+
+  clojure.lang.IFn
+  (in? [f x] (f x))
+)
+
+
+(defn apply-every? 
+  ;; ignores left-overs if collections aren't the same length
+  ([f coll] (every? f coll)) 
+  ([f xs ys] (every? #(apply f %) (map vector xs ys)))
+  ([f xs ys zs] (every? #(apply f %) (map vector xs ys zs)))
+  ([f xs ys zs & more] (every? #(apply f %) (apply map vector xs ys zs more))))
+
 (defn unimplemented [x]
   (println "Unimplemented " x))
 
@@ -112,6 +162,50 @@
 (def single-spec-types (keys single-test-fn))
 
 
+
+
+
+;; SEM FIXME -- maybe a little shakey on merging bindings and memo stuff
+;; returns only the bindings, etc. of the first rule
+;; the other rules are like guards, maybe should be called mkguard
+(defn mkand
+  "Create a rule that matches all of rules at the same time for a single input. 
+Returns result of first rule."
+  ([]
+     #(sp/succeed nil [] %1 %2 %4))
+  ([rule] rule)
+  ([rule1 rule2]
+     (fn [input bindings context memo]
+       (let [r1 (rule1 input bindings context memo)]
+         (if (sp/failure? r1)
+           r1
+           (let [r2 (rule2 input (:b r1) context (:m r1))]
+             (if (sp/failure? r2)
+               r2
+               ;; maybe should use not identical?
+               (if (not= (:r r1) (:r r2))
+                 (sp/fail "Subrules matched differently" (merge (:m r1) (:m r2)))
+                 r1)))))))
+  ([rule1 rule2 & rules]
+     (reduce mkand (mkand rule1 rule2) rules)))
+
+
+(defn mkin [inval]
+  (cond (vector? inval) (sp/mkpr #(in? inval %)) 
+        (set? inval) (sp/mkpr #(in? inval %))
+        (number? inval) (sp/mkpr #(in? inval %))))
+
+(defn mkiter [iterfn]
+  (sp/mkpr (fn [coll] (apply-every? = coll
+                         (when-first [fst coll] 
+                           (take (count coll) (iterate iterfn fst)))))))
+
+(defn mkstep [step]
+  {:pre [(number? step)]}
+  (mkiter (partial + step)))
+
+
+
 (defn tcon-pred [tcon]
   (get test-fn tcon))
 
@@ -123,6 +217,7 @@
 (defn runtime-fn [arg expr]
   (eval `(fn [~arg] ~expr)))
 
+;; SEM don't use this
 (defn tpred [name con pred]
   (let [arg (case name (_ nil :when) '% name)
         form (if (nil? con)
@@ -175,7 +270,7 @@
       brule)))
 
 
-(defn tcon-list-type [lexpr]
+(defn XXX-tcon-list-type [lexpr]
   (let [[tcon name con] lexpr
         lch (last-char tcon)
         tcon (simple-sym tcon)
@@ -186,6 +281,34 @@
       \* (sp/mkzom brule)
       \? (sp/mkopt brule)
       brule)))
+
+
+(defn tpredl [pred guards kwopts]
+  (let [{asname :as inval :in step :step iterfn :iter} kwopts
+        rule (apply mkand (sp/mkpr pred) (concat (map (comp sp/mkpr resolve) guards)
+                                               (-> ()
+                                                   (cond-> inval (conj (mkin inval)))
+                                                   (cond-> step (conj (mkstep step)))
+                                                   (cond-> iterfn (conj (mkiter iterfn))))))]
+    (if asname
+      (sp/mkbind rule asname)
+      rule)))
+
+
+(defn tcon-list-type [lexpr]
+  (let [[tcon & modifiers] lexpr
+        lch (last-char tcon)
+        tcon (simple-sym tcon)
+        pred (tcon-pred tcon)
+        [guards kwargs] (split-with (complement keyword?) modifiers)
+        brule (tpredl pred guards (apply hash-map kwargs))]
+    (case lch
+      \+ (sp/mk1om brule)
+      \* (sp/mkzom brule)
+      \? (sp/mkopt brule)
+      brule)))
+
+
 
 (defn tcon-quoted-sym [sym]
   ;; no special interpretation of symbol
@@ -210,30 +333,6 @@
 (defn tcon-seq [cs]
   (apply sp/mkseq (map tconstraint cs)))
 
-
-;; SEM FIXME -- maybe a little shakey on merging bindings and memo stuff
-(defn mkand
-  "Create a rule that matches all of rules at the same time for a single input. 
-Returns result of first rule."
-  ([]
-     #(sp/succeed nil [] %1 %2 %4))
-  ([rule] rule)
-  ([rule1 rule2]
-     (fn [input bindings context memo]
-       (let [r1 (rule1 input bindings context memo)]
-         (if (sp/failure? r1)
-           r1
-           (let [r2 (rule2 input (:b r1) context (:m r1))]
-             (if (sp/failure? r2)
-               r2
-               ;; maybe should use not identical?
-               (if (not= (:r r1) (:r r2))
-                 (sp/fail "Subrules matched differently" (merge (:m r1) (:m r2)))
-                 r1)))))))
-  ([rule1 rule2 & rules]
-     (reduce mkand (mkand rule1 rule2) rules)))
-
-
 (defn tcon-seq-constraint [vexpr]
   (sp/mksub (apply sp/mkseq (conj (mapv tconstraint vexpr) sp/end))))
 
@@ -249,8 +348,8 @@ Returns result of first rule."
       ? (sp/mkopt (tcon-seq (rest lexpr)))  
       = (tcon-seq (rest lexpr))
       seq  (tcon-seq-constraint (rest lexpr))
-      vec (mkand (list (sp/mkpr vector?) (tcon-seq-constraint (rest lexpr))))
-      list (mkand (list (sp/mkpr list?) (tcon-seq-constraint (rest lexpr))))
+      vec (mkand (sp/mkpr vector?) (tcon-seq-constraint (rest lexpr)))
+      list (mkand (sp/mkpr list?) (tcon-seq-constraint (rest lexpr)))
 
       ;; else
       (cond (integer? op) (tcon-nseq op (rest lexpr))
