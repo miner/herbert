@@ -466,6 +466,11 @@ Why I use eval to create the runtime functions
 ;; need to use eval
 ;; http://stackoverflow.com/questions/1824932/clojure-how-to-create-a-function-at-runtime
 
+;; FIXME -- this is dangerous is you allow user-defined guards.  They could (launch-missiles)!
+;; We should define allowed functions and audit the guard code.
+(defn runtime-fn [arg expr]
+  (eval `(fn [~arg] ~expr)))
+
 ----------------------------------------------------------------------
 so what about #{set} notation for any order but all required?
 actually, handle it like a map but just keys
@@ -613,6 +618,17 @@ at end of list can be kw + single args
 (int :is (+ 3 n))
 (int :is (plus3 n))  -- not predicate but function result, tested with =, n from previous binding
 
+:is vs. :as -- easy typo
+:=
+
+(int :is (+ 3 n))
+(int := (+ 3 n))
+(int = (+ 3 n))
+(int :in #{(+ 3 n)})
+
+maybe cross item constraint should be a separate expression
+
+(int odd? :as n) (int even? :as m) (assert (> n m))
 
 ----------------------------------------------------------------------
 

@@ -209,22 +209,6 @@ Returns result of first rule."
 (defn tcon-pred [tcon]
   (get test-fn tcon))
 
-;; need to use eval
-;; http://stackoverflow.com/questions/1824932/clojure-how-to-create-a-function-at-runtime
-
-;; FIXME -- this is dangerous is you allow user-defined guards.  They could (launch-missiles)!
-;; We should define allowed functions and audit the guard code.
-(defn runtime-fn [arg expr]
-  (eval `(fn [~arg] ~expr)))
-
-;; SEM don't use this
-(defn tpred [name con pred]
-  (let [arg (case name (_ nil :when) '% name)
-        form (if (nil? con)
-               (list pred arg)
-               (list 'and (list pred arg) con))]
-    (runtime-fn arg form)))
-
 
 (defn tcon-symbol-quantifier [sym]
   (let [ch (last-char sym)]
@@ -268,20 +252,6 @@ Returns result of first rule."
       \* (sp/mkzom brule)
       \? (sp/mkopt brule)
       brule)))
-
-
-(defn XXX-tcon-list-type [lexpr]
-  (let [[tcon name con] lexpr
-        lch (last-char tcon)
-        tcon (simple-sym tcon)
-        pred (tcon-pred tcon)
-        brule (sp/mkpr (tpred name con pred))]
-    (case lch
-      \+ (sp/mk1om brule)
-      \* (sp/mkzom brule)
-      \? (sp/mkopt brule)
-      brule)))
-
 
 (defn tpredl [pred guards kwopts]
   (let [{asname :as inval :in step :step iterfn :iter} kwopts
@@ -356,17 +326,7 @@ Returns result of first rule."
             (vector? op) (tcon-nseq (first op) (second op) (rest lexpr))
             :else (tcon-list-type lexpr)))))
 
-(defn testing-list-constraint [lexpr]
-  (let [[tcon name con] lexpr
-        pred (tcon-pred tcon)]
-    (println "tcon = " tcon (type tcon))
-    (println "name = " name (type name))
-    (println "con = " con (type con))
-    (println "pred = " pred (type pred))
-    (flush)
-    (tpred name con pred)))
-
-;; SEM untested and unused
+;; SEM untested and unused -- compare to mkand -- probably the same thing
 (defn mkguard
   "Create a rule that matches all of rules in order. Returns result of first rule.
 The others are guard rules that should not consume any input."
