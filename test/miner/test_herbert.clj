@@ -82,3 +82,13 @@
        #{10} false
        #{:a 'foo} false))
 
+;; Note (or xxx+ yyy+) works but (or xxx* yyy*) can fail since zero xxx matches and yyy doesn't
+;; get the chance after that.  Remember, no backtracking.  The + lets it work as expected.
+(deftest or-plus []
+  (are [val] (conforms? '[int kw (or sym+ str+)] val)
+       '[10 :a foo bar baz]
+       '[10 :a "foo" "bar" "baz"])
+  (are [val] (conforms? '[int kw (or str+ sym+)] val)
+       '[10 :a foo bar baz]
+       '[10 :a "foo" "bar" "baz"]))
+
