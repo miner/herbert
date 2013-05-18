@@ -1,50 +1,8 @@
 (ns miner.herbert
   (:require [clojure.string :as str]
             [clojure.set :as set]
-            [squarepeg.core :as sp]))
-
-
-
-
-(defprotocol Betweenable
-  ;; inclusive
-  (between? [x lo hi]))
-
-(extend-protocol Betweenable
-  nil
-  (between? [x lo hi] (= nil lo hi))
-
-  Number
-  (between? [n lo hi] (<= lo n hi))
-
-  Comparable
-  (between? [x lo hi] (and (not (neg? (compare x lo)))  (not (neg? (compare hi x)))))
-
-  ;; vectors are Comparable but seqs and lists aren't
-
-  ;;clojure.lang.Sequential
-  ;;(between? [x lo hi] (and (not (neg? (compare x lo)))  (not (neg? (compare hi x)))))
-
-)
-
-
-(defprotocol Inable
-  (in? [inval x]))
-
-(extend-protocol Inable
-  clojure.lang.PersistentVector
-  (in? [[lo hi] x]
-    (between? x lo hi))
-
-  clojure.lang.IPersistentSet
-  (in? [pset x] (get pset x))
-
-  Number
-  (in? [n x] (if (neg? n) (between? x n 0) (between? x 0 n)))
-
-  clojure.lang.IFn
-  (in? [f x] (f x))
-)
+            [squarepeg.core :as sp]
+            [miner.herbert.proto :as proto]))
 
 
 (defn apply-every? 
@@ -54,7 +12,7 @@
   ([f xs ys zs] (every? #(apply f %) (map vector xs ys zs)))
   ([f xs ys zs & more] (every? #(apply f %) (apply map vector xs ys zs more))))
 
-(defn unimplemented [x]
+#_ (defn unimplemented [x]
   (println "Unimplemented " x))
 
 (defn literal? [con]
@@ -149,26 +107,10 @@
 (def test-fn (into basic-test-fn (map (fn [[a b]] [a (get basic-test-fn b)]) alias-types)))
 
 
-(defn guard-spec-fn [spec]
-  (unimplemented 'guard-spec-fn)
-  (constantly true))
-
-(defn single-item-spec? [spec]
-  (boolean (single-test-fn spec)))
-
-(defn single-spec-fn [spec]
-  (every-pred (single-test-fn spec) (guard-spec-fn spec)))
-
-(def single-spec-types (keys single-test-fn))
-
-
-
-
-
 ;; SEM FIXME -- maybe a little shakey on merging bindings and memo stuff
 ;; returns only the bindings, etc. of the first rule
 ;; the other rules are like guards, maybe should be called mkguard
-(defn mkand
+(defn mkguard
   "Create a rule that matches all of rules at the same time for a single input. 
 Returns result of first rule."
   ([]
@@ -187,13 +129,13 @@ Returns result of first rule."
                  (sp/fail "Subrules matched differently" (merge (:m r1) (:m r2)))
                  r1)))))))
   ([rule1 rule2 & rules]
-     (reduce mkand (mkand rule1 rule2) rules)))
+     (reduce mkguard (mkguard rule1 rule2) rules)))
 
 
 (defn mkin [inval]
-  (cond (vector? inval) (sp/mkpr #(in? inval %)) 
-        (set? inval) (sp/mkpr #(in? inval %))
-        (number? inval) (sp/mkpr #(in? inval %))))
+  (cond (vector? inval) (sp/mkpr #(proto/in? inval %)) 
+        (set? inval) (sp/mkpr #(proto/in? inval %))
+        (number? inval) (sp/mkpr #(proto/in? inval %))))
 
 (defn mkiter [iterfn]
   (sp/mkpr (fn [coll] (apply-every? = coll
@@ -234,7 +176,7 @@ Returns result of first rule."
 
 
 ;; Unused by maybe better
-(defn expand-sym [sym]
+#_ (defn expand-sym [sym]
   (let [sname (name sym)
         lch (str-last-char sname)]
     (case lch
@@ -253,9 +195,9 @@ Returns result of first rule."
       \? (sp/mkopt brule)
       brule)))
 
-(defn tpredl [pred guards kwopts]
+(defn tpredl-complex [tcon guards kwopts]
   (let [{asname :as inval :in step :step iterfn :iter} kwopts
-        rule (apply mkand (sp/mkpr pred) (concat (map (comp sp/mkpr resolve) guards)
+        rule (apply mkguard tcon (concat (map (comp sp/mkpr resolve) guards)
                                                (-> ()
                                                    (cond-> inval (conj (mkin inval)))
                                                    (cond-> step (conj (mkstep step)))
@@ -265,7 +207,10 @@ Returns result of first rule."
       rule)))
 
 
-(defn tcon-list-type [lexpr]
+(defn tpredl [pred guards kwopts]
+  (tpredl-complex (sp/mkpr pred) guards kwopts))
+
+(defn tcon-list-simple-type [lexpr]
   (let [[tcon & modifiers] lexpr
         lch (last-char tcon)
         tcon (simple-sym tcon)
@@ -278,7 +223,17 @@ Returns result of first rule."
       \? (sp/mkopt brule)
       brule)))
 
+(defn tcon-list-complex-type [lexpr]
+  (let [[tcon & modifiers] lexpr
+        tcon (tconstraint tcon)
+        [guards kwargs] (split-with (complement keyword?) modifiers)]
+    (tpredl-complex tcon guards (apply hash-map kwargs))))
 
+
+(defn tcon-list-type [lexpr]
+  (cond (symbol? (first lexpr)) (tcon-list-simple-type lexpr)
+        (list? (first lexpr)) (tcon-list-complex-type lexpr)
+        :else       (throw (ex-info "Unknown tcon-list" {:con lexpr}))))
 
 (defn tcon-quoted-sym [sym]
   ;; no special interpretation of symbol
@@ -310,7 +265,7 @@ Returns result of first rule."
   (let [op (first lexpr)]
     (case op
       or (apply sp/mkalt (map tconstraint (rest lexpr)))
-      and (apply mkand (map tconstraint (rest lexpr)))
+      and (apply mkguard (map tconstraint (rest lexpr)))
       not (sp/mknot (tconstraint (second lexpr)))
       quote (tcon-quoted-sym (second lexpr))
       * (sp/mkzom (tcon-seq (rest lexpr)))
@@ -318,33 +273,13 @@ Returns result of first rule."
       ? (sp/mkopt (tcon-seq (rest lexpr)))  
       = (tcon-seq (rest lexpr))
       seq  (tcon-seq-constraint (rest lexpr))
-      vec (mkand (sp/mkpr vector?) (tcon-seq-constraint (rest lexpr)))
-      list (mkand (sp/mkpr list?) (tcon-seq-constraint (rest lexpr)))
+      vec (mkguard (sp/mkpr vector?) (tcon-seq-constraint (rest lexpr)))
+      list (mkguard (sp/mkpr list?) (tcon-seq-constraint (rest lexpr)))
 
       ;; else
       (cond (integer? op) (tcon-nseq op (rest lexpr))
             (vector? op) (tcon-nseq (first op) (second op) (rest lexpr))
             :else (tcon-list-type lexpr)))))
-
-;; SEM untested and unused -- compare to mkand -- probably the same thing
-(defn mkguard
-  "Create a rule that matches all of rules in order. Returns result of first rule.
-The others are guard rules that should not consume any input."
-  ([]
-     #(sp/succeed nil [] %1 %2 %4))
-  ([rule] rule)
-  ([rule1 rule2]
-     (fn [input bindings context memo]
-       (let [r1 (rule1 input bindings context memo)]
-         (if (sp/failure? r1)
-           r1
-           (let [r2 (rule2 input (:b r1) context (:m r1))]
-             (if (sp/failure? r2)
-               r2
-               r1))))))
-  ([rule1 rule2 & rules]
-     (reduce mkguard (mkguard rule1 rule2) rules)))
-
 
 
 ;; kw cons are encoded into the rules
@@ -436,9 +371,8 @@ The others are guard rules that should not consume any input."
 (defn tcon-set-constraint [sexpr]
   (let [nonlits (remove literal? sexpr)
         litset (if (seq nonlits) (set (filter literal? sexpr)) sexpr)]
-    (apply mkand (sp/mkpr #(set/subset? litset %)) (map tcon-set-element nonlits))))
+    (apply mkguard (sp/mkpr #(set/subset? litset %)) (map tcon-set-element nonlits))))
            
-
 
 (defn tconstraint 
   ([expr]
@@ -457,6 +391,7 @@ The others are guard rules that should not consume any input."
      
   ([expr expr2]
      (sp/mkseq (tconstraint expr) (tconstraint expr2)))
+
   ([expr expr2 & more]
      (apply sp/mkseq (tconstraint expr) (tconstraint expr2) (map tconstraint more))))
 
@@ -481,3 +416,13 @@ The others are guard rules that should not consume any input."
   ([con] (conformitor con))
   ([con x] ((conformitor con) x)))
 
+
+(defn bindor [con]
+  (if (fn? con) con 
+      #(let [res ((confn con) %)] 
+         (when (sp/success? res)
+           (:b res)))))
+
+(defn binds?
+  ([con] (bindor con))
+  ([con x] ((bindor con) x)))
