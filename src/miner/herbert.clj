@@ -132,19 +132,52 @@ Returns result of first rule."
      (reduce mkguard (mkguard rule1 rule2) rules)))
 
 
-(defn mkin [inval]
-  (cond (vector? inval) (sp/mkpr #(proto/in? inval %)) 
-        (set? inval) (sp/mkpr #(proto/in? inval %))
-        (number? inval) (sp/mkpr #(proto/in? inval %))))
+;; could also test inval to be a vector, set or number to be safer
+(defn mkin [rule inval]
+  (fn [input bindings context memo]
+    (let [res (rule input bindings context memo)]
+      (if (sp/failure? res)
+        res
+        (let [inrule (sp/mkpr #(proto/in? inval %))
+              inres (inrule (list (:r res)) (:b res) context memo)]
+          (if (sp/failure? inres)
+            inres
+            res))))))
 
-(defn mkiter [iterfn]
-  (sp/mkpr (fn [coll] (apply-every? = coll
-                         (when-first [fst coll] 
-                           (take (count coll) (iterate iterfn fst)))))))
 
-(defn mkstep [step]
+(defn iter= [iterfn coll]
+  ;; SEM debug
+  #_ (println "iter=" iterfn coll)
+  (apply-every? = coll
+                (when-first [fst coll] 
+                  (take (count coll) (iterate iterfn fst)))))
+
+(defn indexed= [indexfn coll]
+  ;; SEM debug
+  #_  (println "indexed=" indexfn coll)
+  (apply-every? = coll (map indexfn (range (count coll)))))
+
+(defn mkiter [rule iterfn]
+  (fn [input bindings context memo]
+    (let [res (rule input bindings context memo)]
+      (if (sp/failure? res)
+        res
+        (if (iter= iterfn (:s res)) 
+          res
+          (sp/fail "Iterator failed to match input" memo))))))
+
+(defn mkindexed [rule indexfn]
+  (fn [input bindings context memo]
+    (let [res (rule input bindings context memo)]
+      (if (sp/failure? res)
+        res
+        (if (indexed= indexfn (:s res)) 
+          res
+          (sp/fail "Indexed fn failed to match input" memo))))))
+
+(defn mkstep [rule step]
   {:pre [(number? step)]}
-  (mkiter (partial + step)))
+  (mkiter rule (partial + step)))
 
 
 
@@ -174,15 +207,6 @@ Returns result of first rule."
 (defn quantified-sym? [sym]
   (not= sym (simple-sym sym)))
 
-
-;; Unused by maybe better
-#_ (defn expand-sym [sym]
-  (let [sname (name sym)
-        lch (str-last-char sname)]
-    (case lch
-      (\+ \* \?) (list (symbol (str lch)) (symbol (subs sname 0 (dec (.length sname)))))
-      sym)))
-
 (declare tconstraint)
 
 (defn tcon-symbol-constraint [sym]
@@ -195,20 +219,21 @@ Returns result of first rule."
       \? (sp/mkopt brule)
       brule)))
 
-(defn tpredl-complex [tcon guards kwopts]
-  (let [{asname :as inval :in step :step iterfn :iter} kwopts
-        rule (apply mkguard tcon (concat (map (comp sp/mkpr resolve) guards)
-                                               (-> ()
-                                                   (cond-> inval (conj (mkin inval)))
-                                                   (cond-> step (conj (mkstep step)))
-                                                   (cond-> iterfn (conj (mkiter iterfn))))))]
-    (if asname
-      (sp/mkbind rule asname)
-      rule)))
+;; SEM FIXME: be careful about where the iterfn is resolved
+
+(defn mkopts [rule kwopts]
+  (let [{asname :as inval :in step :step itername :iter indexed :indexed} kwopts]
+    (assert (<= (count (keep identity [inval step itername])) 1))
+    (-> rule
+        (cond-> inval (mkin inval)
+                step  (mkstep step)
+                itername (mkiter (resolve itername))
+                indexed (mkindexed (resolve indexed))
+                asname  (sp/mkbind asname)))))
 
 
-(defn tpredl [pred guards kwopts]
-  (tpredl-complex (sp/mkpr pred) guards kwopts))
+;; SEM FIXME -- broken for quantified op, should put the guards inside (with con)
+;;   and kwarg outside the quant
 
 (defn tcon-list-simple-type [lexpr]
   (let [[tcon & modifiers] lexpr
@@ -216,18 +241,20 @@ Returns result of first rule."
         tcon (simple-sym tcon)
         pred (tcon-pred tcon)
         [guards kwargs] (split-with (complement keyword?) modifiers)
-        brule (tpredl pred guards (apply hash-map kwargs))]
-    (case lch
-      \+ (sp/mk1om brule)
-      \* (sp/mkzom brule)
-      \? (sp/mkopt brule)
-      brule)))
+        brule (apply mkguard (sp/mkpr pred) (map (comp sp/mkpr resolve) guards))]
+    (mkopts (case lch
+              \+  (sp/mk1om brule)
+              \* (sp/mkzom brule) 
+              \? (sp/mkopt brule)
+              brule)  
+            (apply hash-map kwargs))))
 
 (defn tcon-list-complex-type [lexpr]
   (let [[tcon & modifiers] lexpr
-        tcon (tconstraint tcon)
-        [guards kwargs] (split-with (complement keyword?) modifiers)]
-    (tpredl-complex tcon guards (apply hash-map kwargs))))
+        base-rule (tconstraint tcon)
+        [guards kwargs] (split-with (complement keyword?) modifiers)
+        rule (apply mkguard base-rule (map (comp sp/mkpr resolve) guards))]
+    (mkopts rule (apply hash-map kwargs))))
 
 
 (defn tcon-list-type [lexpr]
@@ -271,7 +298,7 @@ Returns result of first rule."
       * (sp/mkzom (tcon-seq (rest lexpr)))
       + (sp/mk1om (tcon-seq (rest lexpr))) 
       ? (sp/mkopt (tcon-seq (rest lexpr)))  
-      = (tcon-seq (rest lexpr))
+      & (tcon-seq (rest lexpr))
       seq  (tcon-seq-constraint (rest lexpr))
       vec (mkguard (sp/mkpr vector?) (tcon-seq-constraint (rest lexpr)))
       list (mkguard (sp/mkpr list?) (tcon-seq-constraint (rest lexpr)))
@@ -403,26 +430,26 @@ Returns result of first rule."
       ([item context] (ff item context {} {}))
       ([item context bindings memo] (cfn (list item) context bindings memo)))))
 
-;; Conformitor is a silly name I just made up, by analogy to comparator.  Returns a predicate that
-;; tests if a value conforms to a constraint expression, con.  Maybe "validator" would be more
-;; conventional.
-(defn conformitor [con]
-  (if (fn? con) con #(sp/success? ((confn con) %))))
+
+
+
+;; 'reach' is a good space hippie term
+;; or just rename it conforms
+
 
 ;; Too Clever?  Single arg creates predicate (for reuse).  Second arg immediately tests.
 ;; Con can be a fn already (presumed to be a predicate), or a "constraint expression" which
 ;; is compiled into a predicate.
-(defn conforms? 
-  ([con] (conformitor con))
-  ([con x] ((conformitor con) x)))
 
-
-(defn bindor [con]
+(defn conformitor [con]
   (if (fn? con) con 
       #(let [res ((confn con) %)] 
          (when (sp/success? res)
            (:b res)))))
 
-(defn binds?
-  ([con] (bindor con))
-  ([con x] ((bindor con) x)))
+(defn conform
+  ([con] (conformitor con))
+  ([con x] ((conformitor con) x)))
+
+(defn conforms? [con x] 
+  (not-empty (conform con x)))

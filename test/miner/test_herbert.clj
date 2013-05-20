@@ -92,3 +92,11 @@
        '[10 :a foo bar baz]
        '[10 :a "foo" "bar" "baz"]))
 
+(defn plus2 [n] (+ 2 n))
+(defn nodd [n] (if (odd? n) (dec (- n)) (inc n)))
+
+(deftest stepping []
+  (is (conforms? '[(int+ even? :step 4)] '[2 6 10 14]))
+  (is (not (conforms? '[(int+ even? :step 4)] '[2  10  14])))
+  (is (conforms? '[(int+ :iter miner.test-herbert/plus2)] '[11 13  15 17 19]))
+  (is (conforms? '[(int+ :indexed miner.test-herbert/nodd)] '[1 -2 3 -4 5 -6])))

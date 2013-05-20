@@ -2,6 +2,8 @@ Herbert -- a schema notation for EDN
 
 These are just notes to myself.  Probably not useful to anyone else.
 
+Actually, lots of things are wrong in this document, or haven't kept up with the code.
+
 ----------------------------------------------------------------------
 
 Movitvations:  want simple language for describing data and function requirements.  Better, more
@@ -103,7 +105,7 @@ SEM says: OK so we want a simple notation for an informal schema (required keys 
 Big Question: inline [vec] or require prefix & [vec].  Latter is more like destructuring but maybe a
 bit noisy. 
 
-Decision: [int*] means seq of ints, not inlined.  You can use (= int sym) for
+Decision: [int*] means seq of ints, not inlined.  You can use (& int sym) for
 inlining.   Inlining is also done with "splice" ops (* + ? N)
 
 ----------------------------------------------------------------------
@@ -143,11 +145,12 @@ but maybe conflicts with some other notations
 
 ([(str name) (str name2)] :when (== (count name) (count name2)))
 
+still thinking about the cross constraints
 
 == Maybe not on grammar approach.  We're using fns and combinators so just define them with vars.
 Maybe later, we could take a map grammar and do the right thing.
 
-* Grammar specification
+* Grammar specification -- NO, just using fn and combinators so don't need a map grammar right now
 need a start rule (start :start S), or specify on use
 rules kept in a map
 {typename texpr
@@ -239,9 +242,13 @@ utag
 (* t1 t2 t3) -- matches empty, t1 t2 t3 t1 t2 t3 ...
 (+ t1 t2 t3) -- matches (non-empty) t1 t2 t3 t1 t2 t3 ...
 (? t1 t2 t3) -- matches empty or exactly t1 t2 t3
+
 (N t1 t2 t3) -- exactly N total elements, cycling through types
 
-(= t1 t2 t3) -- exactly 1 inlined seq of elements, same as (N t1 t2 ... tN) where N=count(ts)
+I think we should drop the N and [M N] ops, not really needed
+
+was =, but changed to & for inline ordered elements
+(& t1 t2 t3) -- exactly 1 inlined seq of elements, same as (N t1 t2 ... tN) where N=count(ts)
 
 
 Note:  maybe should remove the Numbered quantifier -- not sure if it's worth the complexity?
@@ -269,7 +276,7 @@ t+ === (+ t)
 
 square brackets match any seq
 [t1 t2 t3]  -- any seq (vec or list) containing exactly (t1 t2 t3)
-
+#{t1 t2 t3} -- matches a set with the required elements, others optional
 
 * map
 (map kw t .. kwN tN)  -- kw must be present, val must be t
@@ -566,7 +573,7 @@ edn-compatible, and it would be nice if the schema was all edn.
 (int pos? odd?)
 
 (int :a) (int :b) (int :c)
-((= int int int) >)
+((& int int int) >)
 
 
 ;; tests if coll matches the result of (take (count coll) (iter f (first coll)))
@@ -633,3 +640,53 @@ maybe cross item constraint should be a separate expression
 ----------------------------------------------------------------------
 
 Don't use = for splice, maybe splice or repeat
+Decided that & looks OK for now
+----------------------------------------------------------------------
+
+Bug with quants
+(int* :step 3)  was looking like (* (int :step 3))
+should be ((* int) :step 3)
+
+but even with the second one the step function is getting called with an empty input
+
+(int* even?)  could be (* (int even?))
+vs. (int* :every even?)
+
+(def even (tconstraint '(int even?)))
+
+(even* 
+
+Issue: should guards bind to the simple type or apply to the whole collection?
+
+Clearly kw args, like :step, :iter, :as should apply to whole collection
+:in is a toss up.
+
+Simple rule is that guards apply to whole collection.
+
+But the more practical idea is to bind guards to the base type and the kw args to the collection.
+
+(def pair (tconstraint '(& kw int)))
+
+(pair*   UNFINISHED
+----------------------------------------------------------------------
+
+ISSUE: how to define new basic types?  You can define a fn but how is it added to the list?  Right
+now, we look up the symbol and return a predicate.  That could be in a dynamic var or atom that's
+updated.
+
+ISSUE: how can you tell a single item term from a multi-item or collection term?  Collection is like
+a single item, but also has internal structure like multiple items.
+
+
+IDEA:  alternate way to do binding instead of :as.  Use leading :kw which works well with square peg
+convention.  Maybe not so good for normal fn args but I think that's OK.
+
+[(:n int even?) (:s sym)]
+
+[(n int even?) (s sym)]
+
+[(int even? :as n) (sym :as s)]
+
+if binding name is distinct from simple types we can figure it out in first position of list
+
+(ns int* even?)
