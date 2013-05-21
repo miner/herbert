@@ -110,6 +110,7 @@
   (is (conforms? '[(or int kw) (and int (int even?))] [:a 4]))
   (is (conforms? '[(or kw sym) (and int (int odd?))] [:a 7])))
 
-#_ (deftest broken []
+(deftest not-constraints []
+     (is (conforms? '[(not sym)] [:a]))
      (is (conforms? '[(or int kw sym) (not int)] [:a :a]))
      (is (conforms? '[(or int kw sym) (and num (not (int even?)))] ['a 6.1])))

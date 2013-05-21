@@ -324,7 +324,7 @@ Returns result of first rule."
     (case op
       or (apply sp/mkalt (map tconstraint (rest lexpr)))
       and (apply mkguard (map tconstraint (rest lexpr)))
-      not (sp/mknot (tconstraint (second lexpr)))
+      not (sp/mkseq (sp/mknot (tconstraint (second lexpr))) sp/anything)
       quote (tcon-quoted-sym (second lexpr))
       guard (tcon-guard (second lexpr))
       * (sp/mkzom (tcon-seq (rest lexpr)))
