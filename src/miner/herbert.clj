@@ -464,11 +464,6 @@ Returns result of first rule."
 
 
 
-
-;; 'reach' is a good space hippie term
-;; or just rename it conforms
-
-
 ;; Too Clever?  Single arg creates predicate (for reuse).  Second arg immediately tests.
 ;; Con can be a fn already (presumed to be a predicate), or a "constraint expression" which
 ;; is compiled into a predicate.
