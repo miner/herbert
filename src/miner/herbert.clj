@@ -5,6 +5,11 @@
             [miner.herbert.proto :as proto]))
 
 
+;; SEM FIXME: maybe try Clojail or something to have a restricted eval
+(defn safe-eval [expr]
+  (println "Not really safe yet: " expr)
+  (eval expr))
+
 (defn apply-every? 
   ;; ignores left-overs if collections aren't the same length
   ([f coll] (every? f coll)) 
@@ -235,7 +240,7 @@ Returns result of first rule."
 ;; SEM FIXME -- broken for quantified op, should put the guards inside (with con)
 ;;   and kwarg outside the quant
 
-(defn tcon-list-simple-type [lexpr]
+(defn tcon-list-simple-type [name lexpr]
   (let [[tcon & modifiers] lexpr
         lch (last-char tcon)
         tcon (simple-sym tcon)
@@ -247,20 +252,28 @@ Returns result of first rule."
               \* (sp/mkzom brule) 
               \? (sp/mkopt brule)
               brule)  
-            (apply hash-map kwargs))))
+            (apply hash-map :as name kwargs))))
 
-(defn tcon-list-complex-type [lexpr]
+(defn tcon-list-complex-type [name lexpr]
   (let [[tcon & modifiers] lexpr
         base-rule (tconstraint tcon)
         [guards kwargs] (split-with (complement keyword?) modifiers)
         rule (apply mkguard base-rule (map (comp sp/mkpr resolve) guards))]
-    (mkopts rule (apply hash-map kwargs))))
+    (mkopts rule (apply hash-map :as name kwargs))))
 
+
+(defn bind-name [symkw]
+  (and (or (keyword? symkw)
+           (and (symbol? symkw) (not (contains? test-fn (simple-sym symkw)))))
+       symkw))
 
 (defn tcon-list-type [lexpr]
-  (cond (symbol? (first lexpr)) (tcon-list-simple-type lexpr)
-        (list? (first lexpr)) (tcon-list-complex-type lexpr)
-        :else       (throw (ex-info "Unknown tcon-list" {:con lexpr}))))
+  (when-first [fst lexpr]
+    (let [name (bind-name fst)
+          lexpr (if name (rest lexpr) lexpr)]
+      (cond (symbol? (first lexpr)) (tcon-list-simple-type name lexpr)
+            (list? (first lexpr)) (tcon-list-complex-type name lexpr)
+            :else       (throw (ex-info "Unknown tcon-list" {:name name :con lexpr}))))))
 
 (defn tcon-quoted-sym [sym]
   ;; no special interpretation of symbol
@@ -288,6 +301,20 @@ Returns result of first rule."
 (defn tcon-seq-constraint [vexpr]
   (sp/mksub (apply sp/mkseq (conj (mapv tconstraint vexpr) sp/end))))
 
+
+
+;; SEM FIXME : dangerous eval
+(defn as-predicate [anon-body]
+  (let [f (if (= 'fn (first anon-body))
+            (safe-eval anon-body)
+            (safe-eval (list 'fn '[%] anon-body)))]
+    (fn [bindings context]
+      (f (merge context bindings)))))
+
+(defn tcon-guard [gexpr]
+  ;; guard should be a function body taking one-arg map with keys from binding names
+  (sp/mkpred (if (fn? gexpr) gexpr (as-predicate gexpr))))
+
 (defn tcon-list-constraint [lexpr]
   (let [op (first lexpr)]
     (case op
@@ -295,6 +322,7 @@ Returns result of first rule."
       and (apply mkguard (map tconstraint (rest lexpr)))
       not (sp/mknot (tconstraint (second lexpr)))
       quote (tcon-quoted-sym (second lexpr))
+      guard (tcon-guard (second lexpr))
       * (sp/mkzom (tcon-seq (rest lexpr)))
       + (sp/mk1om (tcon-seq (rest lexpr))) 
       ? (sp/mkopt (tcon-seq (rest lexpr)))  

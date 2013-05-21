@@ -690,3 +690,9 @@ convention.  Maybe not so good for normal fn args but I think that's OK.
 if binding name is distinct from simple types we can figure it out in first position of list
 
 (ns int* even?)
+----------------------------------------------------------------------
+
+Use fnk (pronounced "fun-kay" by me) ala prismatic/graph, but also Square Peg, for guard predicate
+which takes one-arg, map of bindings.  You can use just the body like an anonymous fn (with % arg)
+or spell out (fn [m] ...)  or even use the actual anonymous fn #(blah) notation.  But, internally,
+we have to call eval on it to get it to work, which is maybe not so safe.  But it looks good.
