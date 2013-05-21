@@ -155,14 +155,13 @@ Returns result of first rule."
 (defn iter= [iterfn coll]
   ;; SEM debug
   #_ (println "iter=" iterfn coll)
-  (apply-every? = coll
-                (when-first [fst coll] 
-                  (take (count coll) (iterate iterfn fst)))))
+  (= coll (when-first [fst coll] 
+            (take (count coll) (iterate iterfn fst)))))
 
 (defn indexed= [indexfn coll]
   ;; SEM debug
   #_  (println "indexed=" indexfn coll)
-  (apply-every? = coll (map indexfn (range (count coll)))))
+  (= coll (map indexfn (range (count coll)))))
 
 (defn mkiter [rule iterfn]
   (fn [input bindings context memo]
