@@ -46,6 +46,8 @@
 (defn taggedValue? [x]
   (instance? TaggedValue x))
 
+(def reserved-ops '#{+ * ? & quote and or not guard vec seq list map})
+
 ;; define a type
 (def single-test-fn
   {'int integer?
@@ -264,7 +266,9 @@ Returns result of first rule."
 
 (defn bind-name [symkw]
   (and (or (keyword? symkw)
-           (and (symbol? symkw) (not (contains? test-fn (simple-sym symkw)))))
+           (and (symbol? symkw) 
+                (not (contains? reserved-ops symkw))
+                (not (contains? test-fn (simple-sym symkw)))))
        symkw))
 
 (defn tcon-list-type [lexpr]
@@ -480,4 +484,4 @@ Returns result of first rule."
   ([con x] ((conformitor con) x)))
 
 (defn conforms? [con x] 
-  (not-empty (conform con x)))
+  (boolean (conform con x)))

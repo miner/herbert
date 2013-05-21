@@ -96,7 +96,20 @@
 (defn nodd [n] (if (odd? n) (dec (- n)) (inc n)))
 
 (deftest stepping []
-  (is (conforms? '[(int+ even? :step 4)] '[2 6 10 14]))
-  (is (not (conforms? '[(int+ even? :step 4)] '[2  10  14])))
-  (is (conforms? '[(int+ :iter miner.test-herbert/plus2)] '[11 13  15 17 19]))
-  (is (conforms? '[(int+ :indexed miner.test-herbert/nodd)] '[1 -2 3 -4 5 -6])))
+  (is (conforms? '[(int+ even? :step 4)] [2 6 10 14]))
+  (is (not (conforms? '[(int+ even? :step 4)] [2  10  14])))
+  (is (conforms? '[(int+ :iter miner.test-herbert/plus2)] [11 13  15 17 19]))
+  (is (conforms? '[(int+ :indexed miner.test-herbert/nodd)] [1 -2 3 -4 5 -6])))
+
+(deftest binding-with-guard []
+  (is (conforms? '[(:n int) (:m int) (guard (= (* 2 (:n %)) (:m %))) ] [2 4]))
+  (is (not (conforms? '[(:n int) (:m int) (guard (= (* 3 (:n %)) (:m %))) ] [2 4])))
+  (is (conforms? '[(:ns int* :step 3) (guard (== (count (:ns %)) 4))] [2 5 8 11])))
+
+(deftest and-or []
+  (is (conforms? '[(or int kw) (and int (int even?))] [:a 4]))
+  (is (conforms? '[(or kw sym) (and int (int odd?))] [:a 7])))
+
+#_ (deftest broken []
+     (is (conforms? '[(or int kw sym) (not int)] [:a :a]))
+     (is (conforms? '[(or int kw sym) (and num (not (int even?)))] ['a 6.1])))
