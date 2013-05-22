@@ -36,7 +36,7 @@ provides a convenient notation for documenting **edn** data structures.
 
 Add the dependency to your project.clj:
 
-    [com.velisco/herbert "0.1.0"]
+    [com.velisco/herbert "0.2.0"]
 
 In your source:
 
@@ -60,9 +60,6 @@ https://clojars.org/com.velisco/herbert
   one-or-more, or zero-or-one (optional): <BR>
 **int***, **str+**, **sym?**
   
-* Constraints are written as lists and start with a simple type as the first element: <BR>
-(int x (<= 3 x 10)) -- an int named x with the constraint that x is between 3 and 10
-	
 * Compound constraints, using **and**, **or** and **not** <BR>
 (or sym+ nil)  -- one or more symbols or nil <BR>
 (or (vec int*) (list kw+))  -- either a vector of ints or a list of one or more keywords
@@ -70,6 +67,11 @@ https://clojars.org/com.velisco/herbert
 * Quantified constraints, a list beginning with __*__, __+__ or __?__ as the first element. <BR>
 (* kw sym)  -- zero or more pairs of keywords and symbols
 
+* Named constraints are written in a list with the first item a (non-reserved) symbol or keyword and
+  the second item naming the type constraint.  The built-in types and special operators (like
+  **and**, **or**, etc.) are not allowed as binding names. <BR>
+(n int)
+	
 * Square brackets match any seq (not just a vector) with the contained pattern <BR>
 [(* kw sym)]  -- matches '(:a foo :b bar :c baz)
 
@@ -122,4 +124,3 @@ which can be found in the file epl-v10.html at the root of this distribution.
 By using this software in any fashion, you are agreeing to be bound by
 the terms of this license.
 You must not remove this notice, or any other, from this software.
-
