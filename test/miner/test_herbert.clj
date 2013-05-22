@@ -19,14 +19,14 @@
 ;; SEM FIXME -- hand to use qualified name to access my local fn.  Seems like a bug.
 
 (deftest complicated []
-  (are [val result] (= (conforms? '[{:a [odd*]} sym (mod 4)] val) result)
+  (are [val result] (= (conforms? '[{:a [(odd* 20)]} sym (mod 4)] val) result)
        '[{:a [1]} foo 4] true
-       '[{:a [1 3 5]} foo 4] true
+       '[{:a [1 3 5]} foo 24] true
        '[{:a (1 2 3)} foo 4] false
-       '[{:a []} foo 4] true
+       '[{:a []} foo 84] true
        '[{:a [:b 1 2 3]} foo 4] false
        '[{:b [1 2 3]} foo 4] false
-       '[{:a [:b 1 2 3]} 4 foo] false))
+       '[{:a [11 21 33]} foo 8] false))
 
 (deftest maps []
   (are [val result] (= (conforms? '{:a int :b sym :c? str} val) result)
