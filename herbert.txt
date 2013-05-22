@@ -697,3 +697,6 @@ Use fnk a la prismatic/plumbing "graph" stuff, but also Square Peg, for guard pr
 takes one-arg, map of bindings.  You can use just the body like an anonymous fn (with % arg) or
 spell out (fn [m] ...)  or even use the actual anonymous fn #(blah) notation.  But, internally, we
 have to call eval on it to get it to work, which is maybe not so safe.  But it looks good.
+----------------------------------------------------------------------
+
+Big decision:  drop guards -- just write code; use namespaces for types
