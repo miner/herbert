@@ -9,7 +9,8 @@
   "Map or user-defined constraint names to vars implementing the appropriate predicate." {})
 
 (def constraints-ns (the-ns 'miner.herbert.constraints))
-
+(def default-constraints (ns-publics constraints-ns))
+(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not guard vec seq list map})
 
 ;; SEM FIXME: maybe try Clojail or something to have a restricted eval
 (defn safe-eval [expr]
@@ -41,8 +42,6 @@
 
 (defn taggedValue? [x]
   (instance? TaggedValue x))
-
-(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not guard vec seq list map})
 
 
 ;; SEM FIXME -- maybe a little shakey on merging bindings and memo stuff
