@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [clojure.set :as set]
             [squarepeg.core :as sp]
+            [miner.herbert.constraints :as con]
             [miner.herbert.proto :as proto]))
 
 
@@ -9,16 +10,6 @@
 (defn safe-eval [expr]
   (println "Not really safe yet: " expr)
   (eval expr))
-
-(defn apply-every? 
-  ;; ignores left-overs if collections aren't the same length
-  ([f coll] (every? f coll)) 
-  ([f xs ys] (every? #(apply f %) (map vector xs ys)))
-  ([f xs ys zs] (every? #(apply f %) (map vector xs ys zs)))
-  ([f xs ys zs & more] (every? #(apply f %) (apply map vector xs ys zs more))))
-
-#_ (defn unimplemented [x]
-  (println "Unimplemented " x))
 
 (defn literal? [con]
   (or (keyword? con) (number? con) (string? con) (false? con) (true? con) (nil? con)))
@@ -47,73 +38,6 @@
   (instance? TaggedValue x))
 
 (def reserved-ops '#{+ * ? & quote and or not guard vec seq list map})
-
-;; define a type
-(def single-test-fn
-  {'int integer?
-   'even #(and (integer? %) (even? %))
-   'odd  #(and (integer? %) (odd? %))
-   'num number?
-   'float float?
-   'list seq?
-   'literal literal?
-   'char char?
-   'str string?
-   nil nil?
-   true true?
-   false false?
-   'bool (some-fn true? false?)
-   'sym symbol?
-   'kw keyword?
-   'empty empty?
-   'any (constantly true)
-   } )
-
-(def coll-test-fn
-  {'vec vector?
-   'seq sequential?
-   'coll coll?
-   'keys map?
-   'map map?
-   'set set?
-   } )
-
-(def other-test-fn
-  {'tag taggedValue?
-   })
-
-(def alias-types
-  '{integer int
-    Integer int
-    long int
-    Long int
-    Int int
-    double float
-    Double float
-    Float float
-    Str str
-    String str
-    string str
-    Keyword kw
-    keyword kw
-    Symbol sym
-    symbol sym
-    List list
-    Char char
-    Character char
-    character char
-    True true
-    False false
-    vector vec
-    Vector vec
-    Map map
-    Set set
-    TaggedValue tag
-    Tag tag})
-
-(def basic-test-fn (merge single-test-fn coll-test-fn other-test-fn))
-    
-(def test-fn (into basic-test-fn (map (fn [[a b]] [a (get basic-test-fn b)]) alias-types)))
 
 
 ;; SEM FIXME -- maybe a little shakey on merging bindings and memo stuff
@@ -188,10 +112,8 @@ Returns result of first rule."
   (mkiter rule (partial + step)))
 
 
-
 (defn tcon-pred [tcon]
-  (get test-fn tcon))
-
+  (ns-resolve (the-ns 'miner.herbert.constraints) tcon))
 
 (defn tcon-symbol-quantifier [sym]
   (let [ch (last-char sym)]
@@ -274,7 +196,7 @@ Returns result of first rule."
   (and (or (keyword? symkw)
            (and (symbol? symkw) 
                 (not (contains? reserved-ops symkw))
-                (not (contains? test-fn (simple-sym symkw)))))
+                (not (tcon-pred (simple-sym symkw)))))
        symkw))
 
 (defn tcon-list-type [lexpr]
