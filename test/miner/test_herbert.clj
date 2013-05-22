@@ -16,8 +16,6 @@
   (is (conforms? '[(* kw int)] '(:a 10 :b 20 :c 30)))
   (is (conforms? '[(+ kw int sym)] '(:a 10 foo :b 20 bar))))
 
-;; SEM FIXME -- hand to use qualified name to access my local fn.  Seems like a bug.
-
 (deftest complicated []
   (are [val result] (= (conforms? '[{:a [(odd* 20)]} sym (mod 4)] val) result)
        '[{:a [1]} foo 4] true
@@ -101,6 +99,7 @@
 
 (deftest binding-with-guard []
   (is (conforms? '[(:n int) (:m int) (guard (= (* 2 (:n %)) (:m %))) ] [2 4]))
+  (is (conforms? '[(n int) [(ms kw*)] (guard (= (count (get % 'ms)) (get % 'n)))] '[3 [:a :b :c]]))
   (is (not (conforms? '[(:n int) (:m int) (guard (= (* 3 (:n %)) (:m %))) ] [2 4])))
   (is (conforms? '[(:ns int* :step 3) (guard (== (count (:ns %)) 4))] [2 5 8 11])))
 

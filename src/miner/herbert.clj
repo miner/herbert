@@ -6,7 +6,7 @@
             [miner.herbert.proto :as proto]))
 
 (def ^:dynamic *constraints* 
-  "Map or user-defined constraint names to vars implementing the appropriate predicate." {})
+  "Map of user-defined constraint names to vars implementing the appropriate predicate." {})
 
 (def constraints-ns (the-ns 'miner.herbert.constraints))
 (def default-constraints (ns-publics constraints-ns))
