@@ -51,6 +51,8 @@
 ;; define a type
 (def single-test-fn
   {'int integer?
+   'even #(and (integer? %) (even? %))
+   'odd  #(and (integer? %) (odd? %))
    'num number?
    'float float?
    'list seq?
@@ -227,6 +229,11 @@ Returns result of first rule."
 
 ;; SEM FIXME: be careful about where the iterfn is resolved
 
+(defn mkbase [pred args]
+  (if args
+    (sp/mkpr (apply partial pred args))
+    (sp/mkpr pred)))
+
 (defn mkopts [rule kwopts]
   (let [{asname :as inval :in step :step itername :iter indexed :indexed} kwopts]
     (assert (<= (count (keep identity [inval step itername])) 1))
@@ -238,7 +245,7 @@ Returns result of first rule."
                 asname  (sp/mkbind asname)))))
 
 
-;; SEM FIXME -- broken for quantified op, should put the guards inside (with con)
+;; SEM FIXME -- broken for quantified op, should put the args inside (with con)
 ;;   and kwarg outside the quant
 
 (defn tcon-list-simple-type [name lexpr]
@@ -246,8 +253,8 @@ Returns result of first rule."
         lch (last-char tcon)
         tcon (simple-sym tcon)
         pred (tcon-pred tcon)
-        [guards kwargs] (split-with (complement keyword?) modifiers)
-        brule (apply mkguard (sp/mkpr pred) (map (comp sp/mkpr resolve) guards))]
+        [args kwargs] (split-with (complement keyword?) modifiers)
+        brule (mkbase pred args)]
     (mkopts (case lch
               \+  (sp/mk1om brule)
               \* (sp/mkzom brule) 
@@ -258,9 +265,9 @@ Returns result of first rule."
 (defn tcon-list-complex-type [name lexpr]
   (let [[tcon & modifiers] lexpr
         base-rule (tconstraint tcon)
-        [guards kwargs] (split-with (complement keyword?) modifiers)
-        rule (apply mkguard base-rule (map (comp sp/mkpr resolve) guards))]
-    (mkopts rule (apply hash-map :as name kwargs))))
+        [args kwargs] (split-with (complement keyword?) modifiers)]
+    (assert (empty? args))
+    (mkopts base-rule (apply hash-map :as name kwargs))))
 
 
 (defn bind-name [symkw]
