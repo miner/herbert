@@ -111,9 +111,12 @@ Returns result of first rule."
   {:pre [(number? step)]}
   (mkiter rule (partial + step)))
 
+(def ^:dynamic *constraints-ns* nil)
+(def constraints-ns (the-ns 'miner.herbert.constraints))
 
 (defn tcon-pred [tcon]
-  (ns-resolve (the-ns 'miner.herbert.constraints) tcon))
+  (or (when *constraints-ns* (ns-resolve *constraints-ns* tcon))
+      (ns-resolve constraints-ns tcon)))
 
 (defn tcon-symbol-quantifier [sym]
   (let [ch (last-char sym)]

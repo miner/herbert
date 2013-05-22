@@ -112,3 +112,11 @@
      (is (conforms? '[(not sym)] [:a]))
      (is (conforms? '[(or int kw sym) (not int)] [:a :a]))
      (is (conforms? '[(or int kw sym) (and num (not even))] ['a 6.1])))
+
+(defn over3 [x] (> x 3))
+
+(deftest with-constraints []
+  (binding [*constraints-ns* (find-ns 'miner.test-herbert)]
+    (is (conforms? '[over3*] [ 4 5 6 9]))
+    (is (conforms? '[over3*] []))
+    (is (conforms? '[over3?] [33]))))
