@@ -17,14 +17,12 @@
   (is (conforms? '[(+ kw int sym)] '(:a 10 foo :b 20 bar))))
 
 ;; SEM FIXME -- hand to use qualified name to access my local fn.  Seems like a bug.
-#_ (defn three+ [n]
-  (> n 3))
 
-#_ (deftest complicated []
-  (are [val result] (= (conforms? '[{:a [int*]} sym (int miner.test-herbert/three+)] val) result)
+(deftest complicated []
+  (are [val result] (= (conforms? '[{:a [odd*]} sym (mod 4)] val) result)
        '[{:a [1]} foo 4] true
-       '[{:a [1 2 3]} foo 4] true
-       '[{:a (1 2 3)} foo 4] true
+       '[{:a [1 3 5]} foo 4] true
+       '[{:a (1 2 3)} foo 4] false
        '[{:a []} foo 4] true
        '[{:a [:b 1 2 3]} foo 4] false
        '[{:b [1 2 3]} foo 4] false

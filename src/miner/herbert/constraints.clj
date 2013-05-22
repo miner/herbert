@@ -18,8 +18,8 @@
   ([lo hi x] (and (float? x) (<= lo x hi))))
 
 (defn mod
-  ([d x] (and (integer? x) (zero? (mod x d))))
-  ([d r x] (and (integer? x) (== r (mod x d)))))
+  ([d x] (and (integer? x) (zero? (clojure.core/mod x d))))
+  ([d r x] (and (integer? x) (== r (clojure.core/mod x d)))))
 
 (def list seq?)
 (def char char?)
