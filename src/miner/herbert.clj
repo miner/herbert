@@ -37,7 +37,7 @@
 (defn taggedValue? [x]
   (instance? TaggedValue x))
 
-(def reserved-ops '#{+ * ? & quote and or not guard vec seq list map})
+(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not guard vec seq list map})
 
 
 ;; SEM FIXME -- maybe a little shakey on merging bindings and memo stuff
@@ -153,6 +153,7 @@ Returns result of first rule."
       brule)))
 
 ;; SEM FIXME: be careful about where the iterfn is resolved
+;; maybe should bind or use *ns* directly
 
 (defn mkbase [pred args]
   (if args
