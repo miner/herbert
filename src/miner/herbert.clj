@@ -5,6 +5,11 @@
             [miner.herbert.constraints :as con]
             [miner.herbert.proto :as proto]))
 
+(def ^:dynamic *constraints* 
+  "Map or user-defined constraint names to vars implementing the appropriate predicate." {})
+
+(def constraints-ns (the-ns 'miner.herbert.constraints))
+
 
 ;; SEM FIXME: maybe try Clojail or something to have a restricted eval
 (defn safe-eval [expr]
@@ -111,11 +116,8 @@ Returns result of first rule."
   {:pre [(number? step)]}
   (mkiter rule (partial + step)))
 
-(def ^:dynamic *constraints-ns* nil)
-(def constraints-ns (the-ns 'miner.herbert.constraints))
-
 (defn tcon-pred [tcon]
-  (or (when *constraints-ns* (ns-resolve *constraints-ns* tcon))
+  (or (get *constraints* tcon)
       (ns-resolve constraints-ns tcon)))
 
 (defn tcon-symbol-quantifier [sym]

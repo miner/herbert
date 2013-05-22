@@ -116,7 +116,7 @@
 (defn over3 [x] (> x 3))
 
 (deftest with-constraints []
-  (binding [*constraints-ns* (find-ns 'miner.test-herbert)]
+  (binding [*constraints* {'over3 #'over3}]
     (is (conforms? '[over3*] [ 4 5 6 9]))
     (is (conforms? '[over3*] []))
     (is (conforms? '[over3?] [33]))))
