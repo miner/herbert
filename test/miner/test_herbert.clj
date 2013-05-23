@@ -98,10 +98,10 @@
   (is (conforms? '[(int+ :indexed miner.test-herbert/nodd)] [1 -2 3 -4 5 -6])))
 
 (deftest binding-with-guard []
-  (is (conforms? '[(:n int) (:m int) (guard (= (* 2 (:n %)) (:m %))) ] [2 4]))
+  (is (conforms? '[(n int) (m int) (guard (= (* 2 (get % 'n)) (get % 'm))) ] [2 4]))
   (is (conforms? '[(n int) [(ms kw*)] (guard (= (count (get % 'ms)) (get % 'n)))] '[3 [:a :b :c]]))
-  (is (not (conforms? '[(:n int) (:m int) (guard (= (* 3 (:n %)) (:m %))) ] [2 4])))
-  (is (conforms? '[(:ns int* :step 3) (guard (== (count (:ns %)) 4))] [2 5 8 11])))
+  (is (not (conforms? '[(n int) (m int) (guard (= (* 3 (get % 'n)) (get % 'm))) ] [2 4])))
+  (is (conforms? '[(ns int* :step 3) (guard (== (count (get % 'ns)) 4))] [2 5 8 11])))
 
 (deftest and-or []
   (is (conforms? '[(or int kw) (and int even)] [:a 4]))

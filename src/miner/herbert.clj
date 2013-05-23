@@ -141,7 +141,7 @@ Returns result of first rule."
 
 (defn tcon-pred [tcon]
   (or (get *constraints* tcon)
-      (ns-resolve constraints-ns tcon)))
+      (get default-constraints tcon)))
 
 (defn tcon-symbol-quantifier [sym]
   (let [ch (last-char sym)]
@@ -225,12 +225,11 @@ Returns result of first rule."
     (mkopts base-rule (apply hash-map :as name kwargs))))
 
 
-(defn bind-name [symkw]
-  (and (or (keyword? symkw)
-           (and (symbol? symkw) 
-                (not (contains? reserved-ops symkw))
-                (not (tcon-pred (simple-sym symkw)))))
-       symkw))
+(defn bind-name [sym]
+  (and (symbol? sym) 
+       (not (contains? reserved-ops sym))
+       (not (tcon-pred (simple-sym sym)))
+       sym))
 
 (defn tcon-list-type [lexpr]
   (when-first [fst lexpr]
