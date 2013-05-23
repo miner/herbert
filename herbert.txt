@@ -59,7 +59,11 @@ https://github.com/ericnormand/squarepeg
 ===> SquarePeg looks very promising as a basis for Herbert.  Let's start there.
 
 issue: squarepeg bindings use keywords.  I was planning to use normal Clojure destructuring.  Maybe
-use a macro to compile into a let with destructuring?
+use a macro to compile into a let with destructuring?  Actually, square peg can bind to symbols but
+the predicates are awkward to write because the only get a one-arg, a map of bindings, so you have
+to (get % 'x).  Nicer to read (:x %).
+
+Binding with :kw works OK and fits in with prismatic/plumbing fnk.  
 
 It would be interesting to compare an implementation using core.logic to the squarepeg version.
 [org.clojure/core.logic "0.8.3"]
@@ -70,13 +74,6 @@ It would be interesting to compare an implementation using core.logic to the squ
 Shape of data
 
 Maybe like UML data modeling but simpler and less work.
-
-
-Use core.logic to implement matching or satisfaction or really parsing.  Probably need to do some
-research.
-
-Trade-off: compact type notation and Clojure/Java type names.  Probably better to go with Clojure in
-general for ease of understanding.  Could use abbreviations for some things.
 
 Idea from Stuart Sierra's strange loop "Functional Design Patterns" talk:  define protocol for
 Acceptors.  Then have the data type decide which acceptor to call.  Or maybe have the schema type
@@ -102,8 +99,6 @@ SEM says: OK so we want a simple notation for an informal schema (required keys 
 
 ----------------------------------------------------------------------
 
-Big Question: inline [vec] or require prefix & [vec].  Latter is more like destructuring but maybe a
-bit noisy. 
 
 Decision: [int*] means seq of ints, not inlined.  You can use (& int sym) for
 inlining.   Inlining is also done with "splice" ops (* + ? N)
@@ -113,54 +108,30 @@ inlining.   Inlining is also done with "splice" ops (* + ? N)
 
 * Binding
 we want an easy way to bind matches
-(as x <expr>)  -- binding a new name to an expression that might use previous names
+(name type)
 
-alternatives:  
-(int x)
-(let name type)
-(as name type)
+name must be distinct from types and ops
 
+* No sub-Guards on types  
+Make it easy to write a predicate for your exact type.
+Allow params to "predicates" (with object x as last arg) for extended options.
 
-* Constraints and Guards
-match an expression only if some other constraints are satisfied
-for example: monotonically increasing integers, capitalized words, N-element list
-maybe use 
-  (cond guard1 pat1 guard2 pat ...)
-
-(int x :when guard)
-(int x :when (<= 1 x 10))
-(int :when (<= 1 % 10))
-(int x (and (pos? x) (even? x)))
-(int (and (pos? %) (even? %)))
-
-Still want something like even? odd? which isn't in Typed Clojure as far as I can tell.
-look at test.generative for how they specify types
+For example, I defined odd and even (and (integer? x) (odd? x))
 
 
-* Clojure destructuring
+* Clojure destructuring -- NOT DONE, conflicts with other ideas
 try to reuse as much as possible
 but maybe conflicts with some other notations
 
-* inline sequence with cross-constraints
+* inline sequence -- using (& int sym) notation
 
-([(str name) (str name2)] :when (== (count name) (count name2)))
+* Cross-constraints with bindings
 
-still thinking about the cross constraints
+([(:name str) (:name2 str) (guard (== (count (:name %) (count (:name2 %)))))])
 
-== Maybe not on grammar approach.  We're using fns and combinators so just define them with vars.
+* NO on grammar approach.  We're using fns and combinators so just define them with vars.
 Maybe later, we could take a map grammar and do the right thing.
 
-* Grammar specification -- NO, just using fn and combinators so don't need a map grammar right now
-need a start rule (start :start S), or specify on use
-rules kept in a map
-{typename texpr
- t2 e2
-...}
-
-Or take a vector and assume first is the start.
-
-
-any non-reserved symbol can be defined as a new type expression
 
 * literals
 nil, true, false
@@ -172,7 +143,8 @@ nil, true, false
 \C
 
 * wildcard
-_  match anything and ignore it (multiple _s match independently)
+any -- matches any type
+NOT IMPL -- (underscore) _  match anything and ignore it (multiple _s match independently)
 
 * types (reserved)
 bool
@@ -188,13 +160,13 @@ map
 set
 tag
 
-* synonyms
+* synonyms, aliases, NOT IMPL
 long == int
 double == float
 integer == int
 etc.
 
-* abstract or specialized types (reserved)
+* abstract or specialized types (reserved) -- many NOT IMPL yet
 element or any -- anything
 seq   -- same as (or list vec)
 num  -- (or int float)
@@ -250,7 +222,6 @@ I think we should drop the N and [M N] ops, not really needed
 was =, but changed to & for inline ordered elements
 (& t1 t2 t3) -- exactly 1 inlined seq of elements, same as (N t1 t2 ... tN) where N=count(ts)
 
-
 Note:  maybe should remove the Numbered quantifier -- not sure if it's worth the complexity?
 Especially with the multiple items: is the count total elements or cycles?
 
@@ -262,6 +233,8 @@ t* === (* t)
 t? === (? t)
 t+ === (+ t)
 
+Note: options apply to single type
+(int* 10) is same as (* (int 10))
 
 * sequences
 

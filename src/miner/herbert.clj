@@ -44,6 +44,30 @@
   (instance? TaggedValue x))
 
 
+
+;; loosey-goosey get or just yourself, sort of an ersatz lexical binding
+(defn lookup [sym bindings]
+  (if (symbol? sym)
+    (get bindings sym sym)
+    sym))
+
+
+(defn mkprb
+  "Like mkpr but allows extra args to be added before item.  Args are either literal values or keys
+that are looked up in bindings.  If the key is not found, the value is the key itself."
+  [pr args]
+  (if-not args
+    (sp/mkpr pr)
+    (fn [input bindings context memo]
+      (if (nil? (seq input))
+        (sp/fail "End of input" memo)
+        (let [i (first input)
+              pred (apply partial pr (map #(lookup % bindings) args))]
+          (if (pred i)
+            (sp/succeed i [i] (rest input) bindings memo)
+            (sp/fail (str i " does not match predicate.") memo)))))))
+
+
 ;; SEM FIXME -- maybe a little shakey on merging bindings and memo stuff
 ;; returns only the bindings, etc. of the first rule
 ;; the other rules are like guards, maybe should be called mkguard
@@ -156,9 +180,10 @@ Returns result of first rule."
 ;; SEM FIXME: be careful about where the iterfn is resolved
 ;; maybe should bind or use *ns* directly
 
+;; args can be literals or keys into the bindings.  Unknown keys are just literal values.
 (defn mkbase [pred args]
   (if args
-    (sp/mkpr (apply partial pred args))
+    (mkprb pred args)
     (sp/mkpr pred)))
 
 (defn mkopts [rule kwopts]
@@ -174,6 +199,9 @@ Returns result of first rule."
 
 ;; SEM FIXME -- broken for quantified op, should put the args inside (with con)
 ;;   and kwarg outside the quant
+
+;; SEM FIXME BUG -- spliting at kw conflicts with binding args
+;; could use custom args or restrict params versus kw opts
 
 (defn tcon-list-simple-type [name lexpr]
   (let [[tcon & modifiers] lexpr

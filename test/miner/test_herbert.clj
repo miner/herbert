@@ -108,9 +108,9 @@
   (is (conforms? '[(or kw sym) (and int odd)] [:a 7])))
 
 (deftest not-constraints []
-     (is (conforms? '[(not sym)] [:a]))
-     (is (conforms? '[(or int kw sym) (not int)] [:a :a]))
-     (is (conforms? '[(or int kw sym) (and num (not even))] ['a 6.1])))
+  (is (conforms? '[(not sym)] [:a]))
+  (is (conforms? '[(or int kw sym) (not int)] [:a :a]))
+  (is (conforms? '[(or int kw sym) (and num (not even))] ['a 6.1])))
 
 (defn over3 [x] (> x 3))
 
@@ -119,3 +119,14 @@
     (is (conforms? '[over3*] [ 4 5 6 9]))
     (is (conforms? '[over3*] []))
     (is (conforms? '[over3?] [33]))))
+
+(deftest pred-args []
+  (is (conforms? '[(+ (even 20)) kw] [4 10 18 :a]))
+  (is (conforms? '[(even+ 20) kw] [4 10 18 :a]))
+  (is (not (conforms? '[(even+ 20) kw] [4 30 18 :a])))
+  (is (conforms? '[(lo int) (hi int) (even+ lo hi) kw] [4 20 14 10 18 :a]))
+  (is (conforms? '[(lo int) (hi int) (even+ lo hi :step 4) kw] [4 20 6 10 14 18 :a]))
+  (is (not (conforms? '[(lo int) (hi int) (even+ lo hi :step 4) kw] [4 20 6 10 16 18 :a]))))
+
+
+
