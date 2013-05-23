@@ -27,7 +27,6 @@
 
 (def list seq?)
 (def char char?)
-(def str string?)
 (def sym symbol?)
 (def kw keyword?)
 (def vec vector?)
@@ -52,3 +51,8 @@
 
 (def any (constantly true))
 
+(defn str
+  ([x] (string? x))
+  ([regex x] (and (string? x) 
+                  (re-matches (if (string? x) (re-pattern regex) regex) x)
+                  true)))

@@ -128,5 +128,8 @@
   (is (conforms? '[(lo int) (hi int) (even+ lo hi :step 4) kw] [4 20 6 10 14 18 :a]))
   (is (not (conforms? '[(lo int) (hi int) (even+ lo hi :step 4) kw] [4 20 6 10 16 18 :a]))))
 
-
+(deftest strings []
+  (is (conforms? 'str "foobar"))
+  (is (conforms? '(str "f.*r") "foobar"))
+  (is (not (conforms? '(str "f.*r") "xfoobar"))))
 
