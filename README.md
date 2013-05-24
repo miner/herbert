@@ -36,7 +36,7 @@ provides a convenient notation for documenting **edn** data structures.
 
 Add the dependency to your project.clj:
 
-    [com.velisco/herbert "0.2.0"]
+    [com.velisco/herbert "0.3.0"]
 
 In your source:
 
