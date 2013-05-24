@@ -650,7 +650,6 @@ updated.
 ISSUE: how can you tell a single item term from a multi-item or collection term?  Collection is like
 a single item, but also has internal structure like multiple items.
 
-
 IDEA:  alternate way to do binding instead of :as.  Use leading :kw which works well with square peg
 convention.  Maybe not so good for normal fn args but I think that's OK.
 
@@ -665,11 +664,31 @@ if binding name is distinct from simple types we can figure it out in first posi
 (ns int* even?)
 ----------------------------------------------------------------------
 
-Use fnk a la prismatic/plumbing "graph" stuff, but also Square Peg, for guard predicate.
-(Pronounced "fun-kay" by me as interpreted by Wild Cherry "Play That Funky Music") A fnk function
-takes one-arg, map of bindings.  You can use just the body like an anonymous fn (with % arg) or
-spell out (fn [m] ...)  or even use the actual anonymous fn #(blah) notation.  But, internally, we
-have to call eval on it to get it to work, which is maybe not so safe.  But it looks good.
-----------------------------------------------------------------------
 
-Big decision:  drop guards -- just write code; use namespaces for types
+Change guard syntax to be more like a fn declaration.  You must name the args, which must match some
+previously declared binding names.
+
+Old:
+ [(n int) (m int) (guard (= (* 2 (get % 'n)) (get % 'm))) ]
+
+New:
+ [(n int) (m int) (guard [n m] (= (* 2 n) m))]
+
+
+Guards are similar to prismatic "fnk" functions.  (Pronounced "fun-kay" by me as interpreted by Wild
+Cherry "Play That Funky Music") A fnk function takes one-arg, a map of bindings but it's declared
+with multiple args (which are interpreted like {:keys ...} destructuring).
+
+For Herbert guards, I like using symbols for binding names (not keywords).  We could automatically
+handle that if we really need to use fnk syntax but I don't see the need at the momment.
+
+Also Square Peg doc uses keyword keys for binding but it works as well with symbols.
+
+New idea (on top of the new guard syntax): In theory, you could scan the body and find the free
+symbol references so it's kind of redundant to require the vector of 'args'.  (It does make the
+implementation easier.  Also it maybe provides a visual marker and a bit of a double-check on the
+body, but that's an accident of the implementation rather than a design decision.)
+
+
+
+

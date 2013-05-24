@@ -70,8 +70,8 @@ that are looked up in bindings.  If the key is not found, the value is the key i
 
 ;; SEM FIXME -- maybe a little shakey on merging bindings and memo stuff
 ;; returns only the bindings, etc. of the first rule
-;; the other rules are like guards, maybe should be called mkguard
-(defn mkguard
+
+(defn mkand
   "Create a rule that matches all of rules at the same time for a single input. 
 Returns result of first rule."
   ([]
@@ -90,7 +90,7 @@ Returns result of first rule."
                  (sp/fail "Subrules matched differently" (merge (:m r1) (:m r2)))
                  r1)))))))
   ([rule1 rule2 & rules]
-     (reduce mkguard (mkguard rule1 rule2) rules)))
+     (reduce mkand (mkand rule1 rule2) rules)))
 
 
 ;; could also test inval to be a vector, set or number to be safer
@@ -266,34 +266,28 @@ Returns result of first rule."
   (sp/mksub (apply sp/mkseq (conj (mapv tconstraint vexpr) sp/end))))
 
 
-
 ;; SEM FIXME : dangerous eval
-(defn as-predicate [anon-body]
-  (let [f (if (= 'fn (first anon-body))
-            (safe-eval anon-body)
-            (safe-eval (list 'fn '[%] anon-body)))]
-    (fn [bindings context]
-      (f (merge context bindings)))))
-
-(defn tcon-guard [gexpr]
-  ;; guard should be a function body taking one-arg map with keys from binding names
-  (sp/mkpred (if (fn? gexpr) gexpr (as-predicate gexpr))))
+(defn tcon-guard [args body]
+  ;; guard syntax is like an anonymous fn, first arg is a literal vector of binding names
+  ;; which should have been previously declared.  Rest is a body.
+  (let [pred (safe-eval `(fn [{:syms [~@args]}] ~@body))]
+    (sp/mkpred (fn [bindings context] (pred (merge context bindings))))))
 
 (defn tcon-list-constraint [lexpr]
   (let [op (first lexpr)]
     (case op
       or (apply sp/mkalt (map tconstraint (rest lexpr)))
-      and (apply mkguard (map tconstraint (rest lexpr)))
+      and (apply mkand (map tconstraint (rest lexpr)))
       not (sp/mkseq (sp/mknot (tconstraint (second lexpr))) sp/anything)
       quote (tcon-quoted-sym (second lexpr))
-      guard (tcon-guard (second lexpr))
+      guard (tcon-guard (second lexpr) (nnext lexpr))
       * (sp/mkzom (tcon-seq (rest lexpr)))
       + (sp/mk1om (tcon-seq (rest lexpr))) 
       ? (sp/mkopt (tcon-seq (rest lexpr)))  
       & (tcon-seq (rest lexpr))
       seq  (tcon-seq-constraint (rest lexpr))
-      vec (mkguard (sp/mkpr vector?) (tcon-seq-constraint (rest lexpr)))
-      list (mkguard (sp/mkpr list?) (tcon-seq-constraint (rest lexpr)))
+      vec (mkand (sp/mkpr vector?) (tcon-seq-constraint (rest lexpr)))
+      list (mkand (sp/mkpr list?) (tcon-seq-constraint (rest lexpr)))
 
       ;; else
       (cond (integer? op) (tcon-nseq op (rest lexpr))
@@ -390,7 +384,7 @@ Returns result of first rule."
 (defn tcon-set-constraint [sexpr]
   (let [nonlits (remove literal? sexpr)
         litset (if (seq nonlits) (set (filter literal? sexpr)) sexpr)]
-    (apply mkguard (sp/mkpr #(set/subset? litset %)) (map tcon-set-element nonlits))))
+    (apply mkand (sp/mkpr #(set/subset? litset %)) (map tcon-set-element nonlits))))
            
 
 (defn tconstraint 
