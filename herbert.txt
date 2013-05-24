@@ -691,9 +691,15 @@ symbol references so it's kind of redundant to require the vector of 'args'.  (I
 implementation easier.  Also it maybe provides a visual marker and a bit of a double-check on the
 body, but that's an accident of the implementation rather than a design decision.)
 
+----------------------------------------------------------------------
 
+Unimplemented idea:
 Use (name) with no type as a constraint to be exactly the same as a previous binding for name.
 
 [(a int) (a) (a)]  matches [3 3 3], [4 4 4], etc.
+
+----------------------------------------------------------------------
+Need to consider nested binding names in quantifiers.  Only makes sense to bind at top level if
+there may be multiple matches.  Currently, last one probably wins.
 
 

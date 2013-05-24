@@ -272,6 +272,7 @@ Returns result of first rule."
 
 ;; SEM FIXME : dangerous eval
 (defn tcon-guard [args body]
+  {:pre [(vector? args) (list? body)]}
   ;; guard syntax is like an anonymous fn, first arg is a literal vector of binding names
   ;; which should have been previously declared.  Rest is a body.
   (let [pred (safe-eval `(fn [{:syms [~@args]}] ~@body))]
