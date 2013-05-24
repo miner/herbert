@@ -89,7 +89,7 @@ Returns result of first rule."
                ;; maybe should use not identical?
                (if (not= (:r r1) (:r r2))
                  (sp/fail "Subrules matched differently" (merge (:m r1) (:m r2)))
-                 r1)))))))
+                 r2)))))))
   ([rule1 rule2 & rules]
      (reduce mkand (mkand rule1 rule2) rules)))
 
@@ -108,10 +108,13 @@ Returns result of first rule."
 
 
 (defn iter= [iterfn coll]
-  ;; SEM debug
-  #_ (println "iter=" iterfn coll)
-  (= coll (when-first [fst coll] 
-            (take (count coll) (iterate iterfn fst)))))
+  (= (seq coll) (when-first [fst coll] 
+                  (take (count coll) (iterate iterfn fst)))))
+
+;; maybe prettier but not faster in my tests
+#_ (defn iter2= [iterfn coll]
+  (every? identity (map = coll (when-first [fst coll] (iterate iterfn fst)))))
+
 
 (defn indexed= [indexfn coll]
   ;; SEM debug
@@ -296,14 +299,24 @@ Returns result of first rule."
             :else (tcon-list-type lexpr)))))
 
 
-;; kw cons are encoded into the rules
+;; need to reduce the subrules and preserve the bindings
+;; SEM FIXME -- not sure about merging memo.  This one just passes on original memo.
 (defn mkmap [rules]
   (fn [input bindings context memo]
     (let [m (first input)]
-      (if (and (seq input) (map? m)
-               (every? (fn [rule] (sp/success? (rule (list m) bindings context memo)))
-                       rules))
-        (sp/succeed m [m] (rest input) bindings memo)
+      (if (and (seq input) (map? m))
+        (let [mbindings (reduce (fn [mb rule]
+                                    (if (false? mb)
+                                      false
+                                      (let [res (rule (list m) mb context memo)]
+                                        (if (sp/success? res)
+                                          (:b res)
+                                          (reduced false)))))
+                                  bindings
+                                  rules)]
+          (if (false? mbindings)
+            (sp/fail "Input failed to match required map." memo)
+            (sp/succeed m [m] (rest input) mbindings memo)))
         (sp/fail "Input failed to match required map." memo)))))
 
 
@@ -329,20 +342,48 @@ Returns result of first rule."
 (defn test-constraint? [con val]
   (sp/success? ((tconstraint con) (list val) {} {} {})))
 
+;; SEM FIXME -- everywhere we use sp/success? we have to look for passing up the bindings
+;; which means sp/mkpr is not going to be sufficient in many cases.
+
+(defn mkkw
+  "Takes kw and rule for associated val.  Fails if kw is missing or val doesn't match.  Does not
+  consume anything."  
+  [kw rule]
+  (fn [input bindings context memo]
+    (if (nil? (seq input))
+      (sp/fail "End of input" memo)
+      (let [m (first input)]
+        (if (contains? m kw)
+          (let [r (rule (list (get m kw)) bindings context memo)]
+            (if (sp/failure? r)
+              r
+              (sp/succeed nil [] input (:b r) (:m r))))
+          (sp/fail (str kw " is not in map.") memo))))))
+
+;; SEM FIXME -- what if m is not a map?  For now, says OK for optional.
+(defn mkkwopt
+  "Takes kw and rule for associated val.  If kw is found, val must match rule.  Does not consume anything."
+  [kw rule]
+    (fn [input bindings context memo]
+      (if (nil? (seq input))
+        (sp/fail "End of input" memo)
+        (let [m (first input)]
+          (if (and (map? m) (contains? m kw))
+            (let [r (rule (list (get m kw)) bindings context memo)]
+              (if (sp/failure? r)
+                r
+                (sp/succeed nil [] input (:b r) (:m r))))
+            (sp/succeed nil [] input bindings memo))))))
+
 
 (defn tcon-map-entry [[kw con]]
   ;; FIXME -- only handles kw literals and optional :kw? for keys
   ;; doesn't carry context or results for individual key/val matches
   ;; Note: each rule expect full map as input, but only looks at one key
-  (let [sk (simple-key kw)
-        rule (tconstraint con)]
+  (let [rule (tconstraint con)]
     (if (optional-key? kw)
-      (sp/mkpr (fn [m]
-                 (or (not (contains? m sk))
-                     (sp/success? (rule (list (get m sk)) {} {} {})))))
-      (sp/mkpr (fn [m]
-                 (and (contains? m sk)
-                      (sp/success? (rule (list (get m sk)) {} {} {}))))))))
+      (mkkwopt (simple-key kw) rule)
+      (mkkw kw rule))))
 
 (defn tcon-map-constraint [mexpr]
   (mkmap (map tcon-map-entry mexpr)))

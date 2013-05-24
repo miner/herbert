@@ -133,3 +133,8 @@
   (is (conforms? '(str "f.*r") "foobar"))
   (is (not (conforms? '(str "f.*r") "xfoobar"))))
 
+(deftest nested-map-guard []
+  (is (conforms? '(& {:a (a int) :b {:bb (bb int)}} (guard [a bb] (== a bb))) 
+                 {:a 10 :b {:bb 10}}))
+  (is (not (conforms? '(& {:a (a int) :b {:bb (bb int)}} (guard [a bb] (== a bb))) 
+                      {:a 11 :b {:bb 10}}))))

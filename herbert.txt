@@ -9,6 +9,8 @@ Actually, lots of things are wrong in this document, or haven't kept up with the
 Movitvations:  want simple language for describing data and function requirements.  Better, more
 precise doc.  Also, it can be used for transformations (like XSLT) and validation.
 
+I like to say that Herbert notation is "whiteboard-compatible".
+
 Nice to have bindings like a parser.  But mostly want validation for "shape of data".
 
 But a parser can also give you the parse tree with named bindings which might be useful.  Or maybe
@@ -690,5 +692,8 @@ implementation easier.  Also it maybe provides a visual marker and a bit of a do
 body, but that's an accident of the implementation rather than a design decision.)
 
 
+Use (name) with no type as a constraint to be exactly the same as a previous binding for name.
+
+[(a int) (a) (a)]  matches [3 3 3], [4 4 4], etc.
 
 
