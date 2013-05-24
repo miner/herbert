@@ -14,7 +14,8 @@
 
 ;; SEM FIXME: maybe try Clojail or something to have a restricted eval
 (defn safe-eval [expr]
-  (println "Not really safe yet: " expr)
+  "Not actually safe at all."
+  ;(println "Not really safe yet: " expr)
   (eval expr))
 
 (defn literal? [con]

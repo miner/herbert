@@ -67,7 +67,7 @@ https://clojars.org/com.velisco/herbert
 * Quantified constraints, a list beginning with __*__, __+__ or __?__ as the first element. <BR>
 (* kw sym)  -- zero or more pairs of keywords and symbols
 
-* Named constraints are written in a list with the first item a (non-reserved) symbol or keyword and
+* Named constraints are written in a list with the first item a (non-reserved) symbol and
   the second item naming the type constraint.  The built-in types and special operators (like
   **and**, **or**, etc.) are not allowed as binding names. <BR>
 (n int)
@@ -79,6 +79,13 @@ https://clojars.org/com.velisco/herbert
   with a ? suffix such as **:kw?** <BR>
 {:a int :b sym :c? [int*]}  -- matches {:a 10 :b foo :c [1 2 3]}
 
+* The guard form does not consume any input.  The guard expression is similar to a fn declaration.
+  It takes a vector of arguments which must match the names of previous binding elements.  The guard
+  evaluates its body -- if it returns a logical true, the match continues.  On a logical false, the
+  whole match fails. <BR>
+[(n int) (m int) (guard [n m] (= (* 3 n) m))] -- matches [2 6]
+
+  
 
 ## Examples
 
