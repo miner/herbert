@@ -10,7 +10,7 @@
 
 (def constraints-ns (the-ns 'miner.herbert.constraints))
 (def default-constraints (ns-publics constraints-ns))
-(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not guard vec seq list map})
+(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not guard vec seq list map mod})
 
 ;; SEM FIXME: maybe try Clojail or something to have a restricted eval
 (defn safe-eval [expr]
@@ -228,6 +228,12 @@ Returns result of first rule."
     (assert (empty? args))
     (mkopts base-rule (apply hash-map :as name kwargs))))
 
+(defn tcon-list-solo [bname]
+  ;; simple name should match item equal to that binding
+  (let [solo (gensym "name")]
+     (sp/mkseq 
+      (sp/mkbind sp/anything solo)
+      (sp/mkpred (fn [bindings context] (= (get bindings bname) (get bindings solo)))))))
 
 (defn bind-name [sym]
   (and (symbol? sym) 
@@ -237,11 +243,12 @@ Returns result of first rule."
 
 (defn tcon-list-type [lexpr]
   (when-first [fst lexpr]
-    (let [name (bind-name fst)
-          lexpr (if name (rest lexpr) lexpr)]
-      (cond (symbol? fst) (tcon-list-simple-type name lexpr)
-            (list? fst) (tcon-list-complex-type name lexpr)
-            :else (throw (ex-info "Unknown tcon-list" {:name name :con lexpr}))))))
+    (let [bname (bind-name fst)
+          expr (if bname (rest lexpr) lexpr)]
+      (cond (and bname (nil? (seq expr))) (tcon-list-solo bname)
+            (symbol? (first expr)) (tcon-list-simple-type bname expr)
+            (list? (first expr)) (tcon-list-complex-type bname expr)
+            :else (throw (ex-info "Unknown tcon-list" {:name bname :con lexpr}))))))
 
 (defn tcon-quoted-sym [sym]
   ;; no special interpretation of symbol
@@ -286,6 +293,7 @@ Returns result of first rule."
       not (sp/mkseq (sp/mknot (tconstraint (second lexpr))) sp/anything)
       quote (tcon-quoted-sym (second lexpr))
       guard (tcon-guard (second lexpr) (nnext lexpr))
+      (deref clojure.core/deref) (tcon-list-solo (second lexpr))
       * (sp/mkzom (tcon-seq (rest lexpr)))
       + (sp/mk1om (tcon-seq (rest lexpr))) 
       ? (sp/mkopt (tcon-seq (rest lexpr)))  

@@ -686,19 +686,20 @@ with multiple args (which are interpreted like {:keys ...} destructuring).
 For Herbert guards, I like using symbols for binding names (not keywords).  We could automatically
 handle that if we really need to use fnk syntax but I don't see the need at the momment.
 
-Also Square Peg doc uses keyword keys for binding but it works as well with symbols.
+FWIW, Square Peg doc uses keyword keys for binding but it works as well with symbols.
 
-New idea (on top of the new guard syntax): In theory, you could scan the body and find the free
-symbol references so it's kind of redundant to require the vector of 'args'.  (It does make the
-implementation easier.  Also it maybe provides a visual marker and a bit of a double-check on the
-body, but that's an accident of the implementation rather than a design decision.)
+Unimplemented new idea (on top of the new guard syntax): In theory, you could scan the body and find
+the free symbol references so it's kind of redundant to require the vector of 'args'.  (It does make
+the implementation easier.  Also it maybe provides a visual marker and a bit of a double-check on
+the body, but that's an accident of the implementation rather than a design decision.)
 
 ----------------------------------------------------------------------
 
-Unimplemented idea:
 Use (name) with no type as a constraint to be exactly the same as a previous binding for name.
 
 [(a int) (a) (a)]  matches [3 3 3], [4 4 4], etc.
+
+experimental @name matches the same way
 
 ----------------------------------------------------------------------
 Need to consider nested binding names in quantifiers.  Only makes sense to bind at top level if
