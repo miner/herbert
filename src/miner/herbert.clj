@@ -239,9 +239,9 @@ Returns result of first rule."
   (when-first [fst lexpr]
     (let [name (bind-name fst)
           lexpr (if name (rest lexpr) lexpr)]
-      (cond (symbol? (first lexpr)) (tcon-list-simple-type name lexpr)
-            (list? (first lexpr)) (tcon-list-complex-type name lexpr)
-            :else       (throw (ex-info "Unknown tcon-list" {:name name :con lexpr}))))))
+      (cond (symbol? fst) (tcon-list-simple-type name lexpr)
+            (list? fst) (tcon-list-complex-type name lexpr)
+            :else (throw (ex-info "Unknown tcon-list" {:name name :con lexpr}))))))
 
 (defn tcon-quoted-sym [sym]
   ;; no special interpretation of symbol

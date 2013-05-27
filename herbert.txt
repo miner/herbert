@@ -46,7 +46,6 @@ EDN   https://github.com/edn-format/edn
 Look at clj-schema lib:
 https://github.com/runa-dev/clj-schema
 
-
 Nice, new parser lib:
 https://github.com/Engelberg/instaparse
 
@@ -55,6 +54,9 @@ https://github.com/mthvedt/clearley
 
 Yet another parser, says it also works with seqs, not just chars
 https://github.com/ericnormand/squarepeg
+
+Nippy serialization -- maybe related
+https://github.com/ptaoussanis/nippy
 
 ----------------------------------------------------------------------
 
@@ -702,4 +704,4 @@ Use (name) with no type as a constraint to be exactly the same as a previous bin
 Need to consider nested binding names in quantifiers.  Only makes sense to bind at top level if
 there may be multiple matches.  Currently, last one probably wins.
 
-
+----------------------------------------------------------------------
