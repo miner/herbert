@@ -228,6 +228,7 @@ Returns result of first rule."
     (assert (empty? args))
     (mkopts base-rule (apply hash-map :as name kwargs))))
 
+;; SEM FIXME -- why doesn't an sp/mkscope work here as a wrapper?
 (defn tcon-list-solo [bname]
   ;; simple name should match item equal to that binding
   (let [solo (gensym "name")]
