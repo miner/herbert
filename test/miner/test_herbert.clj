@@ -138,3 +138,9 @@
                  {:a 10 :b {:bb 10}}))
   (is (not (conforms? '(& {:a (a int) :b {:bb (bb int)}} (guard [a bb] (== a bb))) 
                       {:a 11 :b {:bb 10}}))))
+
+(deftest solo-constraints-for-equality []
+  (is (conforms? '(& {:a (a int) :b {:bb (a)}}) {:a 10 :b {:bb 10}}))
+  ;; not sure about the @ notation
+  (is (conforms? '(& {:a (a int) :b {:bb @a}}) {:a 10 :b {:bb 10}}))
+  (is (not (conforms? '(& {:a (a int) :b {:bb (a)}}) {:a 10 :b {:bb 11}}))))
