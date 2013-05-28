@@ -58,6 +58,9 @@ https://github.com/ericnormand/squarepeg
 Nippy serialization -- maybe related
 https://github.com/ptaoussanis/nippy
 
+but compare to Fressian
+https://github.com/Datomic/fressian
+
 ----------------------------------------------------------------------
 
 ===> SquarePeg looks very promising as a basis for Herbert.  Let's start there.
@@ -65,9 +68,9 @@ https://github.com/ptaoussanis/nippy
 issue: squarepeg bindings use keywords.  I was planning to use normal Clojure destructuring.  Maybe
 use a macro to compile into a let with destructuring?  Actually, square peg can bind to symbols but
 the predicates are awkward to write because the only get a one-arg, a map of bindings, so you have
-to (get % 'x).  Nicer to read (:x %).
-
-Binding with :kw works OK and fits in with prismatic/plumbing fnk.  
+to (get % 'x).  Nicer to read (:x %).  But I overcame this issue with the "guard" feature by
+requiring the named params.
+----------------------------------------------------------------------
 
 It would be interesting to compare an implementation using core.logic to the squarepeg version.
 [org.clojure/core.logic "0.8.3"]
@@ -98,6 +101,11 @@ interesting question about lazy patterns, infinite streams and recursive structu
 Martin Fowler on schemaless data structures
   conclusion: schemaless => implicit schema (bad), so prefer explicit schemas
 http://martinfowler.com/articles/schemaless/
+https://www.youtube.com/watch?v=8kotnF6hfd8
+http://www.infoq.com/news/2013/04/software-design-21st-century
+
+A response: "Why I like schemaless data structures"
+http://www.innoq.com/blog/st/2013/01/why-i-like-schemaless-data-structures/
 
 SEM says: OK so we want a simple notation for an informal schema (required keys for a map, etc.)
 
@@ -109,33 +117,16 @@ inlining.   Inlining is also done with "splice" ops (* + ? N)
 
 ----------------------------------------------------------------------
 
+Features IN
 
 * Binding
-we want an easy way to bind matches
-(name type)
-
+we want an easy way to bind matches:  (name type)
 name must be distinct from types and ops
 
-* No sub-Guards on types  
-Make it easy to write a predicate for your exact type.
-Allow params to "predicates" (with object x as last arg) for extended options.
-
-For example, I defined odd and even (and (integer? x) (odd? x))
-
-
-* Clojure destructuring -- NOT DONE, conflicts with other ideas
-try to reuse as much as possible
-but maybe conflicts with some other notations
-
-* inline sequence -- using (& int sym) notation
+* Inline sequence -- using (& int sym) notation
 
 * Cross-constraints with bindings
-
-([(:name str) (:name2 str) (guard (== (count (:name %) (count (:name2 %)))))])
-
-* NO on grammar approach.  We're using fns and combinators so just define them with vars.
-Maybe later, we could take a map grammar and do the right thing.
-
+  [(name str) (name2 str) (guard [name name2] (== (count name) (count name2)))]
 
 * literals
 nil, true, false
@@ -148,7 +139,6 @@ nil, true, false
 
 * wildcard
 any -- matches any type
-NOT IMPL -- (underscore) _  match anything and ignore it (multiple _s match independently)
 
 * types (reserved)
 bool
@@ -162,9 +152,9 @@ list
 vec
 map
 set
-tag
+tag -- NOT IMPL
 
-* synonyms, aliases, NOT IMPL
+* synonyms, aliases, NOT IMPL -- should be a predefined map of constraints if you want to use them
 long == int
 double == float
 integer == int
@@ -182,12 +172,13 @@ qtag
 utag
 
 
-* regex? -- but not EDN type, but maybe should use a tagged literal
+* regex? -- NOT IMPL by itself, however a (str "regex") constraint is there
+Remember regex is not EDN type
 #herbert/regex "regex"
 (regex "regex") -- instead?
 
 
-* parameterized simple types
+* parameterized simple types -- NOT IMPL on many
 (str N) -- length
 (str "pat") -- matches glob or regex?
 (int N M) -- between <= (inclusive?)
@@ -271,14 +262,34 @@ disallowed key -- literally it's optional and must be nil, but effectively disal
 with second form since :a is required, it's not very useful to int? (as opposed to int)
 
 
-* REJECTED IDEAS
-no inline map {t1 t2 .. tN tN+1}  -- all elements in pairwise order  -- NOT SURE
 
-* inline -- NO, use cycle and splices instead
-[t1 t2 ... tN] -- in that order (not nested in vector)
-#{t1 t2 ... tN} -- a set with all elements required in no particular order, see also OR
+----------------------------------------------------------------------
+
+Features WANTED but not implemented
+see notes above in the Features IN list
+
+----------------------------------------------------------------------
+
+Features OUT
+* No sub-Guards on types  
+Make it easy to write a predicate for your exact type.
+Allow params to "predicates" (with object x as last arg) for extended options.
+For example, I defined odd and even (and (integer? x) (odd? x))
+
+* Clojure destructuring -- NOT DONE, conflicts with other ideas
+try to reuse as much as possible
+but maybe conflicts with some other notations
 
 
+* NO on grammar approach.  We're using fns and combinators so just define them with vars.
+Maybe later, we could take a map grammar and do the right thing.
+
+
+* No inline map {t1 t2 .. tN tN+1}  -- all elements in pairwise order
+
+* NO: (underscore) _  match anything and ignore it (multiple _s match independently) -- use "any"
+  instead as the type.  Underscore _ can be used as a binding name, doesn't really need special
+  treatment.
 
 ----------------------------------------------------------------------
 * Issues
@@ -644,8 +655,13 @@ But the more practical idea is to bind guards to the base type and the kw args t
 
 (def pair (tconstraint '(& kw int)))
 
-(pair*   UNFINISHED
 ----------------------------------------------------------------------
+
+dyvar *constraints*
+similar in usage to *data-readers*
+
+
+
 
 ISSUE: how to define new basic types?  You can define a fn but how is it added to the list?  Right
 now, we look up the symbol and return a predicate.  That could be in a dynamic var or atom that's
@@ -706,3 +722,9 @@ Need to consider nested binding names in quantifiers.  Only makes sense to bind 
 there may be multiple matches.  Currently, last one probably wins.
 
 ----------------------------------------------------------------------
+Need a macro that "pre-compiles" constraint for better performance at runtime.
+----------------------------------------------------------------------
+cgrand mentions "loose schema" in reference to clj-schema.  The point is to allow extra stuff
+strict schema would be less flexible
+
+test with records -- it would be nice if {:a int} worked as well

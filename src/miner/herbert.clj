@@ -45,13 +45,22 @@
   (instance? TaggedValue x))
 
 
-
 ;; loosey-goosey get or just yourself, sort of an ersatz lexical binding
 (defn lookup [sym bindings]
   (if (symbol? sym)
     (get bindings sym sym)
     sym))
 
+;; copied from squarepeg and slightly modified to get my fix for the incoming bindings
+(defn mkscope
+  "Create a rule which contains the scope of the given rule. Bindings
+made in rule do not escape this rule's scope."
+  [rule]
+  (fn [input bindings context memo]
+    (let [r (rule input bindings context memo)]
+      (if (sp/success? r)
+        (sp/succeed (:r r) (:s r) (:i r) bindings (:m r))
+        r))))
 
 (defn mkprb
   "Like mkpr but allows extra args to be added before item.  Args are either literal values or keys
@@ -68,13 +77,12 @@ that are looked up in bindings.  If the key is not found, the value is the key i
             (sp/succeed i [i] (rest input) bindings memo)
             (sp/fail (str i " does not match predicate.") memo)))))))
 
-
 ;; SEM FIXME -- maybe a little shakey on merging bindings and memo stuff
 ;; returns only the bindings, etc. of the first rule
 
 (defn mkand
   "Create a rule that matches all of rules at the same time for a single input. 
-Returns result of first rule."
+Returns the successful result of the last rule or the first to fail."
   ([]
      #(sp/succeed nil [] %1 %2 %4))
   ([rule] rule)
@@ -228,16 +236,16 @@ Returns result of first rule."
     (assert (empty? args))
     (mkopts base-rule (apply hash-map :as name kwargs))))
 
-;; SEM FIXME -- why doesn't an sp/mkscope work here as a wrapper?
 (defn tcon-list-solo [bname]
   ;; simple name should match item equal to that binding
-  (let [solo (gensym "name")]
+  (let [solo (gensym bname)]
+    (mkscope
      (sp/mkseq 
       (sp/mkbind sp/anything solo)
-      (sp/mkpred (fn [bindings context] (= (get bindings bname) (get bindings solo)))))))
+      (sp/mkpred (fn [bindings context] (= (get bindings bname) (get bindings solo))))))))
 
 (defn bind-name [sym]
-  (and (symbol? sym) 
+  (and (symbol? sym)
        (not (contains? reserved-ops sym))
        (not (tcon-pred (simple-sym sym)))
        sym))
@@ -478,7 +486,7 @@ Returns result of first rule."
   (if (fn? con) con 
       #(let [res ((confn con) %)] 
          (when (sp/success? res)
-           (:b res)))))
+           (with-meta (:b res) {::constraint con})))))
 
 (defn conform
   ([con] (conformitor con))
@@ -486,3 +494,12 @@ Returns result of first rule."
 
 (defn conforms? [con x] 
   (boolean (conform con x)))
+
+;; want to compile constraint a macro-expansion
+;; BUGGY
+#_ (defmacro conf? [con x]
+  (letfn [(conf [y] ((confn con) y))]
+    `(let [res# (~conf ~x)]
+       (when (sp/success? res#)
+         (with-meta (:b res#) {::constraint '~con})))))
+
