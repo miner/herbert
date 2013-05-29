@@ -177,9 +177,9 @@ Returns the successful result of the last rule or the first to fail."
 (defn quantified-sym? [sym]
   (not= sym (simple-sym sym)))
 
-(declare tconstraint)
+(declare mkconstraint)
 
-(defn tcon-symbol-constraint [sym]
+(defn mk-symbol-constraint [sym]
   (let [lch (last-char sym)
         sym (simple-sym sym)
         brule (sp/mkpr (tcon-pred sym))]
@@ -215,7 +215,7 @@ Returns the successful result of the last rule or the first to fail."
 ;; SEM FIXME BUG -- spliting at kw conflicts with binding args
 ;; could use custom args or restrict params versus kw opts
 
-(defn tcon-list-simple-type [name lexpr]
+(defn mk-list-simple-type [name lexpr]
   (let [[tcon & modifiers] lexpr
         lch (last-char tcon)
         tcon (simple-sym tcon)
@@ -229,14 +229,14 @@ Returns the successful result of the last rule or the first to fail."
               brule)  
             (apply hash-map :as name kwargs))))
 
-(defn tcon-list-complex-type [name lexpr]
+(defn mk-list-complex-type [name lexpr]
   (let [[tcon & modifiers] lexpr
-        base-rule (tconstraint tcon)
+        base-rule (mkconstraint tcon)
         [args kwargs] (split-with (complement keyword?) modifiers)]
     (assert (empty? args))
     (mkopts base-rule (apply hash-map :as name kwargs))))
 
-(defn tcon-list-solo [bname]
+(defn mk-list-solo [bname]
   ;; simple name should match item equal to that binding
   (let [solo (gensym bname)]
     (mkscope
@@ -250,16 +250,16 @@ Returns the successful result of the last rule or the first to fail."
        (not (tcon-pred (simple-sym sym)))
        sym))
 
-(defn tcon-list-type [lexpr]
+(defn mk-list-type [lexpr]
   (when-first [fst lexpr]
     (let [bname (bind-name fst)
           expr (if bname (rest lexpr) lexpr)]
-      (cond (and bname (nil? (seq expr))) (tcon-list-solo bname)
-            (symbol? (first expr)) (tcon-list-simple-type bname expr)
-            (list? (first expr)) (tcon-list-complex-type bname expr)
-            :else (throw (ex-info "Unknown tcon-list" {:name bname :con lexpr}))))))
+      (cond (and bname (nil? (seq expr))) (mk-list-solo bname)
+            (symbol? (first expr)) (mk-list-simple-type bname expr)
+            (list? (first expr)) (mk-list-complex-type bname expr)
+            :else (throw (ex-info "Unknown mk-list-type" {:name bname :con lexpr}))))))
 
-(defn tcon-quoted-sym [sym]
+(defn mk-quoted-sym [sym]
   ;; no special interpretation of symbol
   (sp/mkpr (tcon-pred sym)))
 
@@ -268,53 +268,53 @@ Returns the successful result of the last rule or the first to fail."
 
 ;; n is the total number of desired items,
 ;; cs might have to be repeated to fill
-(defn tcon-nseq 
+(defn mk-nseq 
   ([n cs]
      (case (long n)
        0 (sp/mkseq)
-       1 (tconstraint (first cs))
-       (apply sp/mkseq (take n (cycle (map tconstraint cs))))))
+       1 (mkconstraint (first cs))
+       (apply sp/mkseq (take n (cycle (map mkconstraint cs))))))
   ([lo hi cs]
-     (let [tcons (cycle (map tconstraint cs))]
+     (let [tcons (cycle (map mkconstraint cs))]
        (apply sp/mkseq (concat (take lo tcons)
                                (take (- hi lo) (map sp/mkopt (drop lo tcons))))))))
 
-(defn tcon-seq [cs]
-  (apply sp/mkseq (map tconstraint cs)))
+(defn mk-con-seq [cs]
+  (apply sp/mkseq (map mkconstraint cs)))
 
-(defn tcon-seq-constraint [vexpr]
-  (sp/mksub (apply sp/mkseq (conj (mapv tconstraint vexpr) sp/end))))
+(defn mk-subseq-constraint [vexpr]
+  (sp/mksub (apply sp/mkseq (conj (mapv mkconstraint vexpr) sp/end))))
 
 
 ;; SEM FIXME : dangerous eval
-(defn tcon-guard [args body]
+(defn mk-guard [args body]
   {:pre [(vector? args) (list? body)]}
   ;; guard syntax is like an anonymous fn, first arg is a literal vector of binding names
   ;; which should have been previously declared.  Rest is a body.
   (let [pred (safe-eval `(fn [{:syms [~@args]}] ~@body))]
     (sp/mkpred (fn [bindings context] (pred (merge context bindings))))))
 
-(defn tcon-list-constraint [lexpr]
+(defn mk-list-constraint [lexpr]
   (let [op (first lexpr)]
     (case op
-      or (apply sp/mkalt (map tconstraint (rest lexpr)))
-      and (apply mkand (map tconstraint (rest lexpr)))
-      not (sp/mkseq (sp/mknot (tconstraint (second lexpr))) sp/anything)
-      quote (tcon-quoted-sym (second lexpr))
-      guard (tcon-guard (second lexpr) (nnext lexpr))
-      (deref clojure.core/deref) (tcon-list-solo (second lexpr))
-      * (sp/mkzom (tcon-seq (rest lexpr)))
-      + (sp/mk1om (tcon-seq (rest lexpr))) 
-      ? (sp/mkopt (tcon-seq (rest lexpr)))  
-      & (tcon-seq (rest lexpr))
-      seq  (tcon-seq-constraint (rest lexpr))
-      vec (mkand (sp/mkpr vector?) (tcon-seq-constraint (rest lexpr)))
-      list (mkand (sp/mkpr list?) (tcon-seq-constraint (rest lexpr)))
+      or (apply sp/mkalt (map mkconstraint (rest lexpr)))
+      and (apply mkand (map mkconstraint (rest lexpr)))
+      not (sp/mkseq (sp/mknot (mkconstraint (second lexpr))) sp/anything)
+      quote (mk-quoted-sym (second lexpr))
+      guard (mk-guard (second lexpr) (nnext lexpr))
+      (deref clojure.core/deref) (mk-list-solo (second lexpr))
+      * (sp/mkzom (mk-con-seq (rest lexpr)))
+      + (sp/mk1om (mk-con-seq (rest lexpr))) 
+      ? (sp/mkopt (mk-con-seq (rest lexpr)))  
+      & (mk-con-seq (rest lexpr))
+      seq  (mk-subseq-constraint (rest lexpr))
+      vec (mkand (sp/mkpr vector?) (mk-subseq-constraint (rest lexpr)))
+      list (mkand (sp/mkpr list?) (mk-subseq-constraint (rest lexpr)))
 
       ;; else
-      (cond (integer? op) (tcon-nseq op (rest lexpr))
-            (vector? op) (tcon-nseq (first op) (second op) (rest lexpr))
-            :else (tcon-list-type lexpr)))))
+      (cond (integer? op) (mk-nseq op (rest lexpr))
+            (vector? op) (mk-nseq (first op) (second op) (rest lexpr))
+            :else (mk-list-type lexpr)))))
 
 
 ;; need to reduce the subrules and preserve the bindings
@@ -358,7 +358,7 @@ Returns the successful result of the last rule or the first to fail."
   (remove optional-key? (keys m)))
 
 (defn test-constraint? [con val]
-  (sp/success? ((tconstraint con) (list val) {} {} {})))
+  (sp/success? ((mkconstraint con) (list val) {} {} {})))
 
 ;; SEM FIXME -- everywhere we use sp/success? we have to look for passing up the bindings
 ;; which means sp/mkpr is not going to be sufficient in many cases.
@@ -394,21 +394,21 @@ Returns the successful result of the last rule or the first to fail."
             (sp/succeed nil [] input bindings memo))))))
 
 
-(defn tcon-map-entry [[kw con]]
+(defn mk-map-entry [[kw con]]
   ;; FIXME -- only handles kw literals and optional :kw? for keys
   ;; doesn't carry context or results for individual key/val matches
   ;; Note: each rule expect full map as input, but only looks at one key
-  (let [rule (tconstraint con)]
+  (let [rule (mkconstraint con)]
     (if (optional-key? kw)
       (mkkwopt (simple-key kw) rule)
       (mkkw kw rule))))
 
-(defn tcon-map-constraint [mexpr]
-  (mkmap (map tcon-map-entry mexpr)))
+(defn mk-map-constraint [mexpr]
+  (mkmap (map mk-map-entry mexpr)))
 
-(defn tcon-set-sym [sym]
+(defn mk-set-sym [sym]
   (let [simple (simple-sym sym)
-        rule (tconstraint simple)]
+        rule (mkconstraint simple)]
     (case (last-char sym)
       \* (sp/mkpr (fn [s] (every? #(sp/success? (rule (list %) {} {} {})) s)))
       \+ (sp/mkpr (fn [s] (and (seq s) (every? #(sp/success? (rule (list %) {} {} {})) s))))
@@ -418,10 +418,10 @@ Returns the successful result of the last rule or the first to fail."
       ;; else simple
       (sp/mkpr (fn [s] (some #(sp/success? (rule (list %) {} {} {})) s))))))
 
-(defn tcon-set-list [lst]
+(defn mk-set-list [lst]
   (let [[op con unexpected] lst
         quantified (case op (* + ?) true false)
-        rule  (if quantified (tconstraint con) (tconstraint lst))]
+        rule  (if quantified (mkconstraint con) (mkconstraint lst))]
     (when (and quantified unexpected)
       (throw (ex-info "Unexpectedly more" {:con lst})))
     (case op
@@ -434,27 +434,27 @@ Returns the successful result of the last rule or the first to fail."
       (sp/mkpr (fn [s] (some #(sp/success? (rule (list %) {} {} {})) s))))))
 
 
-(defn tcon-set-element [con]
-  (cond (symbol? con) (tcon-set-sym con)
-        (list? con) (tcon-set-list con)
+(defn mk-set-element [con]
+  (cond (symbol? con) (mk-set-sym con)
+        (list? con) (mk-set-list con)
         (literal? con) (throw (ex-info "Literals should be handled separately" {:con con}))
         :else (throw (ex-info "I didn't think of that" {:con con}))))
 
 
-(defn tcon-set-constraint [sexpr]
+(defn mk-set-constraint [sexpr]
   (let [nonlits (remove literal? sexpr)
         litset (if (seq nonlits) (set (filter literal? sexpr)) sexpr)]
-    (apply mkand (sp/mkpr #(set/subset? litset %)) (map tcon-set-element nonlits))))
+    (apply mkand (sp/mkpr #(set/subset? litset %)) (map mk-set-element nonlits))))
            
 
-(defn tconstraint 
+(defn mkconstraint 
   ([expr]
-     (cond (symbol? expr) (tcon-symbol-constraint expr)
+     (cond (symbol? expr) (mk-symbol-constraint expr)
            ;; don't use list?, seq? covers Cons as well
-           (seq? expr) (tcon-list-constraint expr)
-           (vector? expr) (tcon-seq-constraint expr)
-           (set? expr) (tcon-set-constraint expr)
-           (map? expr) (tcon-map-constraint expr) 
+           (seq? expr) (mk-list-constraint expr)
+           (vector? expr) (mk-subseq-constraint expr)
+           (set? expr) (mk-set-constraint expr)
+           (map? expr) (mk-map-constraint expr) 
            (string? expr) (sp/mklit expr)
            (keyword? expr) (sp/mklit expr)
            (nil? expr) (sp/mkpr nil?)
@@ -464,14 +464,14 @@ Returns the successful result of the last rule or the first to fail."
              :else (throw (ex-info "Unknown constraint form" {:con expr}))))
      
   ([expr expr2]
-     (sp/mkseq (tconstraint expr) (tconstraint expr2)))
+     (sp/mkseq (mkconstraint expr) (mkconstraint expr2)))
 
   ([expr expr2 & more]
-     (apply sp/mkseq (tconstraint expr) (tconstraint expr2) (map tconstraint more))))
+     (apply sp/mkseq (mkconstraint expr) (mkconstraint expr2) (map mkconstraint more))))
 
 
-(defn con-rule [con]
-  (let [cfn (tconstraint con)]
+(defn constraint-fn [con]
+  (let [cfn (mkconstraint con)]
     (fn ff
       ([item] (ff item {} {} {}))
       ([item context] (ff item context {} {}))
@@ -485,7 +485,7 @@ Returns the successful result of the last rule or the first to fail."
 
 (defn conformitor [con]
   (if (fn? con) con 
-      #(let [res ((con-rule con) %)] 
+      #(let [res ((constraint-fn con) %)] 
          (when (sp/success? res)
            (with-meta (:b res) {::constraint con})))))
 

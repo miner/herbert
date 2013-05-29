@@ -79,6 +79,25 @@ use a macro to compile into a let with destructuring?  Actually, square peg can 
 the predicates are awkward to write because the only get a one-arg, a map of bindings, so you have
 to (get % 'x).  Nicer to read (:x %).  But I overcame this issue with the "guard" feature by
 requiring the named params.
+
+
+
+Note that SP rules are greedy and won't backtrack on failure.  Once a subrule succeeds, it's
+committed.  That's it.  Some ambiguous `sym? sym int` might fail on a `sym int`, but `sym sym?  int`
+would succeed.  Also, you might want something like (or int+ sym+) instead of (or int* sym*) because
+the empty match succeeds for int* before it tries any sym.
+
+This is intentional.  See the paper on PEGs. ? * + are greedy.  But you can use & to be
+non-greedy.
+
+http://pdos.csail.mit.edu/papers/parsing:popl04.pdf
+
+Remember: no backtracking in SP.  You can look-ahead instead with sp/mknot (as in "not followed
+by...")
+
+
+
+
 ----------------------------------------------------------------------
 Note: schema is singular, schemata is plural.
 
