@@ -61,39 +61,39 @@ https://clojars.org/com.velisco/herbert
 **int***, **str+**, **sym?**
   
 * Compound constraints, using **and**, **or** and **not** <BR>
-(or sym+ nil)  -- one or more symbols or nil <BR>
-(or (vec int*) (list kw+))  -- either a vector of ints or a list of one or more keywords
+`(or sym+ nil)`  -- one or more symbols or nil <BR>
+`(or (vec int*) (list kw+))`  -- either a vector of ints or a list of one or more keywords
 
 * Quantified constraints, a list beginning with __*__, __+__ or __?__ as the first element. <BR>
-(* kw sym)  -- zero or more pairs of keywords and symbols
+`(* kw sym)`  -- zero or more pairs of keywords and symbols
 
 * Named constraints are written in a list with the first item a (non-reserved) symbol and
   the second item naming the type constraint.  The built-in types and special operators (like
   **and**, **or**, etc.) are not allowed as binding names. <BR>
-(n int)
+`(n int)`
 
 * A name in a list by itself (n) matches an element equal to the value that the name was bound to
   previously.  The name may also be used as a parameter to other constraints and to guards.
-[(n int) (n) (n)] -- matches [3 3 3]
+`[(n int) (n) (n)]` -- matches [3 3 3]
 	
 * Square brackets match any seq (not just a vector) with the contained pattern <BR>
-[(* kw sym)]  -- matches '(:a foo :b bar :c baz)
+`[(* kw sym)]`  -- matches '(:a foo :b bar :c baz)
 
 * Curly braces match any map with the given keys and value types.  Optional keywords are written
   with a ? suffix such as **:kw?** <BR>
-{:a int :b sym :c? [int*]}  -- matches {:a 10 :b foo :c [1 2 3]}
+`{:a int :b sym :c? [int*]}`  -- matches {:a 10 :b foo :c [1 2 3]}
 
 * A set with multiple constraints denotes the required element types, but does not exclude others.
   A single element might match multiple constraints.  A set with a single quantified constraint,
   defines the requirement on all elements. <BR>
-#{int :a :b} -- matches #{:a :b :c 10}, but not #{:a 10}
-#{int+} -- matches #{1 3 5}, but not #{1 :a 3}
+`#{int :a :b}` -- matches #{:a :b :c 10}, but not #{:a 10}
+`#{int+}` -- matches #{1 3 5}, but not #{1 :a 3}
 
 * The guard form does not consume any input.  The guard expression is similar to a fn declaration.
   It takes a vector of arguments which must match the names of previous binding elements.  The guard
   evaluates its body -- if it returns a logical true, the match continues.  On a logical false, the
   whole match fails. <BR>
-[(n int) (m int) (guard [n m] (= (* 3 n) m))] -- matches [2 6]
+`[(n int) (m int) (guard [n m] (= (* 3 n) m))]` -- matches [2 6]
 
 * Numeric constraints, such as __int__, __even__, __odd__, __float__, or __num__, may take optional
   parameters in a list following the constraint.  Numerics take a _low_ and a _high_ parameter.  The
@@ -101,7 +101,7 @@ https://clojars.org/com.velisco/herbert
   is given, it defines the _high_, and the _low_ defaults to 0 in that case.  If neither is given,
   there is no restriction on the high or low values.  Quantified numeric constraints apply the
   _high_ and _low_ to all the matched elements. <BR>
-(int 1 10)  -- matches 4, but not 12
+`(int 1 10)`  -- matches 4, but not 12
 
 * Users may define new constraints by binding the dynamic var `miner.herbert/*constraints*`.  It
   should be a map of symbols to vars, where the var names a function that implements the appropriate
