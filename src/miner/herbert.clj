@@ -223,7 +223,7 @@ Returns the successful result of the last rule or the first to fail."
         [args kwargs] (split-with (complement keyword?) modifiers)
         brule (mkbase pred args)]
     (mkopts (case lch
-              \+  (sp/mk1om brule)
+              \+ (sp/mk1om brule)
               \* (sp/mkzom brule) 
               \? (sp/mkopt brule)
               brule)  
@@ -450,7 +450,8 @@ Returns the successful result of the last rule or the first to fail."
 (defn tconstraint 
   ([expr]
      (cond (symbol? expr) (tcon-symbol-constraint expr)
-           (list? expr) (tcon-list-constraint expr)
+           ;; don't use list?, seq? covers Cons as well
+           (seq? expr) (tcon-list-constraint expr)
            (vector? expr) (tcon-seq-constraint expr)
            (set? expr) (tcon-set-constraint expr)
            (map? expr) (tcon-map-constraint expr) 
@@ -469,7 +470,7 @@ Returns the successful result of the last rule or the first to fail."
      (apply sp/mkseq (tconstraint expr) (tconstraint expr2) (map tconstraint more))))
 
 
-(defn confn [con]
+(defn con-rule [con]
   (let [cfn (tconstraint con)]
     (fn ff
       ([item] (ff item {} {} {}))
@@ -484,7 +485,7 @@ Returns the successful result of the last rule or the first to fail."
 
 (defn conformitor [con]
   (if (fn? con) con 
-      #(let [res ((confn con) %)] 
+      #(let [res ((con-rule con) %)] 
          (when (sp/success? res)
            (with-meta (:b res) {::constraint con})))))
 
@@ -494,12 +495,4 @@ Returns the successful result of the last rule or the first to fail."
 
 (defn conforms? [con x] 
   (boolean (conform con x)))
-
-;; want to compile constraint a macro-expansion
-;; BUGGY
-#_ (defmacro conf? [con x]
-  (letfn [(conf [y] ((confn con) y))]
-    `(let [res# (~conf ~x)]
-       (when (sp/success? res#)
-         (with-meta (:b res#) {::constraint '~con})))))
 
