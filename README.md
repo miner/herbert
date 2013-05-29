@@ -71,6 +71,10 @@ https://clojars.org/com.velisco/herbert
   the second item naming the type constraint.  The built-in types and special operators (like
   **and**, **or**, etc.) are not allowed as binding names. <BR>
 (n int)
+
+* A name in a list by itself (n) matches an element equal to the value that the name was bound to
+  previously.  The name may also be used as a parameter to other constraints and to guards.
+[(n int) (n) (n)] -- matches [3 3 3]
 	
 * Square brackets match any seq (not just a vector) with the contained pattern <BR>
 [(* kw sym)]  -- matches '(:a foo :b bar :c baz)
@@ -79,13 +83,35 @@ https://clojars.org/com.velisco/herbert
   with a ? suffix such as **:kw?** <BR>
 {:a int :b sym :c? [int*]}  -- matches {:a 10 :b foo :c [1 2 3]}
 
+* A set with multiple constraints denotes the required element types, but does not exclude others.
+  A single element might match multiple constraints.  A set with a single quantified constraint,
+  defines the requirement on all elements. <BR>
+#{int :a :b} -- matches #{:a :b :c 10}, but not #{:a 10}
+#{int+} -- matches #{1 3 5}, but not #{1 :a 3}
+
 * The guard form does not consume any input.  The guard expression is similar to a fn declaration.
   It takes a vector of arguments which must match the names of previous binding elements.  The guard
   evaluates its body -- if it returns a logical true, the match continues.  On a logical false, the
   whole match fails. <BR>
 [(n int) (m int) (guard [n m] (= (* 3 n) m))] -- matches [2 6]
 
-  
+* Numeric constraints, such as __int__, __even__, __odd__, __float__, or __num__, may take optional
+  parameters in a list following the constraint.  Numerics take a _low_ and a _high_ parameter.  The
+  value must be between to the _low_ and _high_ (inclusive) for it to match.  If only one parameter
+  is given, it defines the _high_, and the _low_ defaults to 0 in that case.  If neither is given,
+  there is no restriction on the high or low values.  Quantified numeric constraints apply the
+  _high_ and _low_ to all the matched elements. <BR>
+(int 1 10)  -- matches 4, but not 12
+
+* Users may define new constraints by binding the dynamic var `miner.herbert/*constraints*`.  It
+  should be a map of symbols to vars, where the var names a function that implements the appropriate
+  predicate.  If the constraint takes parameters, the implementing function should take those
+  paramenters first.  In all cases, the last argument should be the item in question.  Note, the
+  constraint function should accept all values for consideration without throwing an exception.  For
+  example, the `even` constraint is implemented with a test of `integer?` as well as `even?` since
+  the later will throw on non-integer values.  The default constraints are defined in the var
+  `miner.herbert/default-constraints`.
+
 
 ## Examples
 

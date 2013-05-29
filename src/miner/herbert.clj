@@ -2,15 +2,36 @@
   (:require [clojure.string :as str]
             [clojure.set :as set]
             [squarepeg.core :as sp]
-            [miner.herbert.constraints :as con]
+            [miner.herbert.constraints]
             [miner.herbert.proto :as proto]))
 
 (def ^:dynamic *constraints* 
   "Map of user-defined constraint names to vars implementing the appropriate predicate." {})
 
 (def constraints-ns (the-ns 'miner.herbert.constraints))
-(def default-constraints (ns-publics constraints-ns))
 (def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not guard vec seq list map mod})
+
+
+(defn str-last-char [^String s]
+  (when-not (str/blank? s)
+    (.charAt s (dec (.length s)))))
+
+;; FIXME could use strip-last, or combine and make work with keywords
+(defn simple-sym [sym]
+  (let [sname (name sym)
+        lch (str-last-char sname)]
+    (case lch
+      (\+ \* \?) (symbol (subs sname 0 (dec (.length sname))))
+      sym)))
+
+(def default-constraints 
+  (into {} (map (fn [[k v]] [(simple-sym k) v]) (ns-publics constraints-ns))))
+
+(defn simple-sym? [sym]
+  (= sym (simple-sym sym)))
+
+(defn quantified-sym? [sym]
+  (not= sym (simple-sym sym)))
 
 ;; SEM FIXME: maybe try Clojail or something to have a restricted eval
 (defn safe-eval [expr]
@@ -20,10 +41,6 @@
 
 (defn literal? [con]
   (or (keyword? con) (number? con) (string? con) (false? con) (true? con) (nil? con)))
-
-(defn str-last-char [^String s]
-  (when-not (str/blank? s)
-    (.charAt s (dec (.length s)))))
 
 ;; works with strings and symbols
 (defn last-char [s]
@@ -162,20 +179,6 @@ Returns the successful result of the last rule or the first to fail."
       \* :zero-or-more
       \? :optional
       nil)))
-
-;; FIXME could use strip-last, or combine and make work with keywords
-(defn simple-sym [sym]
-  (let [sname (name sym)
-        lch (str-last-char sname)]
-    (case lch
-      (\+ \* \?) (symbol (subs sname 0 (dec (.length sname))))
-      sym)))
-
-(defn simple-sym? [sym]
-  (= sym (simple-sym sym)))
-
-(defn quantified-sym? [sym]
-  (not= sym (simple-sym sym)))
 
 (declare mkconstraint)
 
@@ -495,4 +498,3 @@ Returns the successful result of the last rule or the first to fail."
 
 (defn conforms? [con x] 
   (boolean (conform con x)))
-
