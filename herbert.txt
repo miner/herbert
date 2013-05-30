@@ -779,3 +779,12 @@ Idea: notation for fn specs, basically like fn declaration, but add return type 
 (fn fname ([arg1] return1) ([arg1 arg2] return2) ...)
 
 Issue: how does destructuring play with Herbert schemas.
+
+----------------------------------------------------------------------
+generative testing connection
+
+https://github.com/clojure/test.generative
+http://www.infoq.com/presentations/Clojure-Generative-Testing
+
+also consider contracts libs
+trammel and core.contracts

@@ -1,6 +1,6 @@
 # Herbert
 
-A schema for **edn** data.
+A schema language for **edn** (Clojure data).
 
 [![Way to Eden](img/way-to-eden.png)](#star-trek-reference)
 
@@ -8,7 +8,8 @@ __Warning__: This project is new and rapidly changing.  It's probably not ready 
 
 The _extensible data notation_ **(edn)** defines a useful subset of Clojure data types.  The goal
 of the *Herbert* project is to provide a schema for defining **edn** data structures that can be
-used for documentation, validation and conformance testing.
+used for documentation, validation and conformance testing.  The constraint expressions are
+represented as **edn** values.
 
 A significant feature of Clojure programming is that it doesn't require type declarations.  When
 you're trying to get a project started, you don't want to be forced to declare every term.
@@ -53,11 +54,11 @@ https://clojars.org/com.velisco/herbert
 * Literal constants match themselves: <BR>
 **nil**, **true**, **false**, *numbers*, *"strings"*, *:keywords*
 
-* Simple types: <BR>
+* Simple constraints are named by symbols: <BR>
 **int**, **str**, **kw**, **sym**, **vec**, **list**, **seq**, **map**
 
-* Quantified types, adding a __*__, __+__ or __?__ at the end of a simple type for zero-or-more,
-  one-or-more, or zero-or-one (optional): <BR>
+* Quantified constraints, adding a __*__, __+__ or __?__ at the end of a simple type for
+  zero-or-more, one-or-more, or zero-or-one (optional): <BR>
 **int***, **str+**, **sym?**
   
 * Compound constraints, using **and**, **or** and **not** <BR>
@@ -73,7 +74,7 @@ https://clojars.org/com.velisco/herbert
 `(n int)`
 
 * A name in a list by itself (n) matches an element equal to the value that the name was bound to
-  previously.  The name may also be used as a parameter to other constraints and to guards.
+  previously.  The name may also be used as a parameter to other constraints and to guards. <BR>
 `[(n int) (n) (n)]` -- matches [3 3 3]
 	
 * Square brackets match any seq (not just a vector) with the contained pattern <BR>
@@ -86,7 +87,7 @@ https://clojars.org/com.velisco/herbert
 * A set with multiple constraints denotes the required element types, but does not exclude others.
   A single element might match multiple constraints.  A set with a single quantified constraint,
   defines the requirement on all elements. <BR>
-`#{int :a :b}` -- matches #{:a :b :c 10}, but not #{:a 10}
+`#{int :a :b}` -- matches #{:a :b :c 10}, but not #{:a 10} <BR>
 `#{int+}` -- matches #{1 3 5}, but not #{1 :a 3}
 
 * The guard form does not consume any input.  The guard expression is similar to a fn declaration.
