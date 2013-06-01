@@ -260,8 +260,10 @@ Returns the successful result of the last rule or the first to fail."
           expr (if bname (rest lexpr) lexpr)]
       (cond (and bname (nil? (seq expr))) (mk-solo bname)
             (symbol? (first expr)) (mk-list-simple-type bname expr)
-            (list? (first expr)) (mk-list-complex-type bname expr)
-            :else (throw (ex-info "Unknown mk-list-type" {:name bname :con lexpr}))))))
+            :else (mk-list-complex-type bname expr)))))
+
+;; :else (throw (ex-info "Unknown mk-list-type" {:name bname :con lexpr}))))))
+
 
 (defn mk-quoted-sym [sym]
   ;; no special interpretation of symbol

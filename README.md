@@ -37,7 +37,7 @@ provides a convenient notation for documenting **edn** data structures.
 
 Add the dependency to your project.clj:
 
-    [com.velisco/herbert "0.3.1"]
+    [com.velisco/herbert "0.3.2"]
 
 In your source:
 
@@ -127,6 +127,14 @@ https://clojars.org/com.velisco/herbert
 
 	(conforms? '{:a int :b sym :c? [str*]} '{:a foo :b bar})
 	;=> false
+
+    (conforms? '{:a (a int) :b sym :c? [a+]} '{:a 1 :b foo :c [1 1 1]})
+    ;=> true
+
+    (conforms? '(& {:a (a int) :b (b sym) :c (c [b+])} (assert (= (count c) a))) 
+	           '{:a 2 :b foo :c [foo foo]})
+    ;=> true
+
 	
 ## References
 

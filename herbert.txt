@@ -77,9 +77,7 @@ https://github.com/Datomic/fressian
 issue: squarepeg bindings use keywords.  I was planning to use normal Clojure destructuring.  Maybe
 use a macro to compile into a let with destructuring?  Actually, square peg can bind to symbols but
 the predicates are awkward to write because the only get a one-arg, a map of bindings, so you have
-to (get % 'x).  Nicer to read (:x %).  But I overcame this issue with the "guard" feature by
-requiring the named params.
-
+to (get % 'x).  Nicer to read (:x %).  But I overcame this issue with the "assert" feature.
 
 
 Note that SP rules are greedy and won't backtrack on failure.  Once a subrule succeeds, it's
@@ -170,7 +168,7 @@ name must be distinct from types and ops
 * Inline sequence -- using (& int sym) notation
 
 * Cross-constraints with bindings
-  [(name str) (name2 str) (guard [name name2] (== (count name) (count name2)))]
+  [(name str) (name2 str) (assert (== (count name) (count name2)))]
 
 * literals
 nil, true, false
@@ -596,10 +594,8 @@ Datomic -- we should be able to create datomic schemas from Herbert constraints.
 http://blog.markwatson.com/2012/07/a-little-clojure-wrapper-for-datomic/
 ----------------------------------------------------------------------
 
-Major revision.  No binding names, maybe just :kw.
-No "code expressions" for guards, just var names.  Maybe also anonymous fn, but that's not
-edn-compatible, and it would be nice if the schema was all edn.
-
+even is now a built-in type
+guard predicates no longer supported, just make a new constraint fn for yourself
 
 (int even?)
 (int pos? odd?)
@@ -688,7 +684,6 @@ vs. (int* :every even?)
 
 (even* 
 
-Issue: should guards bind to the simple type or apply to the whole collection?
 
 Clearly kw args, like :step, :iter, :as should apply to whole collection
 :in is a toss up.
@@ -729,6 +724,8 @@ if binding name is distinct from simple types we can figure it out in first posi
 ----------------------------------------------------------------------
 
 
+RENAMED TO assert, no param decl (we look in body expr and find them)
+
 Change guard syntax to be more like a fn declaration.  You must name the args, which must match some
 previously declared binding names.
 
@@ -748,10 +745,10 @@ handle that if we really need to use fnk syntax but I don't see the need at the 
 
 FWIW, Square Peg doc uses keyword keys for binding but it works as well with symbols.
 
-Unimplemented new idea (on top of the new guard syntax): In theory, you could scan the body and find
-the free symbol references so it's kind of redundant to require the vector of 'args'.  (It does make
-the implementation easier.  Also it maybe provides a visual marker and a bit of a double-check on
-the body, but that's an accident of the implementation rather than a design decision.)
+IMPLEMENTED: In theory, you could scan the body and find the free symbol references so it's kind of
+redundant to require the vector of 'args'.  (It does make the implementation easier.  Also it maybe
+provides a visual marker and a bit of a double-check on the body, but that's an accident of the
+implementation rather than a design decision.)
 
 ----------------------------------------------------------------------
 
@@ -759,7 +756,10 @@ Use (name) with no type as a constraint to be exactly the same as a previous bin
 
 [(a int) (a) (a)]  matches [3 3 3], [4 4 4], etc.
 
-experimental @name matches the same way
+Actually, just name by itself (no list) works now.  That's obviously simpler.  Also a+ etc will work.
+
+Tried @name but didn't like it.
+
 
 ----------------------------------------------------------------------
 Need to consider nested binding names in quantifiers.  Only makes sense to bind at top level if
@@ -847,7 +847,12 @@ use a parser on the constraint spec
 write a grammar for your scema lang
 
 
+DONE
 rename guard -- traditional guards are part of backtracking
 maybe assert would be better
 can we get rid of arg decl and just use assert?
+
+
+drop the :as binding, just use the prefix form (foo int)
+
 

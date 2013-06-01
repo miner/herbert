@@ -145,3 +145,7 @@
   (is (conforms? '(& {:a (a int) :b {:bb [a+]}}) {:a 10 :b {:bb [10 10 10]}}))
   (is (not (conforms? '(& {:a (a int) :b {:bb [a+]}}) {:a 10 :b {:bb 10}})))
   (is (not (conforms? '(& {:a (a int) :b {:bb a}}) {:a 10 :b {:bb 11}}))))
+
+(deftest solo-count []
+  (conforms? '(& {:a (a int) :b (b sym) :c? (c [b+])} (assert (= (count c) a))) 
+             '{:a 2 :b foo :c [foo foo]}))
