@@ -9,7 +9,7 @@
   "Map of user-defined constraint names to vars implementing the appropriate predicate." {})
 
 (def constraints-ns (the-ns 'miner.herbert.constraints))
-(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not guard vec seq list map mod})
+(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not assert vec seq list map mod})
 
 
 (defn str-last-char [^String s]
@@ -182,10 +182,19 @@ Returns the successful result of the last rule or the first to fail."
 
 (declare mkconstraint)
 
+(defn mk-solo [bname]
+  ;; simple name should match item equal to that binding
+  (let [solo (gensym bname)]
+    (mkscope
+     (sp/mkseq 
+      (sp/mkbind sp/anything solo)
+      (sp/mkpred (fn [bindings context] (= (get bindings bname) (get bindings solo))))))))
+
 (defn mk-symbol-constraint [sym]
   (let [lch (last-char sym)
         sym (simple-sym sym)
-        brule (sp/mkpr (tcon-pred sym))]
+        pred (tcon-pred sym)
+        brule (if pred (sp/mkpr pred) (mk-solo sym))]
     (case lch
       \+ (sp/mk1om brule)
       \* (sp/mkzom brule)
@@ -239,14 +248,6 @@ Returns the successful result of the last rule or the first to fail."
     (assert (empty? args))
     (mkopts base-rule (apply hash-map :as name kwargs))))
 
-(defn mk-list-solo [bname]
-  ;; simple name should match item equal to that binding
-  (let [solo (gensym bname)]
-    (mkscope
-     (sp/mkseq 
-      (sp/mkbind sp/anything solo)
-      (sp/mkpred (fn [bindings context] (= (get bindings bname) (get bindings solo))))))))
-
 (defn bind-name [sym]
   (and (symbol? sym)
        (not (contains? reserved-ops sym))
@@ -257,7 +258,7 @@ Returns the successful result of the last rule or the first to fail."
   (when-first [fst lexpr]
     (let [bname (bind-name fst)
           expr (if bname (rest lexpr) lexpr)]
-      (cond (and bname (nil? (seq expr))) (mk-list-solo bname)
+      (cond (and bname (nil? (seq expr))) (mk-solo bname)
             (symbol? (first expr)) (mk-list-simple-type bname expr)
             (list? (first expr)) (mk-list-complex-type bname expr)
             :else (throw (ex-info "Unknown mk-list-type" {:name bname :con lexpr}))))))
@@ -288,13 +289,29 @@ Returns the successful result of the last rule or the first to fail."
 (defn mk-subseq-constraint [vexpr]
   (sp/mksub (apply sp/mkseq (conj (mapv mkconstraint vexpr) sp/end))))
 
+(defn args-from-body 
+  ([expr] (args-from-body () expr))
+  ([res expr]
+     (cond (symbol? expr) (conj res expr)
+           (vector? expr) (concat (mapcat args-from-body expr) res)
+           (seq? expr) 
+             (case (first expr) 
+               ;; ignore quoted values
+               quote nil
+               ;; disallow some fns
+               (apply eval) (throw (ex-info "Herbert asserts do not allow 'apply' or 'eval'"
+                                            {:form expr}))
+               ;; for a normal list, skip the "fn", first element
+               (concat (mapcat args-from-body (rest expr)) res)))))
 
 ;; SEM FIXME : dangerous eval
-(defn mk-guard [args body]
-  {:pre [(vector? args) (list? body)]}
-  ;; guard syntax is like an anonymous fn, first arg is a literal vector of binding names
-  ;; which should have been previously declared.  Rest is a body.
-  (let [pred (safe-eval `(fn [{:syms [~@args]}] ~@body))]
+(defn mk-assert [body]
+  {:pre [(seq? body)]}
+  ;; assert syntax takes just a single expr.  Symbols are looked up from previously bound names,
+  ;; except for the first "fn" position of a list.  Some fns are not allowed, such as "apply" and
+  ;; "eval".  
+  (let [args (args-from-body body)
+        pred (safe-eval `(fn [{:syms [~@args]}] ~body))]
     (sp/mkpred (fn [bindings context] (pred (merge context bindings))))))
 
 (defn mk-list-constraint [lexpr]
@@ -304,8 +321,7 @@ Returns the successful result of the last rule or the first to fail."
       and (apply mkand (map mkconstraint (rest lexpr)))
       not (sp/mkseq (sp/mknot (mkconstraint (second lexpr))) sp/anything)
       quote (mk-quoted-sym (second lexpr))
-      guard (mk-guard (second lexpr) (nnext lexpr))
-      (deref clojure.core/deref) (mk-list-solo (second lexpr))
+      assert (mk-assert (second lexpr))
       * (sp/mkzom (mk-con-seq (rest lexpr)))
       + (sp/mk1om (mk-con-seq (rest lexpr))) 
       ? (sp/mkopt (mk-con-seq (rest lexpr)))  

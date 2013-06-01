@@ -788,3 +788,66 @@ http://www.infoq.com/presentations/Clojure-Generative-Testing
 
 also consider contracts libs
 trammel and core.contracts
+
+http://www.json-generator.com/
+
+Something like this for Herbert. 
+
+----------------------------------------------------------------------
+"Addressable" values
+
+Nested key paths
+Ordinals
+Named bindings
+
+Like xpath
+
+----------------------------------------------------------------------
+"loose" schema comment by cgrand
+
+http://grokbase.com/t/gg/clojure/12bsnsv82w/ann-clj-schema-schemas-for-clojure-maps 
+
+
+Hi Alex,
+
+To echo Laurent's concern: if you use schema to validate inputs you get
+from another (sub)system then, in my opinion, a loose schema is a better
+fit.
+It's the must-understand/must-ignore schism once again.
+Must-ignore (loose schemas) requires care when revising a schema (since any
+piece of data valid under both schemas should not have its semantics
+altered) but allows for forward-compatibility and, as such, reduces
+coupling.
+
+Regarding your use-case (validation before storing): I see two "complected"
+concerns: ensuring that you don't store bad data and ensuring that you
+don't store too much. So, couldn't a loose schema be sued to first validate
+the piece of data and then (or at the same time) prune extra keys?
+
+My two cents,
+
+Christophe
+
+---------------------
+
+ideas:  do you want a projection/filter from one spec to another?
+diff specs?  (ala clojure.data/diff)
+
+----------------------------------------------------------------------
+
+direct instance test
+anything with a dot could be a class, test with (instance? dot.type)
+anything with a capital?  Integer Long etc
+anything starting with a ^Integer, like a type tag meta notation -- doesn't work
+explicitly:  (type java.lang.Integer)
+
+
+
+use a parser on the constraint spec 
+write a grammar for your scema lang
+
+
+rename guard -- traditional guards are part of backtracking
+maybe assert would be better
+can we get rid of arg decl and just use assert?
+

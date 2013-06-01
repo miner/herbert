@@ -68,14 +68,15 @@ https://clojars.org/com.velisco/herbert
 * Quantified constraints, a list beginning with __*__, __+__ or __?__ as the first element. <BR>
 `(* kw sym)`  -- zero or more pairs of keywords and symbols
 
-* Named constraints are written in a list with the first item a (non-reserved) symbol and
-  the second item naming the type constraint.  The built-in types and special operators (like
-  **and**, **or**, etc.) are not allowed as binding names. <BR>
+* Named constraints are written in a list with the first item a (non-reserved) symbol and the second
+  item naming the constraint.  The built-in types and special operators (like **and**, **or**,
+  etc.) are not allowed as binding names.  The name may be used as a parameter to other constraints
+  and to assert expressions.<BR>
 `(n int)`
 
-* A name in a list by itself (n) matches an element equal to the value that the name was bound to
-  previously.  The name may also be used as a parameter to other constraints and to guards. <BR>
-`[(n int) (n) (n)]` -- matches [3 3 3]
+* A symbol by itself matches an element equal to the value that the name was bound to
+  previously. <BR>
+`[(n int) n n]` -- matches [3 3 3]
 	
 * Square brackets match any seq (not just a vector) with the contained pattern <BR>
 `[(* kw sym)]`  -- matches '(:a foo :b bar :c baz)
@@ -90,11 +91,10 @@ https://clojars.org/com.velisco/herbert
 `#{int :a :b}` -- matches #{:a :b :c 10}, but not #{:a 10} <BR>
 `#{int+}` -- matches #{1 3 5}, but not #{1 :a 3}
 
-* The guard form does not consume any input.  The guard expression is similar to a fn declaration.
-  It takes a vector of arguments which must match the names of previous binding elements.  The guard
-  evaluates its body -- if it returns a logical true, the match continues.  On a logical false, the
-  whole match fails. <BR>
-`[(n int) (m int) (guard [n m] (= (* 3 n) m))]` -- matches [2 6]
+* The `assert` form does not consume any input.  The expression is evaluated within the enviroment
+  of the previous bindings -- if it returns a logical true, the match continues.  On a logical
+  false, the whole match fails. <BR> 
+`[(n int) (m int) (assert (= (* 3 n) m))]` -- matches [2 6]
 
 * Numeric constraints, such as __int__, __even__, __odd__, __float__, or __num__, may take optional
   parameters in a list following the constraint.  Numerics take a _low_ and a _high_ parameter.  The

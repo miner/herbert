@@ -97,11 +97,11 @@
   (is (conforms? '[(int+ :iter miner.test-herbert/plus2)] [11 13  15 17 19]))
   (is (conforms? '[(int+ :indexed miner.test-herbert/nodd)] [1 -2 3 -4 5 -6])))
 
-(deftest binding-with-guard []
-  (is (conforms? '[(n int) (m int) (guard [n m] (= (* 2 n) m)) ] [2 4]))
-  (is (conforms? '[(n int) [(ms kw*)] (guard [ms n] (= (count ms) n))] '[3 [:a :b :c]]))
-  (is (not (conforms? '[(n int) (m int) (guard [n m] (= (* 3 n) m)) ] [2 4])))
-  (is (conforms? '[(ns int* :step 3) (guard [ns] (== (count ns) 4))] [2 5 8 11])))
+(deftest binding-with-assert []
+  (is (conforms? '[(n int) (m int) (assert (= (* 2 n) m)) ] [2 4]))
+  (is (conforms? '[(n int) [(ms kw*)] (assert (= (count ms) n))] '[3 [:a :b :c]]))
+  (is (not (conforms? '[(n int) (m int) (assert (= (* 3 n) m)) ] [2 4])))
+  (is (conforms? '[(ns int* :step 3) (assert (== (count ns) 4))] [2 5 8 11])))
 
 (deftest and-or []
   (is (conforms? '[(or int kw) (and int even)] [:a 4]))
@@ -133,14 +133,15 @@
   (is (conforms? '(str "f.*r") "foobar"))
   (is (not (conforms? '(str "f.*r") "xfoobar"))))
 
-(deftest nested-map-guard []
-  (is (conforms? '(& {:a (a int) :b {:bb (bb int)}} (guard [a bb] (== a bb))) 
+(deftest nested-map-assert []
+  (is (conforms? '(& {:a (a int) :b {:bb (bb int)}} (assert (== a bb))) 
                  {:a 10 :b {:bb 10}}))
-  (is (not (conforms? '(& {:a (a int) :b {:bb (bb int)}} (guard [a bb] (== a bb))) 
+  (is (not (conforms? '(& {:a (a int) :b {:bb (bb int)}} (assert (== a bb))) 
                       {:a 11 :b {:bb 10}}))))
 
 (deftest solo-constraints-for-equality []
   (is (conforms? '(& {:a (a int) :b {:bb (a)}}) {:a 10 :b {:bb 10}}))
-  ;; not sure about the @ notation
-  (is (conforms? '(& {:a (a int) :b {:bb @a}}) {:a 10 :b {:bb 10}}))
-  (is (not (conforms? '(& {:a (a int) :b {:bb (a)}}) {:a 10 :b {:bb 11}}))))
+  (is (conforms? '(& {:a (a int) :b {:bb a}}) {:a 10 :b {:bb 10}}))
+  (is (conforms? '(& {:a (a int) :b {:bb [a+]}}) {:a 10 :b {:bb [10 10 10]}}))
+  (is (not (conforms? '(& {:a (a int) :b {:bb [a+]}}) {:a 10 :b {:bb 10}})))
+  (is (not (conforms? '(& {:a (a int) :b {:bb a}}) {:a 10 :b {:bb 11}}))))
