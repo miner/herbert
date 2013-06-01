@@ -32,6 +32,11 @@ turn those data format descriptions into Clojure predicates which can be used fo
 testing.  A *Herbert* expression can be useful in an assertion or pre-condition.  *Herbert* also
 provides a convenient notation for documenting **edn** data structures.
 
+Quick example:
+
+	(conforms? '{:a int :b [sym+] :c str} '{:a 42 :b [foo bar baz] :c "foo"})
+	;=> true
+
 
 ## Leiningen
 
@@ -113,6 +118,13 @@ https://clojars.org/com.velisco/herbert
   the later will throw on non-integer values.  The default constraints are defined in the var
   `miner.herbert/default-constraints`.
 
+## Usage
+
+The `conforms?` predicate takes a constraint expression and a value.  It returns `true` if the value
+conforms to the constraint expression, false otherwise.  The `conform` function returns the map of
+bindings for a successful match or nil for a failed match.  With a single argument, the `conform`
+function returns a function that will execute the match.  This is useful if you need to check the
+same constraint multiple times.
 
 ## Examples
 
@@ -135,7 +147,14 @@ https://clojars.org/com.velisco/herbert
 	           '{:a 2 :b foo :c [foo foo]})
     ;=> true
 
+    (conform '[(a int) (b int) (c int+ a b)] [3 7 4 5 6])
+    ;=> {c [4 5 6], b 7, a 3}
+
+    (def my-checker (conform '[(a int) (b int) (c int+ a b)]))
+	(my-checker [3 7 4 5 6])
+    ;=> {c [4 5 6], b 7, a 3}
 	
+
 ## References
 
 * edn: http://edn-format.org
@@ -144,9 +163,8 @@ https://clojars.org/com.velisco/herbert
 * clj-schema:  https://github.com/runa-dev/clj-schema
 
 
-## Star Trek reference
+## Star Trek, _The Way to Eden_  
 
-Star Trek, _The Way to Eden_  
 stardate 5832.3
 
 **Space Hippies**: "Herbert, Herbert, Herbert ..."  

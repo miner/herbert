@@ -149,3 +149,6 @@
 (deftest solo-count []
   (conforms? '(& {:a (a int) :b (b sym) :c? (c [b+])} (assert (= (count c) a))) 
              '{:a 2 :b foo :c [foo foo]}))
+
+(deftest bind-args []
+  (conforms? '[(a int) (b int) (c int a b)] [3 7 5]))

@@ -856,3 +856,4 @@ can we get rid of arg decl and just use assert?
 drop the :as binding, just use the prefix form (foo int)
 
 
+define some constants like MAX_INT for param constraints
