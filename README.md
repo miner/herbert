@@ -120,11 +120,14 @@ https://clojars.org/com.velisco/herbert
 
 ## Usage
 
-The `conforms?` predicate takes a constraint expression and a value.  It returns `true` if the value
-conforms to the constraint expression, false otherwise.  The `conform` function returns the map of
-bindings for a successful match or nil for a failed match.  With a single argument, the `conform`
-function returns a function that will execute the match.  This is useful if you need to check the
-same constraint multiple times.
+The `conform` function with two arguments (the constraint expression and the value to test) returns
+either a map of bindings for a successful match or nil for a failed match.  With a single argument
+(the constraint expresion), the `conform` function returns a function that will execute the match
+against that constraint.  This is useful if you need to check the same constraint multiple times.
+
+For the common case of testing conformation, the `conforms?` predicate takes a constraint expression
+and a value.  It returns `true` if the value conforms to the constraint expression, `false`
+otherwise.
 
 ## Examples
 
@@ -135,19 +138,29 @@ same constraint multiple times.
 	;=> true
 
 	(conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo})
+	; :c is optional so it's OK if it's not there at all.
 	;=> true
 
 	(conforms? '{:a int :b sym :c? [str*]} '{:a foo :b bar})
 	;=> false
 
     (conforms? '{:a (a int) :b sym :c? [a+]} '{:a 1 :b foo :c [1 1 1]})
+	; a is bound to the int associated with :a, and then used again to define the values in the
+	; seq associated with :c.
     ;=> true
 
     (conforms? '(& {:a (a int) :b (b sym) :c (c [b+])} (assert (= (count c) a))) 
 	           '{:a 2 :b foo :c [foo foo]})
+    ; The & operator just means the following elements are found inline, not in a container.
+	; In this case, we use it to associate the assertion with the single map constraint.  The
+	; assertion says that number or items in the :c value must be equal to the value associated
+	; with :a.  Notice that all the elements in the :c seq must be equal to the symbol associated 
+	; with :b.			   
     ;=> true
 
     (conform '[(a int) (b int) (c int+ a b)] [3 7 4 5 6])
+	; Inside a seq, the first two ints establish the low and high range of the rest 
+	; of the int values.
     ;=> {c [4 5 6], b 7, a 3}
 
     (def my-checker (conform '[(a int) (b int) (c int+ a b)]))

@@ -845,7 +845,10 @@ explicitly:  (type java.lang.Integer)
 
 use a parser on the constraint spec 
 write a grammar for your scema lang
+use a formal AST derived from Herbert notation
+analogy: Relax/NG XML vs. Compact
 
+----------------------------------------------------------------------
 
 DONE
 rename guard -- traditional guards are part of backtracking
