@@ -4,8 +4,6 @@ A schema language for **edn** (Clojure data).
 
 [![Way to Eden](img/way-to-eden.png)](#star-trek-reference)
 
-__Warning__: This project is new and rapidly changing.  It's probably not ready for other people to use yet.
-
 The _extensible data notation_ **(edn)** defines a useful subset of Clojure data types.  The goal
 of the *Herbert* project is to provide a schema for defining **edn** data structures that can be
 used for documentation, validation and conformance testing.  The constraint expressions are
@@ -15,9 +13,9 @@ A significant feature of Clojure programming is that it doesn't require type dec
 you're trying to get a project started, you don't want to be forced to declare every term.
 Refactoring is also simpler without type declarations.  On the other hand, there are times when you
 know the required *shape* of your data and you would like to guarantee that it conforms to
-expectations.  Clojure has `assert` statements and *pre-conditions* that be used to test data.  I
-usually end up writing custom predicates as a sanity check on my data.  They often catch simple
-typos and careless errors in my code and data files.
+expectations.  I usually end up writing custom predicates and using `assert` statements as a
+sanity check on my data.  They often catch simple typos and careless errors in my code and data
+files.
 
 Documentation is also required to explain the data structures used in a program.  In some cases, the
 data format is more important than the code that manipulates it.  At times, I've found it tedious to
@@ -27,15 +25,11 @@ lot of words if you want to be precise.  Most of the time, a simple data example
 essence of the data format but it's hard to capture the full scope of possibilities with only a few
 examples.
 
-*Herbert* is designed to describe the format of the **edn** data.  It provides a convenient way to
-turn those data format descriptions into Clojure predicates which can be used for conformance
-testing.  A *Herbert* expression can be useful in an assertion or pre-condition.  *Herbert* also
-provides a convenient notation for documenting **edn** data structures.
-
-Quick example:
-
-	(conforms? '{:a int :b [sym+] :c str} '{:a 42 :b [foo bar baz] :c "foo"})
-	;=> true
+*Herbert* is designed to describe the format of **edn** data.  It provides a convenient way to turn
+those data format descriptions into Clojure predicates which can be used for conformance testing.  A
+*Herbert* test can be especially useful in `assert` statements and pre-conditions, but they're also
+applicable to many other data matching tasks.  Naturally, the *Herbert* notation is appropriate for
+documenting **edn** data structures.
 
 
 ## Leiningen
@@ -44,15 +38,29 @@ Add the dependency to your project.clj:
 
     [com.velisco/herbert "0.3.2"]
 
-In your source:
-
-    (ns my.project
-		(:require [miner.herbert :as herb]))
-
 I might forget to update the version number here in the README.  The latest version is available on
 Clojars.org:
 
 https://clojars.org/com.velisco/herbert
+
+
+## Usage
+
+The `conform` function with two arguments (the constraint expression and the value to test) returns
+either a map of bindings for a successful match or nil for a failed match.  With a single argument
+(the constraint expresion), the `conform` function returns a function that will execute the match
+against that constraint.  This is useful if you need to check the same constraint multiple times.
+
+For the common case of testing conformation, the `conforms?` predicate takes a constraint expression
+and a value.  It returns `true` if the value conforms to the constraint expression, `false`
+otherwise.
+
+Quick example:
+
+	(require '[miner.herbert :as h])
+	(h/conforms? '{:a int :b [sym+] :c str} '{:a 42 :b [foo bar baz] :c "foo"})
+	;=> true
+
 
 ## Notation
 
@@ -109,6 +117,10 @@ https://clojars.org/com.velisco/herbert
   _high_ and _low_ to all the matched elements. <BR>
 `(int 1 10)`  -- matches 4, but not 12
 
+* Inlined constraints. A list starting with `&` as the first element refers to multiple items in
+  order (as opposed to being within a container sequence). <BR>
+`(& (n int) (f float) (assert (> n f))) -- matches `4 3.14`
+
 * Users may define new constraints by binding the dynamic var `miner.herbert/*constraints*`.  It
   should be a map of symbols to vars, where the var names a function that implements the appropriate
   predicate.  If the constraint takes parameters, the implementing function should take those
@@ -117,17 +129,6 @@ https://clojars.org/com.velisco/herbert
   example, the `even` constraint is implemented with a test of `integer?` as well as `even?` since
   the later will throw on non-integer values.  The default constraints are defined in the var
   `miner.herbert/default-constraints`.
-
-## Usage
-
-The `conform` function with two arguments (the constraint expression and the value to test) returns
-either a map of bindings for a successful match or nil for a failed match.  With a single argument
-(the constraint expresion), the `conform` function returns a function that will execute the match
-against that constraint.  This is useful if you need to check the same constraint multiple times.
-
-For the common case of testing conformation, the `conforms?` predicate takes a constraint expression
-and a value.  It returns `true` if the value conforms to the constraint expression, `false`
-otherwise.
 
 ## Examples
 
