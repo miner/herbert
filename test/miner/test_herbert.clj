@@ -147,8 +147,12 @@
   (is (not (conforms? '(& {:a (a int) :b {:bb a}}) {:a 10 :b {:bb 11}}))))
 
 (deftest solo-count []
-  (conforms? '(& {:a (a int) :b (b sym) :c? (c [b+])} (assert (= (count c) a))) 
-             '{:a 2 :b foo :c [foo foo]}))
+  (is (conforms? '(& {:a (a int) :b (b sym) :c? (c [b+])} (assert (= (count c) a))) 
+             '{:a 2 :b foo :c [foo foo]})))
 
 (deftest bind-args []
-  (conforms? '[(a int) (b int) (c int a b)] [3 7 5]))
+  (is (conforms? '[(a int) (b int) (c int a b)] [3 7 5])))
+
+(deftest quoted-syms []
+  (is (conforms? '[int 'int sym] '[42 int foo]))
+  (is (not (conforms? '[int 'int sym] '[42 13 foo]))))

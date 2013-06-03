@@ -265,9 +265,11 @@ Returns the successful result of the last rule or the first to fail."
 ;; :else (throw (ex-info "Unknown mk-list-type" {:name bname :con lexpr}))))))
 
 
+;; probably don't want this
 (defn mk-quoted-sym [sym]
-  ;; no special interpretation of symbol
-  (sp/mkpr (tcon-pred sym)))
+  (if-let [pred (tcon-pred sym)]
+    (sp/mkpr pred)
+    (throw (ex-info (str "No constraint function defined for " sym) {:sym sym}))))
 
 ;; SEM FIXME -- drop support for (N t) -- just spell it out N times [t t t] or make a repeat op
 ;; SEM FIXME -- should use total cycle, not element count
@@ -322,7 +324,11 @@ Returns the successful result of the last rule or the first to fail."
       or (apply sp/mkalt (map mkconstraint (rest lexpr)))
       and (apply mkand (map mkconstraint (rest lexpr)))
       not (sp/mkseq (sp/mknot (mkconstraint (second lexpr))) sp/anything)
-      quote (mk-quoted-sym (second lexpr))
+      quote (if (symbol? (second lexpr))
+              ;; symbols can be used as literals if quoted
+              (sp/mklit (second lexpr))
+              ;; dequoting here is convenient for macros
+              (mkconstraint (second lexpr)))
       assert (mk-assert (second lexpr))
       * (sp/mkzom (mk-con-seq (rest lexpr)))
       + (sp/mk1om (mk-con-seq (rest lexpr))) 
@@ -470,6 +476,7 @@ Returns the successful result of the last rule or the first to fail."
 
 (defn mkconstraint 
   ([expr]
+     #_ (println "mkconstraint " expr)
      (cond (symbol? expr) (mk-symbol-constraint expr)
            ;; don't use list?, seq? covers Cons as well
            (seq? expr) (mk-list-constraint expr)
@@ -482,7 +489,7 @@ Returns the successful result of the last rule or the first to fail."
            (false? expr) (sp/mkpr false?)
            (true? expr) (sp/mkpr true?)
            (number? expr) (sp/mklit expr)
-             :else (throw (ex-info "Unknown constraint form" {:con expr}))))
+           :else (throw (ex-info "Unknown constraint form" {:con expr}))))
      
   ([expr expr2]
      (sp/mkseq (mkconstraint expr) (mkconstraint expr2)))
@@ -516,3 +523,13 @@ Returns the successful result of the last rule or the first to fail."
 
 (defn conforms? [con x] 
   (boolean (conform con x)))
+
+;; UGLY and unfinished
+(defmacro conf? [con x]
+  (println "conf?" con (type con))
+  (let [dcon (if (and (seq? con) (= (first con) 'quote)) (second con) con)
+        fcf (conform dcon)]
+    (println "  dc" dcon (type dcon))
+    (println "  cf " fcf (type fcf))
+    `(let [res# (fcf ~x)]
+       (when res#  (with-meta res# {::constraint ~con})))))

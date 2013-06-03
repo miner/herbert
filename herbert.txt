@@ -863,3 +863,30 @@ define some constants like MAX_INT for param constraints
 
 
 Issue: what about sorted-maps and sets?  Not EDN
+
+
+Provide a ns->constraints fn to grab all the public vars out of a ns and map to simple-syms.
+Basically, already there, you just need to expose.  Need an easy way for users to take control.
+
+
+
+----------------------------------------------------------------------
+http://www.lispcast.com/the-datomic-architecture-and-data-model
+
+Rich Hickey: " This is not a schemaless system. There's no such thing as a schemaless system. There
+are systems where you write your schema down and ones where you don't. There's no such thing as a
+schemaless database. So we do require you to be explicit about this part of your database."
+
+Eric Normand: The issue is not whether a database needs an explicit schema. The issue is whether the
+language you write down your schema in can express the data model you would like to use.  That said,
+the Datomic schemas, along with the "datom" model, do look expressive.
+
+http://docs.datomic.com/schema.html
+----------------------------------------------------------------------
+
+Issue: versions and migration of data
+version numbers?
+
+micro-format for edn?  It's schemaless by design, but something to identify a format version might
+be useful.  Same could be said for Herbert schemas.  On the other hand, adds weight and it's hard to
+see how Clojure datatypes will change much (in a non-compatible way).
