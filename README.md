@@ -9,13 +9,12 @@ of the *Herbert* project is to provide a schema for defining **edn** data struct
 used for documentation, validation and conformance testing.  The constraint expressions are
 represented as **edn** values.
 
-A significant feature of Clojure programming is that it doesn't require type declarations.  When
+A significant feature of Clojure programming is the avoidance of required type declarations.  When
 you're trying to get a project started, you don't want to be forced to declare every term.
 Refactoring is also simpler without type declarations.  On the other hand, there are times when you
 know the required *shape* of your data and you would like to guarantee that it conforms to
-expectations.  I usually end up writing custom predicates and using `assert` statements as a
-sanity check on my data.  They often catch simple typos and careless errors in my code and data
-files.
+expectations.  I usually end up writing custom predicates and using `assert` statements as a sanity
+check on my data.  They often catch simple typos and careless errors in my code and data files.
 
 Documentation is also required to explain the data structures used in a program.  In some cases, the
 data format is more important than the code that manipulates it.  At times, I've found it tedious to
@@ -177,7 +176,7 @@ Quick example:
 * clj-schema:  https://github.com/runa-dev/clj-schema
 
 
-## Star Trek, _The Way to Eden_  
+## Star Trek: _The Way to Eden_  
 
 stardate 5832.3
 

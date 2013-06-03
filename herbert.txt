@@ -860,3 +860,6 @@ drop the :as binding, just use the prefix form (foo int)
 
 
 define some constants like MAX_INT for param constraints
+
+
+Issue: what about sorted-maps and sets?  Not EDN
