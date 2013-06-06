@@ -113,7 +113,8 @@ Quick example:
   value must be between to the _low_ and _high_ (inclusive) for it to match.  If only one parameter
   is given, it defines the _high_, and the _low_ defaults to 0 in that case.  If neither is given,
   there is no restriction on the high or low values.  Quantified numeric constraints apply the
-  _high_ and _low_ to all the matched elements. <BR>
+  _high_ and _low_ to all the matched elements. A name maybe added as the optional first element.
+  (See Named Constraints above.)<BR>
 `(int 1 10)`  -- matches 4, but not 12
 
 * Inlined constraints. A list starting with `&` as the first element refers to multiple items in

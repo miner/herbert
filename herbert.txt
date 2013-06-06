@@ -589,11 +589,6 @@ but that's inconsistent with explicit naming of args
 (* int int int)
 ----------------------------------------------------------------------
 
-Datomic -- we should be able to create datomic schemas from Herbert constraints.
-
-http://blog.markwatson.com/2012/07/a-little-clojure-wrapper-for-datomic/
-----------------------------------------------------------------------
-
 even is now a built-in type
 guard predicates no longer supported, just make a new constraint fn for yourself
 
@@ -871,6 +866,13 @@ Basically, already there, you just need to expose.  Need an easy way for users t
 
 
 ----------------------------------------------------------------------
+Datomic -- we should be able to create datomic schemas from Herbert constraints.
+
+http://blog.markwatson.com/2012/07/a-little-clojure-wrapper-for-datomic/
+
+boiler plate for attributes
+https://gist.github.com/rodnaph/5694439
+
 http://www.lispcast.com/the-datomic-architecture-and-data-model
 
 Rich Hickey: " This is not a schemaless system. There's no such thing as a schemaless system. There
@@ -882,6 +884,8 @@ language you write down your schema in can express the data model you would like
 the Datomic schemas, along with the "datom" model, do look expressive.
 
 http://docs.datomic.com/schema.html
+
+
 ----------------------------------------------------------------------
 
 Issue: versions and migration of data
@@ -890,3 +894,10 @@ version numbers?
 micro-format for edn?  It's schemaless by design, but something to identify a format version might
 be useful.  Same could be said for Herbert schemas.  On the other hand, adds weight and it's hard to
 see how Clojure datatypes will change much (in a non-compatible way).
+----------------------------------------------------------------------
+
+Not based on Frank Herbert, author of Dune, but that would be fun, too.
+
+
+Choosing the right data type
+http://cemerick.com/2011/07/05/flowchart-for-choosing-the-right-clojure-type-definition-form/
