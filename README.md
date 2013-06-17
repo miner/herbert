@@ -119,7 +119,7 @@ Quick example:
 
 * Inlined constraints. A list starting with `&` as the first element refers to multiple items in
   order (as opposed to being within a container sequence). <BR>
-`(& (n int) (f float) (assert (> n f))) -- matches `4 3.14`
+`(& (n int) (f float) (assert (> n f)))` -- matches 4 3.14
 
 * Users may define new constraints by binding the dynamic var `miner.herbert/*constraints*`.  It
   should be a map of symbols to vars, where the var names a function that implements the appropriate
@@ -127,7 +127,7 @@ Quick example:
   paramenters first.  In all cases, the last argument should be the item in question.  Note, the
   constraint function should accept all values for consideration without throwing an exception.  For
   example, the `even` constraint is implemented with a test of `integer?` as well as `even?` since
-  the later will throw on non-integer values.  The default constraints are defined in the var
+  the latter will throw on non-integer values.  The default constraints are defined in the var
   `miner.herbert/default-constraints`.
 
 ## Examples
