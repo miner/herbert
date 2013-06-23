@@ -94,7 +94,8 @@ Quick example:
 `[(* kw sym)]`  -- matches '(:a foo :b bar :c baz)
 
 * Curly braces match any map with the given keys and value types.  Optional keywords are written
-  with a ? suffix such as **:kw?** <BR>
+  with a ? suffix such as **:kw?**.  For convenience, an optional keyword constraint implicitly
+  allows **nil** for the corresponding value. <BR>
 `{:a int :b sym :c? [int*]}`  -- matches {:a 10 :b foo :c [1 2 3]}
 
 * A set with multiple constraints denotes the required element types, but does not exclude others.
@@ -105,11 +106,11 @@ Quick example:
 
 * The `assert` form does not consume any input.  The expression is evaluated within the enviroment
   of the previous bindings -- if it returns a logical true, the match continues.  On a logical
-  false, the whole match fails. <BR> 
+  false, the whole match fails. <BR>
 `[(n int) (m int) (assert (== (* 3 n) m))]` -- matches [2 6]
 
 * A list starting with `=`, `==`, `not=`, `<`, `>`, `<=` or `>=` is an *implied assert* and treated
-  as if the form was within an `assert` test <BR>.
+  as if the form was within an `assert` test. <BR>
 `[(n int) (m int) (== (* 3 n) m)]` -- matches [2 6]
 
 * Numeric constraints, such as __int__, __even__, __odd__, __float__, or __num__, may take optional
