@@ -340,6 +340,7 @@ Returns the successful result of the last rule or the first to fail."
               (sp/mklit (second lexpr))
               ;; dequoting here is convenient for macros
               (mkconstraint (second lexpr)))
+      (= == not= < > <= >=) (mk-assert lexpr)
       assert (mk-assert (second lexpr))
       * (sp/mkzom (mk-con-seq (rest lexpr)))
       + (sp/mk1om (mk-con-seq (rest lexpr))) 

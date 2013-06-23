@@ -26,7 +26,7 @@ default-tagged-value-reader fn to convert all tagged values to a TaggedValue rec
 override #uuid and #inst -- really should do everything in default-data-readers.)
 
 ----------------------------------------------------------------------
-** Ideas **
+** Sources for Ideas **
 
 Typed Racket has lots of ideas
 http://docs.racket-lang.org/ts-guide/types.html
@@ -79,7 +79,6 @@ use a macro to compile into a let with destructuring?  Actually, square peg can 
 the predicates are awkward to write because the only get a one-arg, a map of bindings, so you have
 to (get % 'x).  Nicer to read (:x %).  But I overcame this issue with the "assert" feature.
 
-
 Note that SP rules are greedy and won't backtrack on failure.  Once a subrule succeeds, it's
 committed.  That's it.  Some ambiguous `sym? sym int` might fail on a `sym int`, but `sym sym?  int`
 would succeed.  Also, you might want something like (or int+ sym+) instead of (or int* sym*) because
@@ -94,18 +93,17 @@ Remember: no backtracking in SP.  You can look-ahead instead with sp/mknot (as i
 by...")
 
 
-
-
 ----------------------------------------------------------------------
 Note: schema is singular, schemata is plural.
 
 ----------------------------------------------------------------------
 
+Proposed for Clojure conj 2013:
+
 It would be interesting to compare an implementation using core.logic to the squarepeg version.
 [org.clojure/core.logic "0.8.3"]
 
 ----------------------------------------------------------------------
-
 
 Shape of data
 
@@ -178,6 +176,8 @@ nil, true, false
 'ns/symbols
 "literal string"
 \C
+
+(note -- must quote symbols to get literal treatment)
 
 * wildcard
 any -- matches any type
@@ -256,7 +256,8 @@ Remember regex is not EDN type
 
 I think we should drop the N and [M N] ops, not really needed
 
-was =, but changed to & for inline ordered elements
+& for inline ordered elements
+  -- at one point was =, but changed to allow = for asserts and readability
 (& t1 t2 t3) -- exactly 1 inlined seq of elements, same as (N t1 t2 ... tN) where N=count(ts)
 
 Note:  maybe should remove the Numbered quantifier -- not sure if it's worth the complexity?
@@ -656,9 +657,9 @@ at end of list can be kw + single args
 (int = (+ 3 n))
 (int :in #{(+ 3 n)})
 
-maybe cross item constraint should be a separate expression
+maybe cross item constraint should be a separate expression -- YES, implemented
 
-(int odd? :as n) (int even? :as m) (assert (> n m))
+(& (n odd) (m even) (assert (> n m)))
 
 ----------------------------------------------------------------------
 
@@ -694,78 +695,24 @@ But the more practical idea is to bind guards to the base type and the kw args t
 dyvar *constraints*
 similar in usage to *data-readers*
 
-
-
-
-ISSUE: how to define new basic types?  You can define a fn but how is it added to the list?  Right
-now, we look up the symbol and return a predicate.  That could be in a dynamic var or atom that's
-updated.
-
-ISSUE: how can you tell a single item term from a multi-item or collection term?  Collection is like
-a single item, but also has internal structure like multiple items.
-
-IDEA:  alternate way to do binding instead of :as.  Use leading :kw which works well with square peg
-convention.  Maybe not so good for normal fn args but I think that's OK.
-
-[(:n int even?) (:s sym)]
-
-[(n int even?) (s sym)]
-
-[(int even? :as n) (sym :as s)]
-
-if binding name is distinct from simple types we can figure it out in first position of list
-
-(ns int* even?)
-----------------------------------------------------------------------
-
-
-RENAMED TO assert, no param decl (we look in body expr and find them)
-
-Change guard syntax to be more like a fn declaration.  You must name the args, which must match some
-previously declared binding names.
-
-Old:
- [(n int) (m int) (guard (= (* 2 (get % 'n)) (get % 'm))) ]
-
-New:
- [(n int) (m int) (guard [n m] (= (* 2 n) m))]
-
-
-Guards are similar to prismatic "fnk" functions.  (Pronounced "fun-kay" by me as interpreted by Wild
-Cherry "Play That Funky Music") A fnk function takes one-arg, a map of bindings but it's declared
-with multiple args (which are interpreted like {:keys ...} destructuring).
-
-For Herbert guards, I like using symbols for binding names (not keywords).  We could automatically
-handle that if we really need to use fnk syntax but I don't see the need at the momment.
-
-FWIW, Square Peg doc uses keyword keys for binding but it works as well with symbols.
-
-IMPLEMENTED: In theory, you could scan the body and find the free symbol references so it's kind of
-redundant to require the vector of 'args'.  (It does make the implementation easier.  Also it maybe
-provides a visual marker and a bit of a double-check on the body, but that's an accident of the
-implementation rather than a design decision.)
+Implemented with *constraints* look of sym to var implementing predicate.
 
 ----------------------------------------------------------------------
 
-Use (name) with no type as a constraint to be exactly the same as a previous binding for name.
+Use `name` with no type as a constraint to be exactly the same as a previous binding for name.
 
-[(a int) (a) (a)]  matches [3 3 3], [4 4 4], etc.
+[(a int) a a]  matches [3 3 3], [4 4 4], etc.
 
-Actually, just name by itself (no list) works now.  That's obviously simpler.  Also a+ etc will work.
-
-Tried @name but didn't like it.
-
+Also a+ etc will work.
 
 ----------------------------------------------------------------------
 Need to consider nested binding names in quantifiers.  Only makes sense to bind at top level if
 there may be multiple matches.  Currently, last one probably wins.
 
 ----------------------------------------------------------------------
+
 Need a macro that "pre-compiles" constraint for better performance at runtime.
 ----------------------------------------------------------------------
-cgrand mentions "loose schema" in reference to clj-schema.  The point is to allow extra stuff
-strict schema would be less flexible
-
 test with records -- it would be nice if {:a int} worked as well -- looks like it does
 ----------------------------------------------------------------------
 Idea: notation for fn specs, basically like fn declaration, but add return type at end
@@ -800,6 +747,9 @@ Like xpath
 ----------------------------------------------------------------------
 "loose" schema comment by cgrand
 
+cgrand mentions "loose schema" in reference to clj-schema.  The point is to allow extra stuff
+strict schema would be less flexible
+
 http://grokbase.com/t/gg/clojure/12bsnsv82w/ann-clj-schema-schemas-for-clojure-maps 
 
 
@@ -823,7 +773,8 @@ My two cents,
 
 Christophe
 
----------------------
+
+----------------------------------------------------------------------
 
 ideas:  do you want a projection/filter from one spec to another?
 diff specs?  (ala clojure.data/diff)
@@ -846,9 +797,9 @@ analogy: Relax/NG XML vs. Compact
 ----------------------------------------------------------------------
 
 DONE
-rename guard -- traditional guards are part of backtracking
 maybe assert would be better
-can we get rid of arg decl and just use assert?
+can we get rid of arg decl and just use assert?  YES
+but do we really need `assert`?  Could just look for = not= < > is, etc. as implied assertions.
 
 
 drop the :as binding, just use the prefix form (foo int)
@@ -926,3 +877,8 @@ Question: allow doc-string on elements or comments wherever?
 ----------------------------------------------------------------------
 bug: need to clean up reserved-ops vs. constraint keys
 
+issue: extensibility for ops.  How can the user create a new collection?  Say a queue with element
+constraints.  Basic constraint types work with *constraints* and a user-defined predicate that can
+take args so those args could be the type constraints.  So the implementation needs to call into
+herbert to hand those constraints, probably with conforms?.  Guess it would work.  Why not handle
+seq and vec that way, in the base implementation?

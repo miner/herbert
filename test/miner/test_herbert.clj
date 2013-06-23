@@ -103,6 +103,12 @@
   (is (not (conforms? '[(n int) (m int) (assert (= (* 3 n) m)) ] [2 4])))
   (is (conforms? '[(ns int* :step 3) (assert (== (count ns) 4))] [2 5 8 11])))
 
+(deftest binding-with-implied-assert []
+  (is (conforms? '[(n int) (m int) (>= (* 2 n) m) ] [2 4]))
+  (is (conforms? '[(n int) [(ms kw*)] (<= (count ms) n)] '[3 [:a :b :c]]))
+  (is (not (conforms? '[(n int) (m int) (== (* 3 n) m) ] [2 4])))
+  (is (conforms? '[(ns int* :step 3) (= (count ns) 4)] [2 5 8 11])))
+
 (deftest and-or []
   (is (conforms? '[(or int kw) (and int even)] [:a 4]))
   (is (conforms? '[(or kw sym) (and int odd)] [:a 7])))
