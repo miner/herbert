@@ -901,3 +901,28 @@ Not based on Frank Herbert, author of Dune, but that would be fun, too.
 
 Choosing the right data type
 http://cemerick.com/2011/07/05/flowchart-for-choosing-the-right-clojure-type-definition-form/
+
+----------------------------------------------------------------------
+pragmatic decision:
+optional keys should imply nil is OK value
+:k? int   ==> :k? (or int nil)
+
+not normally useful (maybe could have special secret meaning)
+:k* int   ==> :k? int
+:k+ int   ==> :k int
+
+but only for explicit keys
+(? int) does not imply nil is OK
+----------------------------------------------------------------------
+
+some of this might apply to Herbert for XSLT-like stuff
+
+http://www.slideshare.net/tomfaulhaber/split-applycombine20130606 
+
+https://github.com/tomfaulhaber/split-apply-combine
+----------------------------------------------------------------------
+Question: allow doc-string on elements or comments wherever?
+
+----------------------------------------------------------------------
+bug: need to clean up reserved-ops vs. constraint keys
+

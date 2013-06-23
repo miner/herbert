@@ -11,10 +11,24 @@
 (def constraints-ns (the-ns 'miner.herbert.constraints))
 (def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not assert vec seq list map mod})
 
+(defn reserved-sym? [sym]
+  (contains? reserved-ops sym))
 
 (defn str-last-char [^String s]
   (when-not (str/blank? s)
     (.charAt s (dec (.length s)))))
+
+;; works with strings and symbols
+(defn last-char [s]
+  (str-last-char (name s)))
+
+(defn symbol-quantifier [sym]
+  (let [ch (last-char sym)]
+    (case ch
+      \+ '+
+      \* '*
+      \? '?
+      nil)))
 
 ;; FIXME could use strip-last, or combine and make work with keywords
 (defn simple-sym [sym]
@@ -24,8 +38,22 @@
       (\+ \* \?) (symbol (subs sname 0 (dec (.length sname))))
       sym)))
 
+(defn strip-last [x]
+  ;; x is symbol or keyword, typically used to strip \?
+  (let [xname (name x)
+        name1 (subs xname 0 (dec (count xname)))
+        ns (namespace x)]
+  (if (keyword? x) 
+    (keyword ns name1)
+    (symbol ns name1))))
+
+
 (def default-constraints 
   (into {} (map (fn [[k v]] [(simple-sym k) v]) (ns-publics constraints-ns))))
+
+(defn defined-sym? [sym]
+  (or (contains? default-constraints sym)
+      (contains? *constraints* sym)))
 
 (defn simple-sym? [sym]
   (= sym (simple-sym sym)))
@@ -42,18 +70,6 @@
 (defn literal? [con]
   (or (keyword? con) (number? con) (string? con) (false? con) (true? con) (nil? con)))
 
-;; works with strings and symbols
-(defn last-char [s]
-  (str-last-char (name s)))
-
-(defn strip-last [x]
-  ;; x is symbol or keyword, typically used to strip \?
-  (let [xname (name x)
-        name1 (subs xname 0 (dec (count xname)))
-        ns (namespace x)]
-  (if (keyword? x) 
-    (keyword ns name1)
-    (symbol ns name1))))
 
 
 (defrecord TaggedValue [tag value])
@@ -171,14 +187,6 @@ Returns the successful result of the last rule or the first to fail."
 (defn tcon-pred [tcon]
   (or (get *constraints* tcon)
       (get default-constraints tcon)))
-
-(defn tcon-symbol-quantifier [sym]
-  (let [ch (last-char sym)]
-    (case ch
-      \+ :one-or-more
-      \* :zero-or-more
-      \? :optional
-      nil)))
 
 (declare mkconstraint)
 
@@ -318,6 +326,9 @@ Returns the successful result of the last rule or the first to fail."
         pred (safe-eval `(fn [{:syms [~@args]}] ~body))]
     (sp/mkpred (fn [bindings context] (pred (merge context bindings))))))
 
+;; SEM BUG what about map support is limited to kw keys right now
+(declare mk-map-constraint)
+
 (defn mk-list-constraint [lexpr]
   (let [op (first lexpr)]
     (case op
@@ -337,7 +348,7 @@ Returns the successful result of the last rule or the first to fail."
       seq  (mk-subseq-constraint (rest lexpr))
       vec (mkand (sp/mkpr vector?) (mk-subseq-constraint (rest lexpr)))
       list (mkand (sp/mkpr list?) (mk-subseq-constraint (rest lexpr)))
-
+      map (mk-map-constraint (apply hash-map (rest lexpr)))
       ;; else
       (cond (integer? op) (mk-nseq op (rest lexpr))
             (vector? op) (mk-nseq (first op) (second op) (rest lexpr))
@@ -413,12 +424,19 @@ Returns the successful result of the last rule or the first to fail."
       (if (nil? (seq input))
         (sp/fail "End of input" memo)
         (let [m (first input)]
-          (if (and (map? m) (contains? m kw))
+          (if (and (map? m) (get m kw))
+            ;; used get above instead of contains? because "optional" interpretation
+            ;; treats nil value like having no kw, turns out to be convenient
             (let [r (rule (list (get m kw)) bindings context memo)]
               (if (sp/failure? r)
                 r
                 (sp/succeed nil [] input (:b r) (:m r))))
             (sp/succeed nil [] input bindings memo))))))
+
+
+;; SEM UNIMPLEMENTED
+(defn mk-entry [kcon vcon] nil)
+  
 
 
 (defn mk-map-entry [[kw con]]
