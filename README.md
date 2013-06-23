@@ -35,7 +35,7 @@ documenting **edn** data structures.
 
 Add the dependency to your project.clj:
 
-    [com.velisco/herbert "0.3.2"]
+    [com.velisco/herbert "0.3.3"]
 
 I might forget to update the version number here in the README.  The latest version is available on
 Clojars.org:
@@ -106,7 +106,11 @@ Quick example:
 * The `assert` form does not consume any input.  The expression is evaluated within the enviroment
   of the previous bindings -- if it returns a logical true, the match continues.  On a logical
   false, the whole match fails. <BR> 
-`[(n int) (m int) (assert (= (* 3 n) m))]` -- matches [2 6]
+`[(n int) (m int) (assert (== (* 3 n) m))]` -- matches [2 6]
+
+* A list starting with `=`, `==`, `not=`, `<`, `>`, `<=` or `>=` is an *implied assert* and treated
+  as if the form was within an `assert` test <BR>.
+`[(n int) (m int) (== (* 3 n) m)]` -- matches [2 6]
 
 * Numeric constraints, such as __int__, __even__, __odd__, __float__, or __num__, may take optional
   parameters in a list following the constraint.  Numerics take a _low_ and a _high_ parameter.  The
