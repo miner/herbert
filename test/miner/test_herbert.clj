@@ -26,7 +26,7 @@
        '[{:b [1 2 3]} foo 4] false
        '[{:a [11 21 33]} foo 8] false))
 
-(deftest maps []
+(deftest kw-maps []
   (are [val result] (= (conforms? '{:a int :b sym :c? str} val) result)
        {:a 1 :b 'foo :c "foo"}   true
        {:a 1 :b 'foo}   true
@@ -41,6 +41,20 @@
        {:a 1 :b 'foo :d 'bar}   true  
        {:a 1 :b 'foo :c 'bar}   false
        {:a 1 :b 'foo :c nil}  true))
+
+(deftest other-keys []
+  (are [val result] (= (conforms? '{a int b sym "c" str} val) result)
+       '{a 1 b foo "c" "foo"}   true
+       '{a 1 b foo "c" 'bar}   false
+       '{a :kw b foo "c" "foo"}   false))
+
+(deftest quoted-kws []
+  (are [val result] (= (conforms? '{':a? int ':b sym} val) result)
+       {:a? 1 :b 'foo}   true
+       {:a 1 :b 'foo}   false
+       {:a? 1 :b :foo}   false
+       {:a? 1 :b 'foo :d 'bar}   true  
+       {:a 'foo :a? 1 :b 'foo :c nil}  true))
 
 (deftest sets []
   (are [val result] (= (conforms? '#{:a :b :c} val) result)

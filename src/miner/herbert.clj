@@ -412,24 +412,25 @@ Returns the successful result of the last rule or the first to fail."
 ;; SEM FIXME -- everywhere we use sp/success? we have to look for passing up the bindings
 ;; which means sp/mkpr is not going to be sufficient in many cases.
 
-(defn mkkw
-  "Takes kw and rule for associated val.  Fails if kw is missing or val doesn't match.  Does not
+(defn mk-key
+  "Takes key and rule for associated val.  Fails if key is missing or val doesn't match.  Does not
   consume anything."  
-  [kw rule]
+  [key rule]
   (fn [input bindings context memo]
     (if (nil? (seq input))
       (sp/fail "End of input" memo)
       (let [m (first input)]
-        (if (contains? m kw)
-          (let [r (rule (list (get m kw)) bindings context memo)]
+        (if (contains? m key)
+          (let [r (rule (list (get m key)) bindings context memo)]
             (if (sp/failure? r)
               r
               (sp/succeed nil [] input (:b r) (:m r))))
-          (sp/fail (str kw " is not in map.") memo))))))
+          (sp/fail (str key " is not in map.") memo))))))
 
 ;; SEM FIXME -- what if m is not a map?  For now, says OK for optional.
-(defn mkkwopt
-  "Takes kw and rule for associated val.  If kw is found, val must match rule.  Does not consume anything."
+(defn mk-kw-opt
+  "Takes kw and rule for associated val.  If kw is found, val must match rule.  As a special case, a
+nil value also succeeds for an optional kw.  Does not consume anything."
   [kw rule]
     (fn [input bindings context memo]
       (if (nil? (seq input))
@@ -444,20 +445,16 @@ Returns the successful result of the last rule or the first to fail."
                 (sp/succeed nil [] input (:b r) (:m r))))
             (sp/succeed nil [] input bindings memo))))))
 
-
-;; SEM UNIMPLEMENTED
-(defn mk-entry [kcon vcon] nil)
-  
-
-
-(defn mk-map-entry [[kw con]]
+(defn mk-map-entry [[key con]]
   ;; FIXME -- only handles kw literals and optional :kw? for keys
   ;; doesn't carry context or results for individual key/val matches
   ;; Note: each rule expect full map as input, but only looks at one key
   (let [rule (mkconstraint con)]
-    (if (optional-key? kw)
-      (mkkwopt (simple-key kw) rule)
-      (mkkw kw rule))))
+    (cond (optional-key? key) (mk-kw-opt (simple-key key) rule)
+          (or (literal? key) (symbol? key)) (mk-key key rule)
+          (and (seq? key) (= (first key) 'quote)) (mk-key (second key) rule)
+          :else (throw (ex-info (str "Unsupported literal key " (pr-str key)) 
+                                {:key key :constraint con})))))
 
 (defn mk-map-constraint [mexpr]
   (mkmap (map mk-map-entry mexpr)))
