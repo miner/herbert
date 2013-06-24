@@ -10,6 +10,8 @@
 
 (def constraints-ns (the-ns 'miner.herbert.constraints))
 (def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not assert vec seq list map mod})
+(declare default-constraints)
+;; default-constraints defined a bit later so it can use some fns
 
 (defn reserved-sym? [sym]
   (contains? reserved-ops sym))
@@ -47,9 +49,12 @@
     (keyword ns name1)
     (symbol ns name1))))
 
+(defn ns->constraints [ns]
+  (reduce-kv (fn [cm k v] (if (= (last-char k) \?) (assoc cm (simple-sym k) v) cm))
+             {}
+             (ns-publics (the-ns ns))))
 
-(def default-constraints 
-  (into {} (map (fn [[k v]] [(simple-sym k) v]) (ns-publics constraints-ns))))
+(def default-constraints (ns->constraints constraints-ns))
 
 (defn defined-sym? [sym]
   (or (contains? default-constraints sym)
