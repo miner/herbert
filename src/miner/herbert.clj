@@ -66,12 +66,6 @@
 (defn quantified-sym? [sym]
   (not= sym (simple-sym sym)))
 
-;; SEM FIXME: maybe try Clojail or something to have a restricted eval
-(defn safe-eval [expr]
-  "Not actually safe at all."
-  ;(println "Not really safe yet: " expr)
-  (eval expr))
-
 (defn literal? [con]
   (or (keyword? con) (number? con) (string? con) (false? con) (true? con) (nil? con)))
 
@@ -306,29 +300,40 @@ Returns the successful result of the last rule or the first to fail."
 (defn mk-subseq-constraint [vexpr]
   (sp/mksub (apply sp/mkseq (conj (mapv mkconstraint vexpr) sp/end))))
 
+;; SEM FIXME: strictly speaking, anonymous fns might have some free symbols mixed in so really you
+;; should disjoin the fn args within that scope but take the other symbols.
 (defn args-from-body 
-  ([expr] (args-from-body () expr))
+  ([expr] (args-from-body #{} expr))
   ([res expr]
      (cond (symbol? expr) (conj res expr)
-           (vector? expr) (concat (mapcat args-from-body expr) res)
+           (vector? expr) (reduce set/union res (map args-from-body expr))
            (seq? expr) 
              (case (first expr) 
-               ;; ignore quoted values
-               quote nil
+               ;; ignore anonymous fns and quoted values
+               (fn quote) res
                ;; disallow some fns
                (apply eval) (throw (ex-info "Herbert asserts do not allow 'apply' or 'eval'"
                                             {:form expr}))
                ;; for a normal list, skip the "fn", first element
-               (concat (mapcat args-from-body (rest expr)) res)))))
+               (reduce set/union res (map args-from-body (rest expr)))))))
 
-;; SEM FIXME : dangerous eval
-(defn mk-assert [body]
+;; SEM FIXME: potentially dangerous eval;  Maybe try Clojail or something to have a restricted eval,
+;; but the args-from-body restricts some obviously dangerous calls.
+(defn runtime-pred 
+  "Creates a fn that takes a single map argument, which should have keys corresponding to all
+   the 'free' symbols in the body.  The body argument is a single form that will be evaluated at
+   runtime."
+  [body]
   {:pre [(seq? body)]}
+  (let [args (args-from-body body)
+        pred (eval `(fn [{:syms [~@args]}] ~body))]
+    pred))
+
+(defn mk-assert [body]
   ;; assert syntax takes just a single expr.  Symbols are looked up from previously bound names,
   ;; except for the first "fn" position of a list.  Some fns are not allowed, such as "apply" and
   ;; "eval".  
-  (let [args (args-from-body body)
-        pred (safe-eval `(fn [{:syms [~@args]}] ~body))]
+  (let [pred (runtime-pred body)]
     (sp/mkpred (fn [bindings context] (pred (merge context bindings))))))
 
 ;; SEM BUG what about map support is limited to kw keys right now
