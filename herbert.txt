@@ -26,7 +26,173 @@ default-tagged-value-reader fn to convert all tagged values to a TaggedValue rec
 override #uuid and #inst -- really should do everything in default-data-readers.)
 
 ----------------------------------------------------------------------
-** Sources for Ideas **
+Proposed for Clojure conj 2013:
+
+It would be interesting to compare an implementation using core.logic to the squarepeg version.
+[org.clojure/core.logic "0.8.3"]
+
+
+
+
+
+----------------------------------------------------------------------
+# Features Implemented and Planned
+----------------------------------------------------------------------
+
+* Binding
+we want an easy way to bind matches:  (name type)
+name must be distinct from types and ops
+
+* Inline sequence -- using (& int sym) notation
+
+* Cross-constraints with bindings
+  [(name str) (name2 str) (assert (== (count name) (count name2)))]
+  [(name str) (name2 str) (== (count name) (count name2))]
+
+* literals
+nil, true, false
+:keywords
+:ns/kw
+'symbols
+'ns/symbols
+"literal string"
+\C
+
+(note -- must quote symbols to get literal treatment)
+
+* wildcard
+any -- matches any type
+
+* types (reserved)
+bool
+str
+char
+sym
+kw
+int
+float
+list
+vec
+map
+set
+tag -- NOT IMPL
+
+* synonyms, aliases, NOT IMPL -- should be a predefined map of constraints if you want to use them
+long == int
+double == float
+integer == int
+etc.
+
+
+* regex? -- NOT IMPL by itself, however a (str "regex") constraint is there
+Remember regex is not EDN type
+#herbert/regex "regex"
+(regex "regex") -- instead?
+
+for now, regex arg can be literal string (we call re-pattern) or a clojure regex
+
+
+* parameterized simple types
+(int N M) -- between <= (inclusive?)  -- yes, inclusive
+(str "regex") -- 
+(sym "regex") -- based on pr-str
+(kw "regex")
+
+* operators
+(or t1 t2)  -- one element that satisfies either type
+(and t1 t2) -- one element that satisfies both types
+(not t) -- one element that is not t
+(quote X) -- literal, no special interpretation (same as 'X)
+
+* cycles and splices -- notice inline (no explicit collection)
+(* t) zero or more
+(+ t) one or more
+(? t) zero or one
+(* t1 t2 t3) -- matches empty, t1 t2 t3 t1 t2 t3 ...
+(+ t1 t2 t3) -- matches (non-empty) t1 t2 t3 t1 t2 t3 ...
+(? t1 t2 t3) -- matches empty or exactly t1 t2 t3
+
+& for inline ordered elements
+  -- at one point was =, but changed to allow = for asserts and readability
+(& t1 t2 t3) -- exactly 1 inlined seq of elements, same as (N t1 t2 ... tN) where N=count(ts)
+
+
+* compact quantifiers for simple names
+t* === (* t)
+t? === (? t)
+t+ === (+ t)
+
+Note: options apply to single type
+(int* 10) is same as (* (int 10))
+
+* sequences
+
+(vec t1 t2 ... tN)  -- vector of elements in exact order
+(list t1 t2 ... tN)  -- list of elements in exact order
+(seq t1 t2 ... tN)  -- seq of elements in exact order
+(set t1 t2 ... tN) -- set with all elements, unordered
+
+(vec (* t)) -- vector of any number of t
+
+square brackets match any seq
+[t1 t2 t3]  -- any seq (vec or list) containing exactly (t1 t2 t3)
+#{t1 t2 t3} -- matches a set with the required elements, others optional
+
+* map
+(map kw t .. kwN tN)  -- kw must be present, val must be t
+{:a int :b float :c str}  -- literal keys (required) and type exprs
+
+keys can also be literal strings and 'symbols
+
+Question: optional keys?  going with first form -- :a?
+{:a? int :b? str}
+NOT {:a int? :b str?}
+
+disallowed key -- literally it's optional and must be nil, but effectively disallowed
+{:a? nil}
+
+
+dyvar *constraints*
+similar in usage to *data-readers*
+
+Implemented with *constraints* look of sym to var implementing predicate.  Looks at
+default-constraints as well.
+
+
+
+
+----------------------------------------------------------------------
+# Features OUT
+----------------------------------------------------------------------
+
+* No sub-Guards on types  
+Make it easy to write a predicate for your exact type.
+Allow params to "predicates" (with object x as last arg) for extended options.
+For example, I defined odd and even (and (integer? x) (odd? x))
+
+* Clojure destructuring -- NOT DONE, conflicts with other ideas
+try to reuse as much as possible
+but maybe conflicts with some other notations
+
+
+* NO on grammar approach.  We're using fns and combinators so just define them with vars.
+Maybe later, we could take a map grammar and do the right thing.
+
+
+* No inline map {t1 t2 .. tN tN+1}  -- all elements in pairwise order
+
+* NO: (underscore) _  match anything and ignore it (multiple _s match independently) -- use "any"
+  instead as the type.  Underscore _ can be used as a binding name, doesn't really need special
+  treatment.
+
+* DROP leading num support (N t)
+
+
+
+
+----------------------------------------------------------------------
+# Sources for Ideas
+----------------------------------------------------------------------
 
 Typed Racket has lots of ideas
 http://docs.racket-lang.org/ts-guide/types.html
@@ -94,14 +260,11 @@ by...")
 
 
 ----------------------------------------------------------------------
-Note: schema is singular, schemata is plural.
+Notes
 
-----------------------------------------------------------------------
+* schema is singular, schemata is plural.
 
-Proposed for Clojure conj 2013:
-
-It would be interesting to compare an implementation using core.logic to the squarepeg version.
-[org.clojure/core.logic "0.8.3"]
+* not based on Frank Herbert, author of Dune, but that would be fun, too.
 
 ----------------------------------------------------------------------
 
@@ -150,265 +313,12 @@ your DSL rather than inventing new syntax.  Enlive is a good example.
 (look up reference)
 
 ----------------------------------------------------------------------
-
-
-Decision: [int*] means seq of ints, not inlined.  You can use (& int sym) for
-inlining.   Inlining is also done with "splice" ops (* + ? N)
-
-----------------------------------------------------------------------
-
-Features IN
-
-* Binding
-we want an easy way to bind matches:  (name type)
-name must be distinct from types and ops
-
-* Inline sequence -- using (& int sym) notation
-
-* Cross-constraints with bindings
-  [(name str) (name2 str) (assert (== (count name) (count name2)))]
-
-* literals
-nil, true, false
-:keywords
-:ns/kw
-'symbols
-'ns/symbols
-"literal string"
-\C
-
-(note -- must quote symbols to get literal treatment)
-
-* wildcard
-any -- matches any type
-
-* types (reserved)
-bool
-str
-char
-sym
-kw
-int
-float
-list
-vec
-map
-set
-tag -- NOT IMPL
-
-* synonyms, aliases, NOT IMPL -- should be a predefined map of constraints if you want to use them
-long == int
-double == float
-integer == int
-etc.
-
-* abstract or specialized types (reserved) -- many NOT IMPL yet
-element or any -- anything
-seq   -- same as (or list vec)
-num  -- (or int float)
-qsym -- qualified symbol
-usym -- unqualified symbol
-qkw
-ukw
-qtag
-utag
-
-some of these specialized things might as well use the regex arg
-(sym "my[.]ns/.*")  symbol in my.ns namespace
-
-
-* regex? -- NOT IMPL by itself, however a (str "regex") constraint is there
-Remember regex is not EDN type
-#herbert/regex "regex"
-(regex "regex") -- instead?
-
-for now, regex arg can be literal string (we call re-pattern) or a clojure regex
-
-
-* parameterized simple types -- NOT IMPL on many
-(str N) -- length  NO, use (& (s str) (== (count s) 10))
-(str "pat") -- matches glob or regex? -- Impl as regex
-(int N M) -- between <= (inclusive?)  -- yes, inclusive
-(sym "ns" "name") -- matches ns and name (regex?) -- no, just use one regex for pr-str
-(sym "name")  -- unqualified, no, see above
-(kw "ns" "name") no, same as sym
-(kw "name")  -- unqualified, no same as sym
-
-(quote foo)
-'foo -- matches exactly symbol foo, turns a symbol into a literal
-
-
-* operators
-(or t1 t2)  -- one element that satisfies either type
-(and t1 t2) -- one element that satisfies both types
-(not t) -- one element that is not t
-
-(quote X) -- literal, no special interpretation (same as 'X)
-(ns MY.NS) -- symbol or kw with given namespace
-(name NAME) -- symbol, kw or string with given name
-
-* cycles and splices -- notice inline (no explicit collection)
-(* t) zero or more
-(+ t) one or more
-(? t) zero or one
-(* t1 t2 t3) -- matches empty, t1 t2 t3 t1 t2 t3 ...
-(+ t1 t2 t3) -- matches (non-empty) t1 t2 t3 t1 t2 t3 ...
-(? t1 t2 t3) -- matches empty or exactly t1 t2 t3
-
-DROP THESE:
-(N t) exactly N  -- should drop this
-([M N] t)  between M and N (inclusive)  -- should drop this
-
-(N t1 t2 t3) -- exactly N total elements, cycling through types
-
-I think we should drop the N and [M N] ops, not really needed
-
-
-& for inline ordered elements
-  -- at one point was =, but changed to allow = for asserts and readability
-(& t1 t2 t3) -- exactly 1 inlined seq of elements, same as (N t1 t2 ... tN) where N=count(ts)
-
-Note:  maybe should remove the Numbered quantifier -- not sure if it's worth the complexity?
-Especially with the multiple items: is the count total elements or cycles?
-
-If N is * then any length is allowed. Also, + and ?, and [N M]. 
-[N] means N or more  (sort of like [N *] but that's not used
-
-* compact quantifiers for simple names
-t* === (* t)
-t? === (? t)
-t+ === (+ t)
-
-Note: options apply to single type
-(int* 10) is same as (* (int 10))
-
-* sequences
-
-(vec t1 t2 ... tN)  -- vector of elements in exact order
-(list t1 t2 ... tN)  -- list of elements in exact order
-(seq t1 t2 ... tN)  -- seq of elements in exact order
-(set t1 t2 ... tN) -- set with all elements, unordered
-
-(vec (N t)) -- vector of N elements all t
-(vec (3 t1 t2)) -- vector of 6 elements: t1 t2 t1 t2 t1 t2
-(vec (* t)) -- vector of any number of t
-
-square brackets match any seq
-[t1 t2 t3]  -- any seq (vec or list) containing exactly (t1 t2 t3)
-#{t1 t2 t3} -- matches a set with the required elements, others optional
-
-* map
-(map kw t .. kwN tN)  -- kw must be present, val must be t
-{:a int :b float :c str}  -- literal keys (required) and type exprs
-(keys :a :b :c) -- required keys, but others allowed, except for (not :x)
-
-Question: optional keys?  going with first form -- :a?
-{:a? int :b? str}
-{:a int? :b str?}
-
-disallowed key -- literally it's optional and must be nil, but effectively disallowed
-{:a? nil}
-
-
-with second form since :a is required, it's not very useful to int? (as opposed to int)
-
-keys can also be str and sym literals
-
-
-----------------------------------------------------------------------
-
-Features WANTED but not implemented
-see notes above in the Features IN list
-
-----------------------------------------------------------------------
-
-Features OUT
-* No sub-Guards on types  
-Make it easy to write a predicate for your exact type.
-Allow params to "predicates" (with object x as last arg) for extended options.
-For example, I defined odd and even (and (integer? x) (odd? x))
-
-* Clojure destructuring -- NOT DONE, conflicts with other ideas
-try to reuse as much as possible
-but maybe conflicts with some other notations
-
-
-* NO on grammar approach.  We're using fns and combinators so just define them with vars.
-Maybe later, we could take a map grammar and do the right thing.
-
-
-* No inline map {t1 t2 .. tN tN+1}  -- all elements in pairwise order
-
-* NO: (underscore) _  match anything and ignore it (multiple _s match independently) -- use "any"
-  instead as the type.  Underscore _ can be used as a binding name, doesn't really need special
-  treatment.
-
-* DROP leading num support (N t)
-----------------------------------------------------------------------
-* Issues
-
-Kind of not liking the (N t t2) operator, probably better just to spell it out for N times
-similarly ([L H] t t2 ...) looks noisy
-	  something like this should work (= t t t t? t?)
-
-remember that a number is a literal to match in most postions so it looks funny as an op
-
-If you need a huge number, try an explicit (repeat N t)
-
-----------------------------------------------------------------------
-maybe :start special key for start of schema
-or else just require user to give start symbol, allowing multiple entry points
-
-{foo [int str baz]
- baz (keys :a :b)
- :start foo}
-
-;; rarely needed
-(keys (not :a)) ==> (and map (not (keys :a)))
--- map without :a as a key
-
-(not (keys :a))  -- not necessarily a map at all
-
-or use {:a? nil} for effectively disallowing the :a key
-
-----------------------------------------------------------------------
 implementation approach
 
-convert schema map to canonical form and then to a logic program
+currently custom parsing, converted to a squarepeg parser that implements the matching
 
-----------------------------------------------------------------------
-examples, mostly not currently used syntax
-
-(int x :when (< x 10))
-(string :when (< (count string) 25))  -- reuse type name as binding?
-(string :as s :when (< (count s) 25))  -- reuse type name as binding?
-(string :when (< (count %) 25))  -- % as single arg
-
-(int x even?)
-(int x :pred even?)
-(int x :pred #'even?) -- not EDN
-(int x :when even?)
-(int x (even? x))
-(int x #(even? x))   -- not EDN
-(int x :when (even? x))
-
-(int x (<= 5 x 10))
-(int x :when (<= 5 x 10))
-(int :when (<= 5 % 10))
-(int x 5 10)  -- default op is <=
-
-(str x "foo.bar")
-(str x :when (re-matches #"foo.bar"))
-
-(map m :a int :b int :c str :when (< (:a m) (:b m)))
-
-(map {:keys [a b c] :as m} :when (< a b))
-
-(keys :a :b :c)  ===> (map {:keys [a b c] :or {a ::missing b ::missing c ::missing}} 
-      	    	      	   :when (and (not= a ::missing) (not= b ::missing) (not= c ::missing)))
-
-
-----------------------------------------------------------------------
+probably make sense to use squarepeg as the original parser, convert schema to canonical form, and
+then to either a squarepeg parser or a logic program
 
 
 ----------------------------------------------------------------------
@@ -487,16 +397,6 @@ compiler doesn't see anything different, but can add assertions when flags set.
   (apply str (repeat x y)))
 
 
-
-----------------------------------------------------------------------
-No, done differently with binding:  (n int) - binding name first
-
-type expressions
-symbol -- just the base type named by symbol
-(symbol name) -- symbol is base type, name is bound to value
-(symbol name constraint) -- constraint is an expression treated as the body of a single arg pred
-
-if name = :when that's the same as _ (meaning don't care, no binding)
 ----------------------------------------------------------------------
 
 "Clojure in the Wild Web–7 Reflections"
@@ -605,16 +505,6 @@ but that's inconsistent with explicit naming of args
 (* int int int)
 ----------------------------------------------------------------------
 
-even is now a built-in type
-guard predicates no longer supported, just make a new constraint fn for yourself
-
-(int even?)
-(int pos? odd?)
-
-(int :a) (int :b) (int :c)
-((& int int int) >)
-
-
 ;; tests if coll matches the result of (take (count coll) (iter f (first coll)))
 
 (defn iter1? [f coll]
@@ -678,10 +568,6 @@ maybe cross item constraint should be a separate expression -- YES, implemented
 
 ----------------------------------------------------------------------
 
-Don't use = for splice, maybe splice or repeat
-Decided that & looks OK for now
-----------------------------------------------------------------------
-
 Bug with quants
 (int* :step 3)  was looking like (* (int :step 3))
 should be ((* int) :step 3)
@@ -693,8 +579,7 @@ vs. (int* :every even?)
 
 (def even (tconstraint '(int even?)))
 
-(even* 
-
+----------------------------------------------------------------------
 
 Clearly kw args, like :step, :iter, :as should apply to whole collection
 :in is a toss up.
@@ -707,24 +592,18 @@ But the more practical idea is to bind guards to the base type and the kw args t
 
 ----------------------------------------------------------------------
 
-dyvar *constraints*
-similar in usage to *data-readers*
-
-Implemented with *constraints* look of sym to var implementing predicate.
-
-----------------------------------------------------------------------
-
 Use `name` with no type as a constraint to be exactly the same as a previous binding for name.
 
 [(a int) a a]  matches [3 3 3], [4 4 4], etc.
 
 Also a+ etc will work.
 
-----------------------------------------------------------------------
-Need to consider nested binding names in quantifiers.  Only makes sense to bind at top level if
-there may be multiple matches.  Currently, last one probably wins.
+
 
 ----------------------------------------------------------------------
+# Ideas
+----------------------------------------------------------------------
+
 
 Need a macro that "pre-compiles" constraint for better performance at runtime.
 ----------------------------------------------------------------------
@@ -735,7 +614,7 @@ Idea: notation for fn specs, basically like fn declaration, but add return type 
 
 (fn fname ([arg1] return1) ([arg1 arg2] return2) ...)
 
-Issue: how does destructuring play with Herbert schemas.
+Issue: how does destructuring play with Herbert schemas.  Doesn't sound very promising.
 
 ----------------------------------------------------------------------
 generative testing connection
@@ -788,6 +667,10 @@ My two cents,
 
 Christophe
 
+----------------------------------------------------------------------
+
+Choosing the right data type
+http://cemerick.com/2011/07/05/flowchart-for-choosing-the-right-clojure-type-definition-form/
 
 ----------------------------------------------------------------------
 
@@ -802,34 +685,12 @@ anything with a capital?  Integer Long etc
 anything starting with a ^Integer, like a type tag meta notation -- doesn't work
 explicitly:  (type java.lang.Integer)
 
-
+----------------------------------------------------------------------
 
 use a parser on the constraint spec 
 write a grammar for your scema lang
 use a formal AST derived from Herbert notation
 analogy: Relax/NG XML vs. Compact
-
-----------------------------------------------------------------------
-
-DONE
-maybe assert would be better
-can we get rid of arg decl and just use assert?  YES
-but do we really need `assert`?  Could just look for = not= < > is, etc. as implied assertions.
-
-
-drop the :as binding, just use the prefix form (foo int)
-
-
-define some constants like MAX_INT for param constraints
-
-
-Issue: what about sorted-maps and sets?  Not EDN
-
-
-Provide a ns->constraints fn to grab all the public vars out of a ns and map to simple-syms.
-Basically, already there, you just need to expose.  Need an easy way for users to take control.
-
-
 
 ----------------------------------------------------------------------
 Datomic -- we should be able to create datomic schemas from Herbert constraints.
@@ -852,6 +713,19 @@ the Datomic schemas, along with the "datom" model, do look expressive.
 http://docs.datomic.com/schema.html
 
 
+
+
+
+
+
+----------------------------------------------------------------------
+# Issues
+----------------------------------------------------------------------
+
+
+If you need a huge number in a row, could use an explicit (repeat N t), but most of the time it's
+workable to just list out the constraint N times
+
 ----------------------------------------------------------------------
 
 Issue: versions and migration of data
@@ -862,13 +736,6 @@ be useful.  Same could be said for Herbert schemas.  On the other hand, adds wei
 see how Clojure datatypes will change much (in a non-compatible way).
 ----------------------------------------------------------------------
 
-Not based on Frank Herbert, author of Dune, but that would be fun, too.
-
-
-Choosing the right data type
-http://cemerick.com/2011/07/05/flowchart-for-choosing-the-right-clojure-type-definition-form/
-
-----------------------------------------------------------------------
 pragmatic decision:
 optional keys should imply nil is OK value
 :k? int   ==> :k? (or int nil)
@@ -901,4 +768,44 @@ seq and vec that way, in the base implementation?
 Maybe use (resolve (add-qmark sym)) to find the predicate in the current ns.  Should work but is
 that strange to have a different mechanism?
 
+Issue: missing named patterns.  Need to write your own predicate.
+----------------------------------------------------------------------
 
+Need to consider nested binding names in quantifiers.  Only makes sense to bind at top level if
+there may be multiple matches.  Currently, last one probably wins.
+
+----------------------------------------------------------------------
+
+drop the :as binding, just use the prefix form (foo int)
+
+define some constants like MAX_INT for param constraints
+
+Issue: what about sorted-maps and sets?  Not EDN
+
+
+----------------------------------------------------------------------
+
+DROP THESE:
+(N t) exactly N  -- should drop this
+([M N] t)  between M and N (inclusive)  -- should drop this
+
+(N t1 t2 t3) -- exactly N total elements, cycling through types
+
+I think we should drop the N and [M N] ops, not really needed
+
+Note:  maybe should remove the Numbered quantifier -- not sure if it's worth the complexity?
+Especially with the multiple items: is the count total elements or cycles?
+
+If N is * then any length is allowed. Also, + and ?, and [N M]. 
+[N] means N or more  (sort of like [N *] but that's not used
+
+----------------------------------------------------------------------
+Dropped
+(keys :a :b :c) -- required keys, but others allowed, except for (not :x)
+
+----------------------------------------------------------------------
+Issue: consider dropping undocumented features
+  :as -- I think so, better to use binding names
+  :in -- kind of useful but is there a better way? 
+      -- numbers handled by param, stringish by regex
+  :step and :iter seem useful
