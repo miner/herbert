@@ -35,7 +35,7 @@ documenting **edn** data structures.
 
 Add the dependency to your project.clj:
 
-    [com.velisco/herbert "0.3.4"]
+    [com.velisco/herbert "0.3.5"]
 
 I might forget to update the version number here in the README.  The latest version is available on
 Clojars.org:
@@ -122,9 +122,14 @@ Quick example:
   (See Named Constraints above.)<BR>
 `(int 1 10)`  -- matches 4, but not 12
 
+* String, symbol and keyword constraints (__str__, __sym__ and __kw__) may take an optional regex
+  argument, specified as a string (for EDN compatibility) or a Clojure regular expression
+  (*#"regex"*).  In that case, the `pr-str` of the element must match the regex. <BR>
+`(kw ":user/.*")` -- matches :user/foo
+
 * Inlined constraints. A list starting with `&` as the first element refers to multiple items in
   order (as opposed to being within a container sequence). <BR>
-`(& (n int) (f float) (assert (> n f)))` -- matches 4 3.14
+`(& (n int) (f float) (> n f))` -- matches 4 3.14
 
 * Users may define new constraints by binding the dynamic var `miner.herbert/*constraints*`.  It
   should be a map of symbols to vars, where the var names a function that implements the appropriate
