@@ -1,7 +1,6 @@
 (ns miner.herbert.constraints
   (:refer-clojure 
-   :exclude [int? num? float? list? vec? char? str? empty? keys? map? seq? set? mod?
-             coll? even? odd?])
+   :exclude [float? list? char? empty? map? seq? set? coll? even? odd?])
   )
 
 (defn- numeric
@@ -29,12 +28,9 @@
 
 (def list? clojure.core/seq?)
 (def char? clojure.core/char?)
-(def sym? clojure.core/symbol?)
-(def kw? clojure.core/keyword?)
 (def vec? clojure.core/vector?)
 (def seq? clojure.core/sequential?)
 (def coll? clojure.core/coll?)
-(def keys? clojure.core/map?)
 (def map? clojure.core/map?)
 (def set? clojure.core/set?)
 
@@ -53,8 +49,19 @@
 
 (def any? (constantly true))
 
+(defn- regex-match? [regex-or-str x]
+  (and (re-matches (if (string? regex-or-str) (re-pattern regex-or-str) regex-or-str) x)
+       true))
+
 (defn str?
   ([x] (string? x))
-  ([regex x] (and (string? x) 
-                  (re-matches (if (string? x) (re-pattern regex) regex) x)
-                  true)))
+  ([regex x] (regex-match? regex x)))
+
+(defn sym? 
+  ([x] (symbol? x))
+  ([regex x] (and (symbol? x) (regex-match? regex (pr-str x)))))
+       
+(defn kw? 
+  ([x] (keyword? x))
+  ([regex x] (and (keyword? x) (regex-match? regex (pr-str x)))))
+

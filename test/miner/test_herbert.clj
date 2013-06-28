@@ -176,3 +176,13 @@
 (deftest quoted-syms []
   (is (conforms? '[int 'int sym] '[42 int foo]))
   (is (not (conforms? '[int 'int sym] '[42 13 foo]))))
+
+(deftest regex-forms []
+  (is (conforms? '(kw ":foo/.*") :foo/bar))
+  (is (not (conforms? '(kw ":foo/.*") :foo)))
+  (is (conforms? '(kw ":miner[.]test-herbert/foo") ::foo))
+  (is (conforms? '(str "foo/.*") "foo/bar"))
+  (is (conforms? '(str "fo+.ar") "fooooobar"))
+  (is (conforms? '(sym "user/.*") 'user/foobar))
+  (is (not (conforms? '(sym "user/.*") :user/foobar))))
+
