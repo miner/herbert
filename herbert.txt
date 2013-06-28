@@ -213,21 +213,26 @@ ukw
 qtag
 utag
 
+some of these specialized things might as well use the regex arg
+(sym "my[.]ns/.*")  symbol in my.ns namespace
+
 
 * regex? -- NOT IMPL by itself, however a (str "regex") constraint is there
 Remember regex is not EDN type
 #herbert/regex "regex"
 (regex "regex") -- instead?
 
+for now, regex arg can be literal string (we call re-pattern) or a clojure regex
+
 
 * parameterized simple types -- NOT IMPL on many
-(str N) -- length
-(str "pat") -- matches glob or regex?
-(int N M) -- between <= (inclusive?)
-(sym "ns" "name") -- matches ns and name (regex?)
-(sym "name")  -- unqualified
-(kw "ns" "name")
-(kw "name")  -- unqualified
+(str N) -- length  NO, use (& (s str) (== (count s) 10))
+(str "pat") -- matches glob or regex? -- Impl as regex
+(int N M) -- between <= (inclusive?)  -- yes, inclusive
+(sym "ns" "name") -- matches ns and name (regex?) -- no, just use one regex for pr-str
+(sym "name")  -- unqualified, no, see above
+(kw "ns" "name") no, same as sym
+(kw "name")  -- unqualified, no same as sym
 
 (quote foo)
 'foo -- matches exactly symbol foo, turns a symbol into a literal
@@ -246,15 +251,18 @@ Remember regex is not EDN type
 (* t) zero or more
 (+ t) one or more
 (? t) zero or one
-(N t) exactly N
-([M N] t)  between M and N (inclusive)
 (* t1 t2 t3) -- matches empty, t1 t2 t3 t1 t2 t3 ...
 (+ t1 t2 t3) -- matches (non-empty) t1 t2 t3 t1 t2 t3 ...
 (? t1 t2 t3) -- matches empty or exactly t1 t2 t3
 
+DROP THESE:
+(N t) exactly N  -- should drop this
+([M N] t)  between M and N (inclusive)  -- should drop this
+
 (N t1 t2 t3) -- exactly N total elements, cycling through types
 
 I think we should drop the N and [M N] ops, not really needed
+
 
 & for inline ordered elements
   -- at one point was =, but changed to allow = for asserts and readability
@@ -304,6 +312,7 @@ disallowed key -- literally it's optional and must be nil, but effectively disal
 
 with second form since :a is required, it's not very useful to int? (as opposed to int)
 
+keys can also be str and sym literals
 
 
 ----------------------------------------------------------------------
@@ -334,6 +343,7 @@ Maybe later, we could take a map grammar and do the right thing.
   instead as the type.  Underscore _ can be used as a binding name, doesn't really need special
   treatment.
 
+* DROP leading num support (N t)
 ----------------------------------------------------------------------
 * Issues
 
@@ -367,7 +377,7 @@ implementation approach
 convert schema map to canonical form and then to a logic program
 
 ----------------------------------------------------------------------
-examples
+examples, mostly not currently used syntax
 
 (int x :when (< x 10))
 (string :when (< (count string) 25))  -- reuse type name as binding?
@@ -396,6 +406,9 @@ examples
 
 (keys :a :b :c)  ===> (map {:keys [a b c] :or {a ::missing b ::missing c ::missing}} 
       	    	      	   :when (and (not= a ::missing) (not= b ::missing) (not= c ::missing)))
+
+
+----------------------------------------------------------------------
 
 
 ----------------------------------------------------------------------
@@ -476,13 +489,15 @@ compiler doesn't see anything different, but can add assertions when flags set.
 
 
 ----------------------------------------------------------------------
+No, done differently with binding:  (n int) - binding name first
+
 type expressions
 symbol -- just the base type named by symbol
 (symbol name) -- symbol is base type, name is bound to value
 (symbol name constraint) -- constraint is an expression treated as the body of a single arg pred
 
 if name = :when that's the same as _ (meaning don't care, no binding)
-
+----------------------------------------------------------------------
 
 "Clojure in the Wild Web–7 Reflections"
 http://www.infoq.com/presentations/Clojure-ReadyforZero
@@ -882,3 +897,8 @@ constraints.  Basic constraint types work with *constraints* and a user-defined 
 take args so those args could be the type constraints.  So the implementation needs to call into
 herbert to hand those constraints, probably with conforms?.  Guess it would work.  Why not handle
 seq and vec that way, in the base implementation?
+
+Maybe use (resolve (add-qmark sym)) to find the predicate in the current ns.  Should work but is
+that strange to have a different mechanism?
+
+
