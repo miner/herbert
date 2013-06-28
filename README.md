@@ -122,9 +122,9 @@ Quick example:
   (See Named Constraints above.)<BR>
 `(int 1 10)`  -- matches 4, but not 12
 
-* String, symbol and keyword constraints (__str__, __sym__ and __kw__) may take an optional regex
-  argument, specified as a string (for EDN compatibility) or a Clojure regular expression
-  (*#"regex"*).  In that case, the `pr-str` of the element must match the regex. <BR>
+* String, symbol and keyword constraints (such as __str__, __sym__ and __kw__) may take an optional
+  regex argument, specified as a string (for EDN compatibility) or a Clojure regular expression
+  (like *#"regex"*).  In that case, the `pr-str` of the element must match the regex. <BR>
 `(kw ":user/.*")` -- matches :user/foo
 
 * Inlined constraints. A list starting with `&` as the first element refers to multiple items in
