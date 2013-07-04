@@ -65,3 +65,30 @@
   ([x] (keyword? x))
   ([regex x] (and (keyword? x) (regex-match? regex (pr-str x)))))
 
+;; originally in herbert.clj
+(defn iter= [iterfn coll]
+  (= (seq coll) (when-first [fst coll] 
+                  (take (count coll) (iterate iterfn fst)))))
+
+(defn as-fn [f]
+  (if (symbol? f)
+    (resolve f)
+    f))
+
+(defn step?
+  ([n coll] (step? + n coll))
+  ([f n coll] (and (clojure.core/coll? coll) (iter= (partial (as-fn f) n) coll))))
+
+(defn iter? [f coll] 
+  (and (clojure.core/coll? coll) (iter= (as-fn f) coll)))
+
+;; originally in herbert.clj
+(defn indexed= [indexfn coll]
+  (= coll (map indexfn (range (count coll)))))
+
+(defn indexed? [f coll]
+  (and (clojure.core/coll? coll) (indexed= (as-fn f) coll)))
+
+(defn cnt? [n coll]
+  (and (clojure.core/coll? coll) (== n (count coll))))
+

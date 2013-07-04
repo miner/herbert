@@ -1,6 +1,7 @@
 (ns miner.test-herbert
   (:use clojure.test
-        miner.herbert))
+        miner.herbert)
+  (:require miner.herbert.constraints))
 
 (deftest basics []
   (is (conforms? 'int 10))
@@ -105,23 +106,36 @@
 (defn plus2 [n] (+ 2 n))
 (defn nodd [n] (if (odd? n) (dec (- n)) (inc n)))
 
-(deftest stepping []
-  (is (conforms? '[(even+ :step 4)] [2 6 10 14]))
-  (is (not (conforms? '[(even+ :step 4)] [2  10  14])))
-  (is (conforms? '[(int+ :iter miner.test-herbert/plus2)] [11 13  15 17 19]))
-  (is (conforms? '[(int+ :indexed miner.test-herbert/nodd)] [1 -2 3 -4 5 -6])))
+(deftest stepping2 []
+  (is (conforms? '(and [even+] (step 4)) [2 6 10 14]))
+  (is (conforms? '(step * 3) [2 6 18 54]))
+  (is (not (conforms? '(and [even+] (step 4)) [2  10  14])))
+  (is (conforms? '(and [int+] (iter miner.test-herbert/plus2)) [11 13  15 17 19]))
+  (is (conforms? '(and [int+] (indexed miner.test-herbert/nodd)) [1 -2 3 -4 5 -6])))
 
 (deftest binding-with-assert []
   (is (conforms? '[(n int) (m int) (assert (= (* 2 n) m)) ] [2 4]))
   (is (conforms? '[(n int) [(ms kw*)] (assert (= (count ms) n))] '[3 [:a :b :c]]))
   (is (not (conforms? '[(n int) (m int) (assert (= (* 3 n) m)) ] [2 4])))
-  (is (conforms? '[(ns int* :step 3) (assert (== (count ns) 4))] [2 5 8 11])))
+  (is (conforms? '(& (ns (and [int+] (step 3))) (assert (== (count ns) 4))) [2 5 8 11]))
+  ;; better equivalent
+  (is (conforms? '(and [int+] (step 3) (cnt 4)) [2 5 8 11])))
 
 (deftest binding-with-implied-assert []
   (is (conforms? '[(n int) (m int) (>= (* 2 n) m) ] [2 4]))
   (is (conforms? '[(n int) [(ms kw*)] (<= (count ms) n)] '[3 [:a :b :c]]))
   (is (not (conforms? '[(n int) (m int) (== (* 3 n) m) ] [2 4])))
-  (is (conforms? '[(ns int* :step 3) (= (count ns) 4)] [2 5 8 11])))
+  (is (conforms? '(& (ns (and [int+] (step 3))) (== (count ns) 4)) [2 5 8 11])))
+
+(deftest step-count []
+  (is (conforms? '(& (ns [int+]) (assert (and (miner.herbert.constraints/step? 3 ns) 
+                                              (miner.herbert.constraints/cnt? 4 ns)))) 
+                 [2 5 8 11]))
+  (is (conforms? '(and [int+] (step 3) (cnt 4)) [2 5 8 11]))
+  (is (not (conforms? '(and [int+] (step 3) (cnt 4)) [2 5 8 11 14])))
+  (is (not (conforms? '(and [int+] (step 3) (cnt 4)) [2 5 9 11])))
+  (is (not (conforms? '(and [int+] (step 3) (cnt 4)) '[2 foo 8 11])))
+  (is (not (conforms? '(and [int+] (step 3) (cnt 4)) 'foo))))
 
 (deftest and-or []
   (is (conforms? '[(or int kw) (and int even)] [:a 4]))
@@ -145,8 +159,12 @@
   (is (conforms? '[(even+ 20) kw] [4 10 18 :a]))
   (is (not (conforms? '[(even+ 20) kw] [4 30 18 :a])))
   (is (conforms? '[(lo int) (hi int) (even+ lo hi) kw] [4 20 14 10 18 :a]))
-  (is (conforms? '[(lo int) (hi int) (even+ lo hi :step 4) kw] [4 20 6 10 14 18 :a]))
-  (is (not (conforms? '[(lo int) (hi int) (even+ lo hi :step 4) kw] [4 20 6 10 16 18 :a]))))
+  (is (conforms? '[(lo int) (hi int) (es even+ lo hi) 
+                   (assert (miner.herbert.constraints/step? 4 es)) kw]
+                 [4 20 6 10 14 18 :a]))
+  (is (not (conforms? '[(lo int) (hi int) (es even+ lo hi) 
+                        (assert (miner.herbert.constraints/step? 4 es)) kw]
+                      [4 20 6 10 16 18 :a]))))
 
 (deftest strings []
   (is (conforms? 'str "foobar"))

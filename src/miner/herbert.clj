@@ -2,8 +2,8 @@
   (:require [clojure.string :as str]
             [clojure.set :as set]
             [squarepeg.core :as sp]
-            [miner.herbert.constraints]
-            [miner.herbert.proto :as proto]))
+            [miner.herbert.constraints]))
+
 
 (def ^:dynamic *constraints* 
   "Map of user-defined constraint names to vars implementing the appropriate predicate." {})
@@ -133,56 +133,6 @@ Returns the successful result of the last rule or the first to fail."
   ([rule1 rule2 & rules]
      (reduce mkand (mkand rule1 rule2) rules)))
 
-
-;; could also test inval to be a vector, set or number to be safer
-(defn mkin [rule inval]
-  (fn [input bindings context memo]
-    (let [res (rule input bindings context memo)]
-      (if (sp/failure? res)
-        res
-        (let [inrule (sp/mkpr #(proto/in? inval %))
-              inres (inrule (list (:r res)) (:b res) context memo)]
-          (if (sp/failure? inres)
-            inres
-            res))))))
-
-
-(defn iter= [iterfn coll]
-  (= (seq coll) (when-first [fst coll] 
-                  (take (count coll) (iterate iterfn fst)))))
-
-;; maybe prettier but not faster in my tests
-#_ (defn iter2= [iterfn coll]
-  (every? identity (map = coll (when-first [fst coll] (iterate iterfn fst)))))
-
-
-(defn indexed= [indexfn coll]
-  ;; SEM debug
-  #_  (println "indexed=" indexfn coll)
-  (= coll (map indexfn (range (count coll)))))
-
-(defn mkiter [rule iterfn]
-  (fn [input bindings context memo]
-    (let [res (rule input bindings context memo)]
-      (if (sp/failure? res)
-        res
-        (if (iter= iterfn (:s res)) 
-          res
-          (sp/fail "Iterator failed to match input" memo))))))
-
-(defn mkindexed [rule indexfn]
-  (fn [input bindings context memo]
-    (let [res (rule input bindings context memo)]
-      (if (sp/failure? res)
-        res
-        (if (indexed= indexfn (:s res)) 
-          res
-          (sp/fail "Indexed fn failed to match input" memo))))))
-
-(defn mkstep [rule step]
-  {:pre [(number? step)]}
-  (mkiter rule (partial + step)))
-
 (defn tcon-pred [tcon]
   (or (get *constraints* tcon)
       (get default-constraints tcon)))
@@ -217,43 +167,27 @@ Returns the successful result of the last rule or the first to fail."
     (mkprb pred args)
     (sp/mkpr pred)))
 
-(defn mkopts [rule kwopts]
-  (let [{asname :as inval :in step :step itername :iter indexed :indexed} kwopts]
-    (assert (<= (count (keep identity [inval step itername])) 1))
-    (-> rule
-        (cond-> inval (mkin inval)
-                step  (mkstep step)
-                itername (mkiter (resolve itername))
-                indexed (mkindexed (resolve indexed))
-                asname  (sp/mkbind asname)))))
-
-
-;; SEM FIXME -- broken for quantified op, should put the args inside (with con)
-;;   and kwarg outside the quant
-
-;; SEM FIXME BUG -- spliting at kw conflicts with binding args
-;; could use custom args or restrict params versus kw opts
-
 (defn mk-list-simple-type [name lexpr]
-  (let [[tcon & modifiers] lexpr
+  (let [[tcon & args] lexpr
         lch (last-char tcon)
         tcon (simple-sym tcon)
         pred (tcon-pred tcon)
-        [args kwargs] (split-with (complement keyword?) modifiers)
-        brule (mkbase pred args)]
-    (mkopts (case lch
-              \+ (sp/mk1om brule)
-              \* (sp/mkzom brule) 
-              \? (sp/mkopt brule)
-              brule)  
-            (apply hash-map :as name kwargs))))
+        brule (mkbase pred args)
+        rule (case lch
+               \+ (sp/mk1om brule)
+               \* (sp/mkzom brule) 
+               \? (sp/mkopt brule)
+               brule)]
+    (if name
+      (sp/mkbind rule name)
+      rule)))
 
 (defn mk-list-complex-type [name lexpr]
-  (let [[tcon & modifiers] lexpr
-        base-rule (mkconstraint tcon)
-        [args kwargs] (split-with (complement keyword?) modifiers)]
-    (assert (empty? args))
-    (mkopts base-rule (apply hash-map :as name kwargs))))
+  (assert (empty? (rest lexpr)))
+  (let [rule (mkconstraint (first lexpr))]
+    (if name
+      (sp/mkbind rule name)
+      rule)))
 
 (defn bind-name [sym]
   (and (symbol? sym)
@@ -277,22 +211,6 @@ Returns the successful result of the last rule or the first to fail."
   (if-let [pred (tcon-pred sym)]
     (sp/mkpr pred)
     (throw (ex-info (str "No constraint function defined for " sym) {:sym sym}))))
-
-;; SEM FIXME -- drop support for (N t) -- just spell it out N times [t t t] or make a repeat op
-;; SEM FIXME -- should use total cycle, not element count
-
-;; n is the total number of desired items,
-;; cs might have to be repeated to fill
-(defn mk-nseq 
-  ([n cs]
-     (case (long n)
-       0 (sp/mkseq)
-       1 (mkconstraint (first cs))
-       (apply sp/mkseq (take n (cycle (map mkconstraint cs))))))
-  ([lo hi cs]
-     (let [tcons (cycle (map mkconstraint cs))]
-       (apply sp/mkseq (concat (take lo tcons)
-                               (take (- hi lo) (map sp/mkopt (drop lo tcons))))))))
 
 (defn mk-con-seq [cs]
   (apply sp/mkseq (map mkconstraint cs)))
@@ -361,10 +279,7 @@ Returns the successful result of the last rule or the first to fail."
       list (mkand (sp/mkpr list?) (mk-subseq-constraint (rest lexpr)))
       map (mk-map-constraint (apply hash-map (rest lexpr)))
       ;; else
-      (cond (integer? op) (mk-nseq op (rest lexpr))
-            (vector? op) (mk-nseq (first op) (second op) (rest lexpr))
-            :else (mk-list-type lexpr)))))
-
+      (mk-list-type lexpr))))
 
 ;; need to reduce the subrules and preserve the bindings
 ;; SEM FIXME -- not sure about merging memo.  This one just passes on original memo.
