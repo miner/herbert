@@ -90,5 +90,5 @@
   (and (clojure.core/coll? coll) (indexed= (as-fn f) coll)))
 
 (defn cnt? [n coll]
-  (and (clojure.core/coll? coll) (== n (count coll))))
+  (and (or (clojure.core/coll? coll) (string? coll)) (== n (count coll))))
 

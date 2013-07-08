@@ -35,7 +35,7 @@ documenting **edn** data structures.
 
 Add the dependency to your project.clj:
 
-    [com.velisco/herbert "0.3.5"]
+    [com.velisco/herbert "0.4.0"]
 
 I might forget to update the version number here in the README.  The latest version is available on
 Clojars.org:
@@ -46,13 +46,16 @@ https://clojars.org/com.velisco/herbert
 ## Usage
 
 The `conform` function with two arguments (the constraint expression and the value to test) returns
-either a map of bindings for a successful match or nil for a failed match.  With a single argument
-(the constraint expresion), the `conform` function returns a function that will execute the match
-against that constraint.  This is useful if you need to check the same constraint multiple times.
+either a map of bindings for a successful match or nil for a failed match.  The three-argument
+variant takes an "extensions" map as the first arg.  More about that later.
+
+The `conformitor` function returns a function that will execute the match against a constraint
+expression.  It also allows for an optional "extensions" map.  If you need to check the same
+constraint multiple times, you can use `conformitor` to define a predicate.
 
 For the common case of testing conformation, the `conforms?` predicate takes a constraint expression
 and a value.  It returns `true` if the value conforms to the constraint expression, `false`
-otherwise.
+otherwise.  (Again, there's a variant that takes an "extensions" map as the first argument.)
 
 Quick example:
 
@@ -61,7 +64,7 @@ Quick example:
 	;=> true
 
 
-## Notation
+## Notation for Constraint Expressions
 
 * Literal constants match themselves: <BR>
 **nil**, **true**, **false**, *numbers*, *"strings"*, *:keywords*
@@ -131,36 +134,49 @@ Quick example:
   order (as opposed to being within a container sequence). <BR>
 `(& (n int) (f float) (> n f))` -- matches 4 3.14
 
-* Users may define new constraints by binding the dynamic var `miner.herbert/*constraints*`.  It
-  should be a map of symbols to vars, where the var names a function that implements the appropriate
-  predicate.  If the constraint takes parameters, the implementing function should take those
-  paramenters first.  In all cases, the last argument should be the item in question.  Note, the
-  constraint function should accept all values for consideration without throwing an exception.  For
-  example, the `even` constraint is implemented with a test of `integer?` as well as `even?` since
-  the latter will throw on non-integer values.  The default constraints are defined in the var
-  `miner.herbert/default-constraints`.
+* Users may extend the constraint system in two ways: declaring new constraint terms (predicates)
+  and naming sub-constraints.  Constraint predicates are associated with Clojure predicate
+  functions.  Sub-constraints are a convenient way to encapsulate constraint expressions.  The
+  `conform` function (and variants) take an `extensions` argument which is a map with two keys:
+  `:predicates` and `:constraints`.  The value for :predicates is a map of symbols to vars.  The
+  vars name Clojure functions that implement the predicate test for the constraint.  If the
+  constraint takes parameters, the implementing function should take those paramenters first.  In
+  all cases, the last argument should be the item in question.  Note, the constraint function should
+  accept all values for consideration without throwing an exception.  For example, the `even`
+  constraint predicate is implemented with a test of `integer?` as well as `even?` since the latter
+  will throw on non-integer values.  The default predicates are defined in the var
+  `miner.herbert/default-predicates`.  The :constraints value should be a vector of alternating
+  symbol and constraint-expression pairs (as in a `let` form).  The constraints are processed in
+  order so later constraints can refer to previously named constraints.
+
 
 ## Examples
 
-    (conforms? 'int 10)
-	;=> true
-	
-	(conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo :c ["foo" "bar" "baz"]})
+	(require '[miner.herbert :as h])
+
+    (h/conforms? 'int 10)
 	;=> true
 
-	(conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo})
+    (h/conforms? {} 'int 10)
+	; empty "extensions" map has no effect
+	;=> true
+
+	(h/conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo :c ["foo" "bar" "baz"]})
+	;=> true
+
+	(h/conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo})
 	; :c is optional so it's OK if it's not there at all.
 	;=> true
 
-	(conforms? '{:a int :b sym :c? [str*]} '{:a foo :b bar})
+	(h/conforms? '{:a int :b sym :c? [str*]} '{:a foo :b bar})
 	;=> false
 
-    (conforms? '{:a (a int) :b sym :c? [a+]} '{:a 1 :b foo :c [1 1 1]})
+    (h/conforms? '{:a (a int) :b sym :c? [a+]} '{:a 1 :b foo :c [1 1 1]})
 	; a is bound to the int associated with :a, and then used again to define the values in the
 	; seq associated with :c.
     ;=> true
 
-    (conforms? '(& {:a (a int) :b (b sym) :c (c [b+])} (assert (= (count c) a))) 
+    (h/conforms? '(& {:a (a int) :b (b sym) :c (c [b+])} (assert (= (count c) a))) 
 	           '{:a 2 :b foo :c [foo foo]})
     ; The & operator just means the following elements are found inline, not in a container.
 	; In this case, we use it to associate the assertion with the single map constraint.  The
@@ -169,15 +185,30 @@ Quick example:
 	; with :b.			   
     ;=> true
 
-    (conform '[(a int) (b int) (c int+ a b)] [3 7 4 5 6])
+    (h/conform '[(a int) (b int) (c int+ a b)] [3 7 4 5 6])
 	; Inside a seq, the first two ints establish the low and high range of the rest 
 	; of the int values.
     ;=> {c [4 5 6], b 7, a 3}
 
-    (def my-checker (conform '[(a int) (b int) (c int+ a b)]))
-	(my-checker [3 7 4 5 6])
-    ;=> {c [4 5 6], b 7, a 3}
-	
+	(def my-checker (h/conformitor '[(max int) (xs int+ max)]))
+	(my-checker [7 3 5 6 4])
+	;=> {xs [3 5 6 4], max 7}
+
+	(defn palindrome? [s]
+		(and (string? s)
+			(= s (clojure.string/reverse s))))
+			
+	(h/conforms? {:predicates {'palindrome #'palindrome?}
+                  :constraints '[pal {:len (len int) :palindrome (and palindrome (cnt len))}
+                                 palindromes [pal+]]}
+                 'palindromes
+                 [{:palindrome "civic" :len 5}
+                  {:palindrome "kayak" :len 5} 
+                  {:palindrome "level" :len 5}
+                  {:palindrome "ere" :len 3}
+                  {:palindrome "racecar" :len 7}])
+	;=> true
+
 
 ## References
 

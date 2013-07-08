@@ -1,7 +1,8 @@
 (ns miner.test-herbert
   (:use clojure.test
         miner.herbert)
-  (:require miner.herbert.predicates))
+  (:require miner.herbert.predicates
+            clojure.string))
 
 (deftest basics []
   (is (conforms? 'int 10))
@@ -204,9 +205,23 @@
   (is (conforms? '(sym "user/.*") 'user/foobar))
   (is (not (conforms? '(sym "user/.*") :user/foobar))))
 
+(defn palindrome? [s]
+  (and (string? s)
+       (= s (clojure.string/reverse s))))
+
 (deftest grammar []
   (is (conforms? {:predicates {'over3 #'over3?} 
                   :constraints '[long int 
                                  start {:a over3 :b long}]}
                  'start
-                 {:a 42 :b 42})))
+                 {:a 42 :b 42}))
+  (is (conforms? {:predicates {'palindrome #'palindrome?}
+                  :constraints '[pal {:len (len int) :palindrome (and palindrome (cnt len))}
+                                 palindromes [pal+]]}
+                 'palindromes
+                 [{:palindrome "civic" :len 5}
+                  {:palindrome "kayak" :len 5} 
+                  {:palindrome "level" :len 5}
+                  {:palindrome "ere" :len 3}
+                  {:palindrome "racecar" :len 7}])))
+
