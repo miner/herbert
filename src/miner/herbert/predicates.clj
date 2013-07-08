@@ -1,4 +1,4 @@
-(ns miner.herbert.constraints
+(ns miner.herbert.predicates
   (:refer-clojure 
    :exclude [float? list? char? empty? map? seq? set? coll? even? odd?])
   )

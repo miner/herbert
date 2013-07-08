@@ -1,7 +1,7 @@
 (ns miner.test-herbert
   (:use clojure.test
         miner.herbert)
-  (:require miner.herbert.constraints))
+  (:require miner.herbert.predicates))
 
 (deftest basics []
   (is (conforms? 'int 10))
@@ -128,8 +128,8 @@
   (is (conforms? '(& (ns (and [int+] (step 3))) (== (count ns) 4)) [2 5 8 11])))
 
 (deftest step-count []
-  (is (conforms? '(& (ns [int+]) (assert (and (miner.herbert.constraints/step? 3 ns) 
-                                              (miner.herbert.constraints/cnt? 4 ns)))) 
+  (is (conforms? '(& (ns [int+]) (assert (and (miner.herbert.predicates/step? 3 ns) 
+                                              (miner.herbert.predicates/cnt? 4 ns)))) 
                  [2 5 8 11]))
   (is (conforms? '(and [int+] (step 3) (cnt 4)) [2 5 8 11]))
   (is (not (conforms? '(and [int+] (step 3) (cnt 4)) [2 5 8 11 14])))
@@ -146,13 +146,13 @@
   (is (conforms? '[(or int kw sym) (not int)] [:a :a]))
   (is (conforms? '[(or int kw sym) (and num (not even))] ['a 6.1])))
 
-(defn over3 [x] (> x 3))
+(defn over3? [x] (> x 3))
 
+;; not the best way to handle this case, but imagine a fancier function
 (deftest with-constraints []
-  (binding [*constraints* {'over3 #'over3}]
-    (is (conforms? '[over3*] [ 4 5 6 9]))
-    (is (conforms? '[over3*] []))
-    (is (conforms? '[over3?] [33]))))
+  (is (conforms? {:predicates {'over3 #'over3?}} '[over3*]  [4 5 6 9]))
+  (is (conforms? {:predicates {'over3 #'over3?}} '[over3*]  []))
+  (is (conforms? {:predicates {'over3 #'over3?}} '[over3?]  [33])))
 
 (deftest pred-args []
   (is (conforms? '[(+ (even 20)) kw] [4 10 18 :a]))
@@ -160,10 +160,10 @@
   (is (not (conforms? '[(even+ 20) kw] [4 30 18 :a])))
   (is (conforms? '[(lo int) (hi int) (even+ lo hi) kw] [4 20 14 10 18 :a]))
   (is (conforms? '[(lo int) (hi int) (es even+ lo hi) 
-                   (assert (miner.herbert.constraints/step? 4 es)) kw]
+                   (assert (miner.herbert.predicates/step? 4 es)) kw]
                  [4 20 6 10 14 18 :a]))
   (is (not (conforms? '[(lo int) (hi int) (es even+ lo hi) 
-                        (assert (miner.herbert.constraints/step? 4 es)) kw]
+                        (assert (miner.herbert.predicates/step? 4 es)) kw]
                       [4 20 6 10 16 18 :a]))))
 
 (deftest strings []
@@ -204,3 +204,9 @@
   (is (conforms? '(sym "user/.*") 'user/foobar))
   (is (not (conforms? '(sym "user/.*") :user/foobar))))
 
+(deftest grammar []
+  (is (conforms? {:predicates {'over3 #'over3?} 
+                  :constraints '[long int 
+                                 start {:a over3 :b long}]}
+                 'start
+                 {:a 42 :b 42})))

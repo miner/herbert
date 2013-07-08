@@ -2,16 +2,13 @@
   (:require [clojure.string :as str]
             [clojure.set :as set]
             [squarepeg.core :as sp]
-            [miner.herbert.constraints]))
+            [miner.herbert.predicates]))
 
 
-(def ^:dynamic *constraints* 
-  "Map of user-defined constraint names to vars implementing the appropriate predicate." {})
-
-(def constraints-ns (the-ns 'miner.herbert.constraints))
+(def predicates-ns (the-ns 'miner.herbert.predicates))
 (def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not assert vec seq list map mod})
-(declare default-constraints)
-;; default-constraints defined a bit later so it can use some fns
+(declare default-predicates)
+;; default-predicates defined a bit later so it can use some fns
 
 (defn reserved-sym? [sym]
   (contains? reserved-ops sym))
@@ -49,16 +46,12 @@
     (keyword ns name1)
     (symbol ns name1))))
 
-(defn ns->constraints [ns]
+(defn ns->predicates [ns]
   (reduce-kv (fn [cm k v] (if (= (last-char k) \?) (assoc cm (simple-sym k) v) cm))
              {}
              (ns-publics (the-ns ns))))
 
-(def default-constraints (ns->constraints constraints-ns))
-
-(defn defined-sym? [sym]
-  (or (contains? default-constraints sym)
-      (contains? *constraints* sym)))
+(def default-predicates (ns->predicates predicates-ns))
 
 (defn simple-sym? [sym]
   (= sym (simple-sym sym)))
@@ -133,9 +126,17 @@ Returns the successful result of the last rule or the first to fail."
   ([rule1 rule2 & rules]
      (reduce mkand (mkand rule1 rule2) rules)))
 
-(defn tcon-pred [tcon]
-  (or (get *constraints* tcon)
-      (get default-constraints tcon)))
+
+(defn ext-rule [sym extensions]
+  (get-in extensions [:constraints sym]))  
+
+(defn ext-pred [sym extensions]
+  (get-in extensions [:predicates sym]))
+
+;; SEM FIXME -- a bit of extra work to test pred as var but safer
+(defn tcon-pred [tcon extensions]
+  (or (ext-pred tcon extensions)
+      (get default-predicates tcon)))
 
 (declare mkconstraint)
 
@@ -147,11 +148,14 @@ Returns the successful result of the last rule or the first to fail."
       (sp/mkbind sp/anything solo)
       (sp/mkpred (fn [bindings context] (= (get bindings bname) (get bindings solo))))))))
 
-(defn mk-symbol-constraint [sym]
+;; extensions could have a user-defined erule
+;; erule wins over built-in pred
+(defn mk-symbol-constraint [sym extensions]
   (let [lch (last-char sym)
         sym (simple-sym sym)
-        pred (tcon-pred sym)
-        brule (if pred (sp/mkpr pred) (mk-solo sym))]
+        erule (ext-rule sym extensions)
+        pred (when-not erule (tcon-pred sym extensions))
+        brule (or erule (if pred (sp/mkpr pred) (mk-solo sym)))]
     (case lch
       \+ (sp/mk1om brule)
       \* (sp/mkzom brule)
@@ -167,12 +171,13 @@ Returns the successful result of the last rule or the first to fail."
     (mkprb pred args)
     (sp/mkpr pred)))
 
-(defn mk-list-simple-type [name lexpr]
+(defn mk-list-simple-type [name lexpr extensions]
   (let [[tcon & args] lexpr
         lch (last-char tcon)
-        tcon (simple-sym tcon)
-        pred (tcon-pred tcon)
-        brule (mkbase pred args)
+        sym (simple-sym tcon)
+        erule (ext-rule sym extensions)
+        pred (when-not erule (tcon-pred sym extensions))
+        brule (or erule (mkbase pred args))
         rule (case lch
                \+ (sp/mk1om brule)
                \* (sp/mkzom brule) 
@@ -182,41 +187,44 @@ Returns the successful result of the last rule or the first to fail."
       (sp/mkbind rule name)
       rule)))
 
-(defn mk-list-complex-type [name lexpr]
+;; complex implies something like a map or vector that needs further processing
+(defn mk-list-complex-type [name lexpr extensions]
   (assert (empty? (rest lexpr)))
-  (let [rule (mkconstraint (first lexpr))]
+  (let [rule (mkconstraint (first lexpr) extensions)]
     (if name
       (sp/mkbind rule name)
       rule)))
 
-(defn bind-name [sym]
+(defn bind-name [sym extensions]
   (and (symbol? sym)
        (not (contains? reserved-ops sym))
-       (not (tcon-pred (simple-sym sym)))
+       (not (contains? (:constraints extensions) sym))
+       (not (tcon-pred (simple-sym sym) extensions))
        sym))
 
-(defn mk-list-type [lexpr]
+(defn mk-list-type [lexpr extensions]
   (when-first [fst lexpr]
-    (let [bname (bind-name fst)
+    (let [bname (bind-name fst extensions)
           expr (if bname (rest lexpr) lexpr)]
       (cond (and bname (nil? (seq expr))) (mk-solo bname)
-            (symbol? (first expr)) (mk-list-simple-type bname expr)
-            :else (mk-list-complex-type bname expr)))))
+            (symbol? (first expr)) (mk-list-simple-type bname expr extensions)
+            :else (mk-list-complex-type bname expr extensions)))))
 
 ;; :else (throw (ex-info "Unknown mk-list-type" {:name bname :con lexpr}))))))
 
 
 ;; probably don't want this
-(defn mk-quoted-sym [sym]
-  (if-let [pred (tcon-pred sym)]
+(defn mk-quoted-sym [sym extensions]
+  (if-let [pred (tcon-pred sym extensions)]
     (sp/mkpr pred)
-    (throw (ex-info (str "No constraint function defined for " sym) {:sym sym}))))
+    (throw (ex-info (str "No constraint function defined for " sym) 
+                    {:sym sym :extensions extensions}))))
 
-(defn mk-con-seq [cs]
-  (apply sp/mkseq (map mkconstraint cs)))
+(defn mk-con-seq [cs extensions]
+  (apply sp/mkseq (map #(mkconstraint % extensions) cs)))
 
-(defn mk-subseq-constraint [vexpr]
-  (sp/mksub (apply sp/mkseq (conj (mapv mkconstraint vexpr) sp/end))))
+(defn mk-subseq-constraint [vexpr extensions]
+  (sp/mksub (apply sp/mkseq (conj (mapv #(mkconstraint % extensions) vexpr) sp/end))))
 
 ;; SEM FIXME: strictly speaking, anonymous fns might have some free symbols mixed in so really you
 ;; should disjoin the fn args within that scope but take the other symbols.
@@ -254,11 +262,12 @@ Returns the successful result of the last rule or the first to fail."
   (let [pred (runtime-pred body)]
     (sp/mkpred (fn [bindings context] (pred (merge context bindings))))))
 
-;; SEM BUG what about map support is limited to kw keys right now
+
 (declare mk-map-constraint)
 
-(defn mk-list-constraint [lexpr]
-  (let [op (first lexpr)]
+(defn mk-list-constraint [lexpr extensions]
+  (let [op (first lexpr)
+        mkconstraint #(mkconstraint % extensions)]
     (case op
       or (apply sp/mkalt (map mkconstraint (rest lexpr)))
       and (apply mkand (map mkconstraint (rest lexpr)))
@@ -270,16 +279,16 @@ Returns the successful result of the last rule or the first to fail."
               (mkconstraint (second lexpr)))
       (= == not= < > <= >=) (mk-assert lexpr)
       assert (mk-assert (second lexpr))
-      * (sp/mkzom (mk-con-seq (rest lexpr)))
-      + (sp/mk1om (mk-con-seq (rest lexpr))) 
-      ? (sp/mkopt (mk-con-seq (rest lexpr)))  
-      & (mk-con-seq (rest lexpr))
-      seq  (mk-subseq-constraint (rest lexpr))
-      vec (mkand (sp/mkpr vector?) (mk-subseq-constraint (rest lexpr)))
-      list (mkand (sp/mkpr list?) (mk-subseq-constraint (rest lexpr)))
-      map (mk-map-constraint (apply hash-map (rest lexpr)))
+      * (sp/mkzom (mk-con-seq (rest lexpr) extensions))
+      + (sp/mk1om (mk-con-seq (rest lexpr) extensions)) 
+      ? (sp/mkopt (mk-con-seq (rest lexpr) extensions))
+      & (mk-con-seq (rest lexpr) extensions)
+      seq  (mk-subseq-constraint (rest lexpr) extensions)
+      vec (mkand (sp/mkpr vector?) (mk-subseq-constraint (rest lexpr) extensions))
+      list (mkand (sp/mkpr list?) (mk-subseq-constraint (rest lexpr) extensions))
+      map (mk-map-constraint (apply hash-map (rest lexpr)) extensions)
       ;; else
-      (mk-list-type lexpr))))
+      (mk-list-type lexpr extensions))))
 
 ;; need to reduce the subrules and preserve the bindings
 ;; SEM FIXME -- not sure about merging memo.  This one just passes on original memo.
@@ -321,9 +330,6 @@ Returns the successful result of the last rule or the first to fail."
 (defn required-keys [m]
   (remove optional-key? (keys m)))
 
-(defn test-constraint? [con val]
-  (sp/success? ((mkconstraint con) (list val) {} {} {})))
-
 ;; SEM FIXME -- everywhere we use sp/success? we have to look for passing up the bindings
 ;; which means sp/mkpr is not going to be sufficient in many cases.
 
@@ -360,23 +366,23 @@ nil value also succeeds for an optional kw.  Does not consume anything."
                 (sp/succeed nil [] input (:b r) (:m r))))
             (sp/succeed nil [] input bindings memo))))))
 
-(defn mk-map-entry [[key con]]
+(defn mk-map-entry [[key con] extensions]
   ;; FIXME -- only handles kw literals and optional :kw? for keys
   ;; doesn't carry context or results for individual key/val matches
   ;; Note: each rule expect full map as input, but only looks at one key
-  (let [rule (mkconstraint con)]
+  (let [rule (mkconstraint con extensions)]
     (cond (optional-key? key) (mk-kw-opt (simple-key key) rule)
           (or (literal? key) (symbol? key)) (mk-key key rule)
           (and (seq? key) (= (first key) 'quote)) (mk-key (second key) rule)
           :else (throw (ex-info (str "Unsupported literal key " (pr-str key)) 
                                 {:key key :constraint con})))))
 
-(defn mk-map-constraint [mexpr]
-  (mkmap (map mk-map-entry mexpr)))
+(defn mk-map-constraint [mexpr extensions]
+  (mkmap (map #(mk-map-entry % extensions) mexpr)))
 
-(defn mk-set-sym [sym]
+(defn mk-set-sym [sym extensions]
   (let [simple (simple-sym sym)
-        rule (mkconstraint simple)]
+        rule (mkconstraint simple extensions)]
     (case (last-char sym)
       \* (sp/mkpr (fn [s] (every? #(sp/success? (rule (list %) {} {} {})) s)))
       \+ (sp/mkpr (fn [s] (and (seq s) (every? #(sp/success? (rule (list %) {} {} {})) s))))
@@ -386,10 +392,10 @@ nil value also succeeds for an optional kw.  Does not consume anything."
       ;; else simple
       (sp/mkpr (fn [s] (some #(sp/success? (rule (list %) {} {} {})) s))))))
 
-(defn mk-set-list [lst]
+(defn mk-set-list [lst extensions]
   (let [[op con unexpected] lst
         quantified (case op (* + ?) true false)
-        rule  (if quantified (mkconstraint con) (mkconstraint lst))]
+        rule  (if quantified (mkconstraint con extensions) (mkconstraint lst extensions))]
     (when (and quantified unexpected)
       (throw (ex-info "Unexpectedly more" {:con lst})))
     (case op
@@ -402,70 +408,91 @@ nil value also succeeds for an optional kw.  Does not consume anything."
       (sp/mkpr (fn [s] (some #(sp/success? (rule (list %) {} {} {})) s))))))
 
 
-(defn mk-set-element [con]
-  (cond (symbol? con) (mk-set-sym con)
-        (list? con) (mk-set-list con)
-        (literal? con) (throw (ex-info "Literals should be handled separately" {:con con}))
-        :else (throw (ex-info "I didn't think of that" {:con con}))))
+(defn mk-set-element [con extensions]
+  (cond (symbol? con) (mk-set-sym con extensions)
+        (list? con) (mk-set-list con extensions)
+        (literal? con) (throw (ex-info "Literals should be handled separately" 
+                                       {:con con :extensions extensions}))
+        :else (throw (ex-info "I didn't think of that" {:con con :extensions extensions}))))
 
 
-(defn mk-set-constraint [sexpr]
+(defn mk-set-constraint [sexpr extensions]
   (let [nonlits (remove literal? sexpr)
         litset (if (seq nonlits) (set (filter literal? sexpr)) sexpr)]
-    (apply mkand (sp/mkpr #(set/subset? litset %)) (map mk-set-element nonlits))))
+    (apply mkand (sp/mkpr #(set/subset? litset %)) (map #(mk-set-element % extensions) nonlits))))
            
 
 (defn mkconstraint 
-  ([expr]
+  ([expr] (mkconstraint expr {}))
+  ([expr extensions]
      #_ (println "mkconstraint " expr)
-     (cond (symbol? expr) (mk-symbol-constraint expr)
+     (cond (symbol? expr) (mk-symbol-constraint expr extensions)
            ;; don't use list?, seq? covers Cons as well
-           (seq? expr) (mk-list-constraint expr)
-           (vector? expr) (mk-subseq-constraint expr)
-           (set? expr) (mk-set-constraint expr)
-           (map? expr) (mk-map-constraint expr) 
+           (seq? expr) (mk-list-constraint expr extensions)
+           (vector? expr) (mk-subseq-constraint expr extensions)
+           (set? expr) (mk-set-constraint expr extensions)
+           (map? expr) (mk-map-constraint expr extensions) 
            (string? expr) (sp/mklit expr)
            (keyword? expr) (sp/mklit expr)
            (nil? expr) (sp/mkpr nil?)
            (false? expr) (sp/mkpr false?)
            (true? expr) (sp/mkpr true?)
            (number? expr) (sp/mklit expr)
-           :else (throw (ex-info "Unknown constraint form" {:con expr}))))
-     
-  ([expr expr2]
-     (sp/mkseq (mkconstraint expr) (mkconstraint expr2)))
-
-  ([expr expr2 & more]
-     (apply sp/mkseq (mkconstraint expr) (mkconstraint expr2) (map mkconstraint more))))
+           :else (throw (ex-info "Unknown constraint form" {:con expr :extensions extensions})))))
 
 
-(defn constraint-fn [con]
-  (let [cfn (mkconstraint con)]
-    (fn ff
-      ([item] (ff item {} {} {}))
-      ([item context] (ff item context {} {}))
-      ([item context bindings memo] (cfn (list item) context bindings memo)))))
+;; util
+(defn pairs [map-or-flatseq]
+  ;; array-map will preserve order, but a hash-map gives no guaranteed order
+  (if (map? map-or-flatseq)
+    (seq map-or-flatseq)
+    (partition-all 2 map-or-flatseq)))
+
+;; SEM FIXME:  should we allow symbols instead of requiring vars for predicates?
+;; SEM FIXME:  won't work with recursive constraints, order-sensistive
+(defn as-extensions [exts]
+  (let [preds (reduce (fn [res [k v]] (assoc res k (if (symbol? v) (resolve v) v))) 
+                      {} 
+                      (pairs (:predicates exts)))]
+    (reduce (fn [es [k v]] (assoc-in es [:constraints k] (mkconstraint v es)))
+            {:predicates preds :constraints {}}
+            (pairs (:constraints exts)))))
+
+  
+;; exts is map of {:predicates? (map sym var) :constraints? [(* sym con-expr)]}
+(defn constraint-fn 
+  ([con] (constraint-fn [] con))
+  ([exts con]
+     (let [cfn (mkconstraint con (as-extensions exts))]
+       (fn ff
+         ([] con)
+         ([item] (ff item {} {} {}))
+         ([item context] (ff item context {} {}))
+         ([item context bindings memo] (cfn (list item) context bindings memo))))))
 
 
+;; creates a fn that test for conformance to the con with the given extensions
+(defn conformitor 
+  ([con] (conformitor [] con))
+  ([exts con]
+     (if (fn? con) con 
+         (fn 
+           ([] con)
+           ([x] (let [res ((constraint-fn exts con) x)]
+                  (when (sp/success? res)
+                    (with-meta (:b res) {::constraint con}))))))))
 
-;; Too Clever?  Single arg creates predicate (for reuse).  Second arg immediately tests.
-;; Con can be a fn already (presumed to be a predicate), or a "constraint expression" which
-;; is compiled into a predicate.
-
-(defn conformitor [con]
-  (if (fn? con) con 
-      #(let [res ((constraint-fn con) %)] 
-         (when (sp/success? res)
-           (with-meta (:b res) {::constraint con})))))
 
 (defn conform
-  ([con] (conformitor con))
-  ([con x] ((conformitor con) x)))
+  ([con x] ((conformitor [] con) x))
+  ([exts con x] ((conformitor exts con) x)))
 
-(defn conforms? [con x] 
-  (boolean (conform con x)))
+(defn conforms? 
+  ([con x] (conforms? [] con x))
+  ([exts con x]
+     (boolean (conform exts con x))))
 
-;; UGLY and unfinished
+;; UGLY and unfinished -- don't use this
 (defmacro conf? [con x]
   (println "conf?" con (type con))
   (let [dcon (if (and (seq? con) (= (first con) 'quote)) (second con) con)
@@ -474,3 +501,4 @@ nil value also succeeds for an optional kw.  Does not consume anything."
     (println "  cf " fcf (type fcf))
     `(let [res# (fcf ~x)]
        (when res#  (with-meta res# {::constraint ~con})))))
+
