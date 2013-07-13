@@ -232,5 +232,8 @@
   (is (conforms? '(map (or sym kw) (or sym int)) {:a 'b52}))
   (is (conforms? '(map (or sym kw) (or sym int)) {'b 'b52}))
   (is (conforms? '(map (or sym kw) (or sym int)) {'b 52}))
+  (is (conforms? '(map sym) {'b 52}))
+  (is (conforms? '(map) {'b 52}))
+  (is (conforms? 'map {'b 52}))
   (is (not (conforms? '(map (or sym kw) (or sym int)) {:a :b52}))))
   

@@ -387,12 +387,12 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 
 ;; SEM FIXME: bindings don't get passed down from krule and vrule
 (defn mk-map-constraint [key-con val-con extensions]
-  (let [krule (mkconstraint key-con extensions)
-        vrule (mkconstraint val-con extensions)]
+  (let [krule (when key-con (mkconstraint key-con extensions))
+        vrule (when val-con (mkconstraint val-con extensions))]
     (sp/mkpr (fn [m]
                (and (map? m)
-                    (every? #(sp/success? (krule (list %) {} {} {})) (keys m))
-                    (every? #(sp/success? (vrule (list %) {} {} {})) (vals m)))))))
+                    (or (not krule) (every? #(sp/success? (krule (list %) {} {} {})) (keys m)))
+                    (or (not vrule) (every? #(sp/success? (vrule (list %) {} {} {})) (vals m))))))))
 
 (defn mk-set-sym [sym extensions]
   (let [simple (simple-sym sym)

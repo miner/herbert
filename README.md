@@ -96,14 +96,14 @@ Quick example:
 * Square brackets match any seq (not just a vector) with the contained pattern <BR>
 `[(* kw sym)]`  -- matches '(:a foo :b bar :c baz)
 
-* Curly braces match any map with the given keys and value types.  Optional keywords are written
-  with a ? suffix such as **:kw?**.  For convenience, an optional keyword constraint implicitly
-  allows **nil** for the corresponding value. <BR>
+* Curly braces match any map with the given literal keys and values matching the corresponding
+  constraints.  Optional keywords are written with a ? suffix such as **:kw?**.  For convenience, an
+  optional keyword constraint implicitly allows **nil** for the corresponding value. <BR>
 `{:a int :b sym :c? [int*]}`  -- matches {:a 10 :b foo :c [1 2 3]}
 
-* A set with multiple constraints denotes the required element types, but does not exclude others.
-  A single element might match multiple constraints.  A set with a single quantified constraint,
-  defines the requirement on all elements. <BR>
+* A literal set with multiple constraints denotes the required element types, but does not exclude
+  others.  A single element might match multiple constraints.  A set with a single quantified
+  constraint, defines the requirement on all elements. <BR>
 `#{int :a :b}` -- matches #{:a :b :c 10}, but not #{:a 10} <BR>
 `#{int+}` -- matches #{1 3 5}, but not #{1 :a 3}
 
@@ -133,6 +133,11 @@ Quick example:
 * Inlined constraints. A list starting with `&` as the first element refers to multiple items in
   order (as opposed to being within a container sequence). <BR>
 `(& (n int) (f float) (> n f))` -- matches 4 3.14
+
+* The `map` constraint predicate can take two optional arguments, the *keys-constraint* and the
+  *vals-constraint*.  The matching element must be a map whose `keys` all satisfy *keys-constraint*
+  and whose `vals` all satisfy *vals-constraint*. <BR>
+`(map sym int)` -- matches {a 42}
 
 * Users may extend the constraint system in two ways: declaring new constraint terms (predicates)
   and naming sub-constraints.  Constraint predicates are associated with Clojure predicate
