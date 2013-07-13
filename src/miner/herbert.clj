@@ -265,18 +265,21 @@ Returns the successful result of the last rule or the first to fail."
 
 (declare mk-map-constraint)
 
+(defn third [s]
+  (first (nnext s)))
+
 (defn mk-list-constraint [lexpr extensions]
   (let [op (first lexpr)
-        mkconstraint #(mkconstraint % extensions)]
+        mkconstr #(mkconstraint % extensions)]
     (case op
-      or (apply sp/mkalt (map mkconstraint (rest lexpr)))
-      and (apply mkand (map mkconstraint (rest lexpr)))
-      not (sp/mkseq (sp/mknot (mkconstraint (second lexpr))) sp/anything)
+      or (apply sp/mkalt (map mkconstr (rest lexpr)))
+      and (apply mkand (map mkconstr (rest lexpr)))
+      not (sp/mkseq (sp/mknot (mkconstr (second lexpr))) sp/anything)
       quote (if (symbol? (second lexpr))
               ;; symbols can be used as literals if quoted
               (sp/mklit (second lexpr))
               ;; dequoting here is convenient for macros
-              (mkconstraint (second lexpr)))
+              (mkconstr (second lexpr)))
       (= == not= < > <= >=) (mk-assert lexpr)
       assert (mk-assert (second lexpr))
       * (sp/mkzom (mk-con-seq (rest lexpr) extensions))
@@ -286,7 +289,7 @@ Returns the successful result of the last rule or the first to fail."
       seq  (mk-subseq-constraint (rest lexpr) extensions)
       vec (mkand (sp/mkpr vector?) (mk-subseq-constraint (rest lexpr) extensions))
       list (mkand (sp/mkpr list?) (mk-subseq-constraint (rest lexpr) extensions))
-      map (mk-map-constraint (apply hash-map (rest lexpr)) extensions)
+      map (mk-map-constraint (second lexpr) (third lexpr) extensions)
       ;; else
       (mk-list-type lexpr extensions))))
 
@@ -295,7 +298,7 @@ Returns the successful result of the last rule or the first to fail."
 (defn mkmap [rules]
   (fn [input bindings context memo]
     (let [m (first input)]
-      (if (and (seq input) (map? m))
+      (if (map? m)
         (let [mbindings (reduce (fn [mb rule]
                                     (if (false? mb)
                                       false
@@ -370,6 +373,8 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   ;; FIXME -- only handles kw literals and optional :kw? for keys
   ;; doesn't carry context or results for individual key/val matches
   ;; Note: each rule expect full map as input, but only looks at one key
+  ;; keys are literals (or quoted literals), not full constraints
+  ;; so symbols get treated as literals, appropriate for literal '{foo 1} maps
   (let [rule (mkconstraint con extensions)]
     (cond (optional-key? key) (mk-kw-opt (simple-key key) rule)
           (or (literal? key) (symbol? key)) (mk-key key rule)
@@ -377,8 +382,17 @@ nil value also succeeds for an optional kw.  Does not consume anything."
           :else (throw (ex-info (str "Unsupported literal key " (pr-str key)) 
                                 {:key key :constraint con})))))
 
-(defn mk-map-constraint [mexpr extensions]
+(defn mk-map-literal-constraint [mexpr extensions]
   (mkmap (map #(mk-map-entry % extensions) mexpr)))
+
+;; SEM FIXME: bindings don't get passed down from krule and vrule
+(defn mk-map-constraint [key-con val-con extensions]
+  (let [krule (mkconstraint key-con extensions)
+        vrule (mkconstraint val-con extensions)]
+    (sp/mkpr (fn [m]
+               (and (map? m)
+                    (every? #(sp/success? (krule (list %) {} {} {})) (keys m))
+                    (every? #(sp/success? (vrule (list %) {} {} {})) (vals m)))))))
 
 (defn mk-set-sym [sym extensions]
   (let [simple (simple-sym sym)
@@ -431,7 +445,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
            (seq? expr) (mk-list-constraint expr extensions)
            (vector? expr) (mk-subseq-constraint expr extensions)
            (set? expr) (mk-set-constraint expr extensions)
-           (map? expr) (mk-map-constraint expr extensions) 
+           (map? expr) (mk-map-literal-constraint expr extensions) 
            (string? expr) (sp/mklit expr)
            (keyword? expr) (sp/mklit expr)
            (nil? expr) (sp/mkpr nil?)

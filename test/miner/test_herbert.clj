@@ -225,3 +225,12 @@
                   {:palindrome "ere" :len 3}
                   {:palindrome "racecar" :len 7}])))
 
+(deftest non-literal-map
+  (is (conforms? '(map kw int) {:a 42}))
+  (is (not (conforms? '(map kw int) {'a 42})))
+  (is (not (conforms? '(map kw int) {:a 'b52})))
+  (is (conforms? '(map (or sym kw) (or sym int)) {:a 'b52}))
+  (is (conforms? '(map (or sym kw) (or sym int)) {'b 'b52}))
+  (is (conforms? '(map (or sym kw) (or sym int)) {'b 52}))
+  (is (not (conforms? '(map (or sym kw) (or sym int)) {:a :b52}))))
+  
