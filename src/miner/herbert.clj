@@ -128,7 +128,7 @@ Returns the successful result of the last rule or the first to fail."
 
 
 (defn ext-rule [sym extensions]
-  (get-in extensions [:constraints sym]))  
+  (get-in extensions [:expressions sym]))  
 
 (defn ext-pred [sym extensions]
   (get-in extensions [:predicates sym]))
@@ -198,7 +198,7 @@ Returns the successful result of the last rule or the first to fail."
 (defn bind-name [sym extensions]
   (and (symbol? sym)
        (not (contains? reserved-ops sym))
-       (not (contains? (:constraints extensions) sym))
+       (not (contains? (:expressions extensions) sym))
        (not (tcon-pred (simple-sym sym) extensions))
        sym))
 
@@ -468,51 +468,38 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   (let [preds (reduce (fn [res [k v]] (assoc res k (if (symbol? v) (resolve v) v))) 
                       {} 
                       (pairs (:predicates exts)))]
-    (reduce (fn [es [k v]] (assoc-in es [:constraints k] (mkconstraint v es)))
-            {:predicates preds :constraints {}}
-            (pairs (:constraints exts)))))
+    (reduce (fn [es [k v]] (assoc-in es [:expressions k] (mkconstraint v es)))
+            {:predicates preds :expressions {}}
+            (pairs (:expressions exts)))))
 
   
-;; exts is map of {:predicates? (map sym var) :constraints? [(* sym con-expr)]}
+;; exts is map of {:predicates? (map sym var) :expressions? [(* sym con-expr)]}
 (defn constraint-fn 
-  ([con] (constraint-fn [] con))
-  ([exts con]
-     (let [cfn (mkconstraint con (as-extensions exts))]
+  ([schema] (constraint-fn {} schema))
+  ([context schema]
+     (let [cfn (mkconstraint schema (as-extensions context))]
        (fn ff
-         ([] con)
          ([item] (ff item {} {} {}))
          ([item context] (ff item context {} {}))
          ([item context bindings memo] (cfn (list item) context bindings memo))))))
 
 
-;; creates a fn that test for conformance to the con with the given extensions
-(defn conformitor 
-  ([con] (conformitor [] con))
-  ([exts con]
-     (if (fn? con) con 
-         (fn 
-           ([] con)
-           ([x] (let [res ((constraint-fn exts con) x)]
-                  (when (sp/success? res)
-                    (with-meta (:b res) {::constraint con}))))))))
-
+;; creates a fn that test for conformance to the schema with the given context
+(defn conform-fn
+  ([schema] (if (fn? schema) schema (conform-fn {} schema)))
+  ([context schema]
+     (let [schema-context (assoc context :schema schema)]
+       (fn 
+         ([] schema-context)
+         ([x] (let [res ((constraint-fn context schema) x)]
+                (when (sp/success? res)
+                  (with-meta (:b res) {::schema-context schema-context}))))))))
 
 (defn conform
-  ([con x] ((conformitor [] con) x))
-  ([exts con x] ((conformitor exts con) x)))
+  ([schema x] ((conform-fn {} schema) x))
+  ([context schema x] ((conform-fn context schema) x)))
 
 (defn conforms? 
-  ([con x] (conforms? [] con x))
-  ([exts con x]
-     (boolean (conform exts con x))))
-
-;; UGLY and unfinished -- don't use this
-(defmacro conf? [con x]
-  (println "conf?" con (type con))
-  (let [dcon (if (and (seq? con) (= (first con) 'quote)) (second con) con)
-        fcf (conform dcon)]
-    (println "  dc" dcon (type dcon))
-    (println "  cf " fcf (type fcf))
-    `(let [res# (fcf ~x)]
-       (when res#  (with-meta res# {::constraint ~con})))))
-
+  ([schema x] (conforms? {} schema x))
+  ([context schema x]
+     (boolean (conform context schema x))))

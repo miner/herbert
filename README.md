@@ -6,7 +6,7 @@ A schema language for **edn** (Clojure data).
 
 The _extensible data notation_ **(edn)** defines a useful subset of Clojure data types.  The goal
 of the *Herbert* project is to provide a schema for defining **edn** data structures that can be
-used for documentation, validation and conformance testing.  The constraint expressions are
+used for documentation, validation and conformance testing.  The schema expressions are
 represented as **edn** values.
 
 A significant feature of Clojure programming is the avoidance of required type declarations.  When
@@ -35,7 +35,7 @@ documenting **edn** data structures.
 
 Add the dependency to your project.clj:
 
-    [com.velisco/herbert "0.4.1"]
+    [com.velisco/herbert "0.5.0"]
 
 I might forget to update the version number here in the README.  The latest version is available on
 Clojars.org:
@@ -45,17 +45,17 @@ https://clojars.org/com.velisco/herbert
 
 ## Usage
 
-The `conform` function with two arguments (the constraint expression and the value to test) returns
+The `conform` function with two arguments (the *schema* expression and the value to test) returns
 either a map of bindings for a successful match or nil for a failed match.  The three-argument
-variant takes an "extensions" map as the first arg.  More about that later.
+variant takes an *schema-context* map as the first arg.  More about that later.
 
-The `conformitor` function returns a function that will execute the match against a constraint
-expression.  It also allows for an optional "extensions" map.  If you need to check the same
-constraint multiple times, you can use `conformitor` to define a predicate.
+The `conform-fn` function returns a function that will execute the match against a schema
+expression.  It also allows for an optional *schema-context* map.  If you need to check the same
+schema multiple times, you can use `conform-fn` to define a predicate.
 
-For the common case of testing conformation, the `conforms?` predicate takes a constraint expression
-and a value.  It returns `true` if the value conforms to the constraint expression, `false`
-otherwise.  (Again, there's a variant that takes an "extensions" map as the first argument.)
+For the common case of testing conformation, the `conforms?` predicate takes a schema expression
+and a value.  It returns `true` if the value conforms to the schema expression, `false`
+otherwise.  (Again, there's a variant that takes an *schema-context* map as the first argument.)
 
 Quick example:
 
@@ -64,46 +64,49 @@ Quick example:
 	;=> true
 
 
-## Notation for Constraint Expressions
+## Notation for Schema Expressions
 
 * Literal constants match themselves: <BR>
 **nil**, **true**, **false**, *numbers*, *"strings"*, *:keywords*
 
-* Simple constraints are named by symbols: <BR>
+* A simple schema expression is named by a symbol: <BR>
 **int**, **str**, **kw**, **sym**, **vec**, **list**, **seq**, **map**
 
-* Quantified constraints, adding a __*__, __+__ or __?__ at the end of a simple type for
+* A quantified schema expression: adding a __*__, __+__ or __?__ at the end of a symbol for
   zero-or-more, one-or-more, or zero-or-one (optional): <BR>
 **int***, **str+**, **sym?**
   
-* Compound constraints, using **and**, **or** and **not** <BR>
+* A compound schema expression: using **and**, **or** and **not** <BR>
 `(or sym+ nil)`  -- one or more symbols or nil <BR>
 `(or (vec int*) (list kw+))`  -- either a vector of ints or a list of one or more keywords
 
-* Quantified constraints, a list beginning with __*__, __+__ or __?__ as the first element. <BR>
+* A quantified schema expression: a list beginning with __*__, __+__ or __?__ as the first element. <BR>
 `(* kw sym)`  -- zero or more pairs of keywords and symbols
 
-* Named constraints are written in a list with the first item a (non-reserved) symbol and the second
-  item naming the constraint.  The built-in types and special operators (like **and**, **or**,
-  etc.) are not allowed as binding names.  The name may be used as a parameter to other constraints
-  and to assert expressions.<BR>
+* A named schema expression is written as a list with the first item being a (non-reserved) symbol,
+  which is used as a binding name for the value conforming to the rest of the schema expression.
+  The names of predicates and special operators (like **and**, **or**, etc.) are not allowed as
+  binding names.  The name may be used as a parameter to other schemas and to assert
+  expressions.<BR>
 `(n int)`
 
 * A symbol by itself matches an element equal to the value that the name was bound to
   previously. <BR>
 `[(n int) n n]` -- matches [3 3 3]
 	
-* Square brackets match any seq (not just a vector) with the contained pattern <BR>
+* A literal vector (in square brackets) matches any seq (not just a vector) with the contained
+  pattern <BR>
 `[(* kw sym)]`  -- matches '(:a foo :b bar :c baz)
 
-* Curly braces match any map with the given literal keys and values matching the corresponding
-  constraints.  Optional keywords are written with a ? suffix such as **:kw?**.  For convenience, an
-  optional keyword constraint implicitly allows **nil** for the corresponding value. <BR>
-`{:a int :b sym :c? [int*]}`  -- matches {:a 10 :b foo :c [1 2 3]}
+* A literal map (in curly braces) matches any map with the given literal keys and values matching
+  the corresponding schemas.  Optional keywords are written with a ? suffix such as **:kw?**.  For
+  convenience, an optional keyword schema implicitly allows **nil** for the corresponding
+  value. <BR>
+`{:a int :b sym :c? [int*]}`  -- matches {:a 10 :b foo :c [1 2 3]} as well as {:a 1 :b bar}
 
-* A literal set with multiple constraints denotes the required element types, but does not exclude
-  others.  A single element might match multiple constraints.  A set with a single quantified
-  constraint, defines the requirement on all elements. <BR>
+* A literal set with multiple schema expressions denotes the required element types, but does not
+  exclude others.  A single element might match multiple schemas.  A set with a single quantified
+  schema expression, defines the requirement on all elements. <BR>
 `#{int :a :b}` -- matches #{:a :b :c 10}, but not #{:a 10} <BR>
 `#{int+}` -- matches #{1 3 5}, but not #{1 :a 3}
 
@@ -116,43 +119,44 @@ Quick example:
   as if the form was within an `assert` test. <BR>
 `[(n int) (m int) (== (* 3 n) m)]` -- matches [2 6]
 
-* Numeric constraints, such as __int__, __even__, __odd__, __float__, or __num__, may take optional
-  parameters in a list following the constraint.  Numerics take a _low_ and a _high_ parameter.  The
-  value must be between to the _low_ and _high_ (inclusive) for it to match.  If only one parameter
-  is given, it defines the _high_, and the _low_ defaults to 0 in that case.  If neither is given,
-  there is no restriction on the high or low values.  Quantified numeric constraints apply the
+* Numeric schema expresssions, such as __int__, __even__, __odd__, __float__, or __num__, may take
+  optional parameters in a list following the schema.  Numerics take a _low_ and a _high_ parameter.
+  The value must be between to the _low_ and _high_ (inclusive) for it to match.  If only one
+  parameter is given, it defines the _high_, and the _low_ defaults to 0 in that case.  If neither
+  is given, there is no restriction on the high or low values.  Quantified numeric schemas apply the
   _high_ and _low_ to all the matched elements. A name maybe added as the optional first element.
-  (See Named Constraints above.)<BR>
+  (See Named schemas above.)<BR>
 `(int 1 10)`  -- matches 4, but not 12
 
-* String, symbol and keyword constraints (such as __str__, __sym__ and __kw__) may take an optional
-  regex argument, specified as a string (for EDN compatibility) or a Clojure regular expression
-  (like *#"regex"*).  In that case, the `pr-str` of the element must match the regex. <BR>
+* String, symbol and keyword schema expressions (such as __str__, __sym__ and __kw__) may take an
+  optional regex argument, specified as a string (for EDN compatibility) or a Clojure regular
+  expression (like *#"regex"*).  In that case, the `pr-str` of the element must match the
+  regex. <BR>
 `(kw ":user/.*")` -- matches :user/foo
 
-* Inlined constraints. A list starting with `&` as the first element refers to multiple items in
-  order (as opposed to being within a container sequence). <BR>
+* An inlined schema expression:  a list starting with `&` as the first element refers to multiple
+  items in order (as opposed to being within a container sequence). <BR>
 `(& (n int) (f float) (> n f))` -- matches 4 3.14
 
-* The `map` constraint predicate can take two optional arguments, the *keys-constraint* and the
-  *vals-constraint*.  The matching element must be a map whose `keys` all satisfy *keys-constraint*
-  and whose `vals` all satisfy *vals-constraint*. <BR>
+* The `map` schema predicate can take two optional arguments, the *key-schema* and the
+  *val-schema*.  The matching element must be a map whose `keys` all satisfy *key-schema*
+  and whose `vals` all satisfy *val-schema*. <BR>
 `(map sym int)` -- matches {a 42}
 
-* Users may extend the constraint system in two ways: declaring new constraint terms (predicates)
-  and naming sub-constraints.  Constraint predicates are associated with Clojure predicate
-  functions.  Sub-constraints are a convenient way to encapsulate constraint expressions.  The
-  `conform` function (and variants) take an `extensions` argument which is a map with two keys:
-  `:predicates` and `:constraints`.  The value for :predicates is a map of symbols to vars.  The
-  vars name Clojure functions that implement the predicate test for the constraint.  If the
-  constraint takes parameters, the implementing function should take those paramenters first.  In
-  all cases, the last argument should be the item in question.  Note, the constraint function should
+* Users may extend the schema system in two ways: (1) by declaring new schema terms (predicates)
+  and (2) by naming schema expressions.  Schema predicates are associated with Clojure predicate
+  functions.  A named schema expression is a convenient way to encapsulate constraint.  The
+  `conform` function (and variants) take a `context` argument which is a map with two keys:
+  `:predicates` and `:expressions`.  The value for :predicates is a map of symbols to vars.  The
+  vars name Clojure functions that implement the predicate test for the schema.  If the
+  constraint is parameterized, the implementing function should take those paramenters first.  In
+  all cases, the last argument should be the item in question.  Note, the schema function should
   accept all values for consideration without throwing an exception.  For example, the `even`
   constraint predicate is implemented with a test of `integer?` as well as `even?` since the latter
   will throw on non-integer values.  The default predicates are defined in the var
-  `miner.herbert/default-predicates`.  The :constraints value should be a vector of alternating
-  symbol and constraint-expression pairs (as in a `let` form).  The constraints are processed in
-  order so later constraints can refer to previously named constraints.
+  `miner.herbert/default-predicates`.  The :expressions value should be a vector of alternating
+  symbol and schema-expression pairs (as in a `let` form).  The schema expressions are processed in
+  order so later schema expressions can refer to previously named schema expressions.
 
 
 ## Examples
@@ -163,7 +167,7 @@ Quick example:
 	;=> true
 
     (h/conforms? {} 'int 10)
-	; empty "extensions" map has no effect
+	; empty "schema" map has no effect
 	;=> true
 
 	(h/conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo :c ["foo" "bar" "baz"]})
@@ -195,7 +199,7 @@ Quick example:
 	; of the int values.
     ;=> {c [4 5 6], b 7, a 3}
 
-	(def my-checker (h/conformitor '[(max int) (xs int+ max)]))
+	(def my-checker (h/conform-fn '[(max int) (xs int+ max)]))
 	(my-checker [7 3 5 6 4])
 	;=> {xs [3 5 6 4], max 7}
 
@@ -204,7 +208,7 @@ Quick example:
 			(= s (clojure.string/reverse s))))
 			
 	(h/conforms? {:predicates {'palindrome #'palindrome?}
-                  :constraints '[pal {:len (len int) :palindrome (and palindrome (cnt len))}
+                  :expressions '[pal {:len (len int) :palindrome (and palindrome (cnt len))}
                                  palindromes [pal+]]}
                  'palindromes
                  [{:palindrome "civic" :len 5}
