@@ -135,7 +135,7 @@ Quick example:
 `(kw ":user/.*")` -- matches :user/foo
 
 * An inlined schema expression:  a list starting with `&` as the first element refers to multiple
-  items in order (as opposed to being within a container sequence). <BR>
+  items in order (as opposed to being within a collection). <BR>
 `(& (n int) (f float) (> n f))` -- matches 4 3.14
 
 * The `map` schema predicate can take two optional arguments, the *key-schema* and the
@@ -148,15 +148,15 @@ Quick example:
   functions.  A named schema expression is a convenient way to encapsulate constraint.  The
   `conform` function (and variants) take a `context` argument which is a map with two keys:
   `:predicates` and `:expressions`.  The value for :predicates is a map of symbols to vars.  The
-  vars name Clojure functions that implement the predicate test for the schema.  If the
-  constraint is parameterized, the implementing function should take those paramenters first.  In
-  all cases, the last argument should be the item in question.  Note, the schema function should
+  vars name Clojure functions that implement the predicate test for the key symbol.  If the
+  predicate is parameterized, the implementing function should take those paramenters first.  In
+  all cases, the last argument should be the item in question.  Note, the predicate should
   accept all values for consideration without throwing an exception.  For example, the `even`
-  constraint predicate is implemented with a test of `integer?` as well as `even?` since the latter
+  schema predicate is implemented with a test of `integer?` as well as `even?` since the latter
   will throw on non-integer values.  The default predicates are defined in the var
   `miner.herbert/default-predicates`.  The :expressions value should be a vector of alternating
   symbol and schema-expression pairs (as in a `let` form).  The schema expressions are processed in
-  order so later schema expressions can refer to previously named schema expressions.
+  order.  A schema expression can refer to previously named schema expressions.
 
 
 ## Examples
@@ -187,7 +187,7 @@ Quick example:
 
     (h/conforms? '(& {:a (a int) :b (b sym) :c (c [b+])} (assert (= (count c) a))) 
 	           '{:a 2 :b foo :c [foo foo]})
-    ; The & operator just means the following elements are found inline, not in a container.
+    ; The & operator just means the following elements are found inline, not in a collection.
 	; In this case, we use it to associate the assertion with the single map constraint.  The
 	; assertion says that number or items in the :c value must be equal to the value associated
 	; with :a.  Notice that all the elements in the :c seq must be equal to the symbol associated 
