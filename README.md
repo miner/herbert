@@ -16,7 +16,7 @@ know the required *shape* of your data and you would like to guarantee that it c
 expectations.  I usually end up writing custom predicates and using `assert` statements as a sanity
 check on my data.  They often catch simple typos and careless errors in my code and data files.
 
-Documentation is also required to explain the data structures used in a program.  In some cases, the
+Documentation is required to explain the data structures used in a program.  In some cases, the
 data format is more important than the code that manipulates it.  At times, I've found it tedious to
 document the data formats of some of the nested data structures that I pass around in my programs.
 Explaining that a map can have such-and-such keys referring to values of particular types takes a
@@ -96,7 +96,7 @@ Quick example:
 	
 * A literal vector (in square brackets) matches any seq (not just a vector) with the contained
   pattern <BR>
-`[(* kw sym)]`  -- matches '(:a foo :b bar :c baz)
+`[(* kw sym)]`  -- matches (:a foo :b bar :c baz)
 
 * A literal map (in curly braces) matches any map with the given literal keys and values matching
   the corresponding schemas.  Optional keywords are written with a ? suffix such as **:kw?**.  For
@@ -136,7 +136,7 @@ Quick example:
 
 * An inlined schema expression:  a list starting with `&` as the first element refers to multiple
   items in order (as opposed to being within a collection). <BR>
-`(& (n int) (f float) (> n f))` -- matches 4 3.14
+`[:a (& (n int) (f float) (> n f)) :b]` -- matches (:a 4 3.14 :b)
 
 * The `map` schema predicate can take two optional arguments, the *key-schema* and the
   *val-schema*.  The matching element must be a map whose `keys` all satisfy *key-schema*
@@ -145,14 +145,14 @@ Quick example:
 
 * Users may extend the schema system in two ways: (1) by declaring new schema terms (predicates)
   and (2) by naming schema expressions.  Schema predicates are associated with Clojure predicate
-  functions.  A named schema expression is a convenient way to encapsulate constraint.  The
+  functions.  A named schema expression is a convenient way to encapsulate a constraint.  The
   `conform` function (and variants) take a `context` argument which is a map with two keys:
   `:predicates` and `:expressions`.  The value for :predicates is a map of symbols to vars.  The
   vars name Clojure functions that implement the predicate test for the key symbol.  If the
   predicate is parameterized, the implementing function should take those paramenters first.  In
   all cases, the last argument should be the item in question.  Note, the predicate should
   accept all values for consideration without throwing an exception.  For example, the `even`
-  schema predicate is implemented with a test of `integer?` as well as `even?` since the latter
+  schema predicate is implemented with a test of `integer?` as well as `even?` because the latter
   will throw on non-integer values.  The default predicates are defined in the var
   `miner.herbert/default-predicates`.  The :expressions value should be a vector of alternating
   symbol and schema-expression pairs (as in a `let` form).  The schema expressions are processed in
@@ -167,7 +167,7 @@ Quick example:
 	;=> true
 
     (h/conforms? {} 'int 10)
-	; empty "schema" map has no effect
+	; empty "schema-context" map has no effect
 	;=> true
 
 	(h/conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo :c ["foo" "bar" "baz"]})
