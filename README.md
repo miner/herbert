@@ -42,7 +42,7 @@ Clojars.org:
 
 https://clojars.org/com.velisco/herbert
 
-[latest version](https://clojars.org/com.velisco/herbert/latest-version.svg)
+![latest version](https://clojars.org/com.velisco/herbert/latest-version.svg "Latest version")
 
 ## Usage
 
