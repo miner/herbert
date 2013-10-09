@@ -212,6 +212,30 @@ Returns the successful result of the last rule or the first to fail."
 
 ;; :else (throw (ex-info "Unknown mk-list-type" {:name bname :con lexpr}))))))
 
+(defn pred-term? [extensions sym]
+  (and (symbol? sym)
+       (or (contains? reserved-ops sym)
+           (contains? (:expressions extensions) sym)
+           (tcon-pred (simple-sym sym) extensions))
+       sym))
+
+(defn BAD-mk-list-type [lexpr extensions]
+  (when-first [fst lexpr]
+    (if-let [bname (bind-name fst extensions)]
+      ;; first sym is clearly the bind name, not ambiguous
+      (let [expr (rest lexpr)]
+        (cond (nil? (seq expr)) (mk-solo bname)
+              (symbol? (first expr)) (mk-list-simple-type bname expr extensions)
+              :else (mk-list-complex-type bname expr extensions)))
+      ;; first sym might shadow another term
+      (let [sec (second lexpr)]
+        (cond (coll? sec) (mk-list-complex-type fst (rest lexpr) extensions)
+              (pred-term? extensions sec) (mk-list-simple-type fst (rest lexpr) extensions)
+              (not (symbol? sec)) (mk-list-simple-type nil lexpr extensions)
+              :else (mk-list-simple-type nil lexpr extensions))))))
+
+;; :else (throw (ex-info (str "Mangled term: " (pr-str lexpr)) {:bad-expr lexpr})))))))
+
 
 ;; probably don't want this
 (defn mk-quoted-sym [sym extensions]
