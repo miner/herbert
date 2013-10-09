@@ -37,19 +37,13 @@ Add the dependency to your project.clj:
 
     [com.velisco/herbert "0.5.0"]
 
-I might forget to update the version number here in the README.  The latest version is available on
+In case I forget to update the version number here in the README, the latest version is available on
 Clojars.org:
 
-https://clojars.org/com.velisco/herbert
+[![Herbert on clojars.org][latest]][clojar]
 
-![latest version](https://clojars.org/com.velisco/herbert/latest-version.svg "Latest version")
-
-![latest version][latest]
-
-[![latest version][latest]][clojar]
-
-[latest]: https://clojars.org/com.velisco/herbert/latest-version.svg "Latest version"
-[clojar]: https://clojars.org/com.velisco/herbert "on clojars.org"
+[latest]: https://clojars.org/com.velisco/herbert/latest-version.svg "Herbert on clojars.org"
+[clojar]: https://clojars.org/com.velisco/herbert
 
 ## Usage
 
