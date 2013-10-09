@@ -42,6 +42,7 @@ Clojars.org:
 
 https://clojars.org/com.velisco/herbert
 
+[![latest version](https://clojars.org/com.velisco/herbert/latest-version.svg)]
 
 ## Usage
 
@@ -143,17 +144,17 @@ Quick example:
   and whose `vals` all satisfy *val-schema*. <BR>
 `(map sym int)` -- matches {a 42}
 
-* Users may extend the schema system in two ways: (1) by declaring new schema terms (predicates)
-  and (2) by naming schema expressions.  Schema predicates are associated with Clojure predicate
+* Users may extend the schema system in two ways: (1) by declaring new schema terms (predicates) and
+  (2) by naming schema expressions.  Schema predicates are associated with Clojure predicate
   functions.  A named schema expression is a convenient way to encapsulate a constraint.  The
-  `conform` function (and variants) take a `context` argument which is a map with two keys:
-  `:predicates` and `:expressions`.  The value for :predicates is a map of symbols to vars.  The
-  vars name Clojure functions that implement the predicate test for the key symbol.  If the
-  predicate is parameterized, the implementing function should take those paramenters first.  In
-  all cases, the last argument should be the item in question.  Note, the predicate should
-  accept all values for consideration without throwing an exception.  For example, the `even`
-  schema predicate is implemented with a test of `integer?` as well as `even?` because the latter
-  will throw on non-integer values.  The default predicates are defined in the var
+  `conform` function (and variants) take a `context` argument which is a map with two significant
+  keys:  `:predicates` and `:expressions`.  The value for :predicates is a map of symbols to vars.
+  The vars name Clojure functions that implement the predicate test for the key symbol.  If the
+  predicate is parameterized, the implementing function should take those parameters first.  In all
+  cases, the last argument should be the item in question.  Note, the predicate should accept all
+  values for consideration without throwing an exception.  For example, the `even` schema predicate
+  is implemented with a test of `integer?` as well as `even?` because the latter will throw on
+  non-integer values.  The default predicates are defined in the var
   `miner.herbert/default-predicates`.  The :expressions value should be a vector of alternating
   symbol and schema-expression pairs (as in a `let` form).  The schema expressions are processed in
   order.  A schema expression can refer to previously named schema expressions.
