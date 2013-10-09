@@ -44,6 +44,13 @@ https://clojars.org/com.velisco/herbert
 
 ![latest version](https://clojars.org/com.velisco/herbert/latest-version.svg "Latest version")
 
+![latest version][latest]
+
+[![latest version][latest]][clojar]
+
+[latest]: https://clojars.org/com.velisco/herbert/latest-version.svg "Latest version"
+[clojar]: https://clojars.org/com.velisco/herbert "on clojars.org"
+
 ## Usage
 
 The `conform` function with two arguments (the *schema* expression and the value to test) returns
