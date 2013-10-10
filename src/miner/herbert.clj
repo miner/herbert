@@ -183,7 +183,7 @@ Returns the successful result of the last rule or the first to fail."
                \* (sp/mkzom brule) 
                \? (sp/mkopt brule)
                brule)]
-    (if name
+    (if (and name (not= name '_))
       (sp/mkbind rule name)
       rule)))
 
@@ -191,7 +191,7 @@ Returns the successful result of the last rule or the first to fail."
 (defn mk-list-complex-type [name lexpr extensions]
   (assert (empty? (rest lexpr)))
   (let [rule (mkconstraint (first lexpr) extensions)]
-    (if name
+    (if (and name (not= name '_))
       (sp/mkbind rule name)
       rule)))
 
