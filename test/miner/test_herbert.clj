@@ -198,7 +198,9 @@
 
 (deftest as-bind-args []
   (is (conforms? '[(as a int) (as b (int 2 15)) (as c (int a b))] [3 7 5]))
-  (is (conforms? '[(as _ int) (as _ (sym "f.*")) (as _ (str ".*r"))] '[42 foo "bar"])))
+  (is (not (conforms? '[(as a int) (as b (int 2 15)) (as c (int a b))] [3 4 5])))
+  (is (conforms? '[(as _ int) (as _ (sym "f.*")) (as _ (str ".*r"))] '[42 foo "bar"]))
+  (is (not (conforms? '[(as _ int) (as _ (sym "f.*")) (as _ (str ".*r"))] '[42 "foo" bar]))))
 
 (deftest quoted-syms []
   (is (conforms? '[int 'int sym] '[42 int foo]))
