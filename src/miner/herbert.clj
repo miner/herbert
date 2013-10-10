@@ -212,6 +212,7 @@ Returns the successful result of the last rule or the first to fail."
 
 ;; :else (throw (ex-info "Unknown mk-list-type" {:name bname :con lexpr}))))))
 
+;; SEM FIXME: this is unfinished and not used
 (defn pred-term? [extensions sym]
   (and (symbol? sym)
        (or (contains? reserved-ops sym)
@@ -219,6 +220,7 @@ Returns the successful result of the last rule or the first to fail."
            (tcon-pred (simple-sym sym) extensions))
        sym))
 
+;; SEM FIXME: accidentally committed this, not used
 (defn BAD-mk-list-type [lexpr extensions]
   (when-first [fst lexpr]
     (if-let [bname (bind-name fst extensions)]
