@@ -399,6 +399,11 @@ nil value also succeeds for an optional kw.  Does not consume anything."
                 (sp/succeed nil [] input (:b r) (:m r))))
             (sp/succeed nil [] input bindings memo))))))
 
+;; helper for making an exception
+(defn- bad-key-exception [k c] 
+  (ex-info (str "Unsupported literal key " (pr-str k)) 
+           {:key k :constraint c}))
+
 (defn mk-map-entry [[key con] extensions]
   ;; FIXME -- only handles kw literals and optional :kw? for keys
   ;; doesn't carry context or results for individual key/val matches
@@ -408,9 +413,11 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   (let [rule (mkconstraint con extensions)]
     (cond (optional-key? key) (mk-kw-opt (simple-key key) rule)
           (or (literal? key) (symbol? key)) (mk-key key rule)
-          (and (seq? key) (= (first key) 'quote)) (mk-key (second key) rule)
-          :else (throw (ex-info (str "Unsupported literal key " (pr-str key)) 
-                                {:key key :constraint con})))))
+          (seq? key) (case (first key)
+                       (quote +) (mk-key (second key) rule)
+                       (? *) (mk-kw-opt (second key) rule)
+                       (throw (bad-key-exception key con)))
+          :else (throw (bad-key-exception key con)))))
 
 (defn mk-map-literal-constraint [mexpr extensions]
   (mkmap (map #(mk-map-entry % extensions) mexpr)))
