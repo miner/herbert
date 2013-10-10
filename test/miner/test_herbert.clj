@@ -196,6 +196,10 @@
   ;; underbar _ should be ignored as a binding name
   (is (conforms? '[(_ int) (_ sym "f.*") (_ str ".*r")] '[42 foo "bar"])))
 
+(deftest as-bind-args []
+  (is (conforms? '[(as a int) (as b (int 2 15)) (as c (int a b))] [3 7 5]))
+  (is (conforms? '[(as _ int) (as _ (sym "f.*")) (as _ (str ".*r"))] '[42 foo "bar"])))
+
 (deftest quoted-syms []
   (is (conforms? '[int 'int sym] '[42 int foo]))
   (is (not (conforms? '[int 'int sym] '[42 13 foo]))))

@@ -6,7 +6,7 @@
 
 
 (def predicates-ns (the-ns 'miner.herbert.predicates))
-(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not assert vec seq list map mod})
+(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not assert vec seq list map mod as})
 (declare default-predicates)
 ;; default-predicates defined a bit later so it can use some fns
 
@@ -294,6 +294,9 @@ Returns the successful result of the last rule or the first to fail."
 (defn third [s]
   (first (nnext s)))
 
+(defn as-seq [x]
+  (if (seq? x) x (list x)))
+
 (defn mk-list-constraint [lexpr extensions]
   (let [op (first lexpr)
         mkconstr #(mkconstraint % extensions)]
@@ -316,6 +319,7 @@ Returns the successful result of the last rule or the first to fail."
       vec (mkand (sp/mkpr vector?) (mk-subseq-constraint (rest lexpr) extensions))
       list (mkand (sp/mkpr list?) (mk-subseq-constraint (rest lexpr) extensions))
       map (mk-map-constraint (second lexpr) (third lexpr) extensions)
+      as (mk-list-simple-type (second lexpr) (as-seq (third lexpr)) extensions)
       ;; else
       (mk-list-type lexpr extensions))))
 
