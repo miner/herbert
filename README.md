@@ -85,12 +85,19 @@ Quick example:
 * A quantified schema expression: a list beginning with __*__, __+__ or __?__ as the first element. <BR>
 `(* kw sym)`  -- zero or more pairs of keywords and symbols
 
-* A named schema expression is written as a list with the first item being a (non-reserved) symbol,
-  which is used as a binding name for the value conforming to the rest of the schema expression.
-  The names of predicates and special operators (like **and**, **or**, etc.) are not allowed as
-  binding names.  As a special case, a name of underbar `_` means "don't care" and is ignored.  The
-  name may be used as a parameter to other schemas and to assert expressions.<BR> 
-`(n int)`
+* A named schema expression is written as a list with the first item being the `as` operator,
+  followed by a (non-reserved) symbol as the binding name, and the third element being a schema
+  expression.  The names of predicates and special operators (like **and**, **or**, etc.) are not
+  allowed as binding names.  As a special case, a binding name of underbar `_` means "don't care"
+  and is ignored.  The name may be used as a parameter to other schemas and to assert
+  expressions.<BR> 
+`(as n int)`
+`(as n (int 1 10))`
+
+* A short-hand version of a named schema expression is written as a list with the first item being a
+  (non-reserved) symbol, which is used as a binding name for the value conforming to the rest of the
+  schema expression.<BR>
+`(n int 1 10)`
 
 * A symbol by itself matches an element equal to the value that the name was bound to
   previously. <BR>
