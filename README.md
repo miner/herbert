@@ -91,7 +91,6 @@ Quick example:
   allowed as binding names.  As a special case, a binding name of underbar `_` means "don't care"
   and is ignored.  The name may be used as a parameter to other schemas and to assert
   expressions.<BR> 
-`(as n int)`
 `(as n (int 1 10))`
 
 * A short-hand version of a named schema expression is written as a list with the first item being a
