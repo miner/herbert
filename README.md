@@ -149,14 +149,14 @@ Quick example:
   (2) by naming schema expressions.  Schema predicates are associated with Clojure predicate
   functions.  A named schema expression is a convenient way to encapsulate a constraint.  The
   `conform` function (and variants) take a `context` argument which is a map with two significant
-  keys:  `:predicates` and `:expressions`.  The value for :predicates is a map of symbols to vars.
+  keys:  `:predicates` and `:terms`.  The value for :predicates is a map of symbols to vars.
   The vars name Clojure functions that implement the predicate test for the key symbol.  If the
   predicate is parameterized, the implementing function should take those parameters first.  In all
   cases, the last argument should be the item in question.  Note, the predicate should accept all
   values for consideration without throwing an exception.  For example, the `even` schema predicate
   is implemented with a test of `integer?` as well as `even?` because the latter will throw on
   non-integer values.  The default predicates are defined in the var
-  `miner.herbert/default-predicates`.  The :expressions value should be a vector of alternating
+  `miner.herbert/default-predicates`.  The :terms value should be a vector of alternating
   symbol and schema-expression pairs (as in a `let` form).  The schema expressions are processed in
   order.  A schema expression can refer to previously named schema expressions.
 
@@ -210,7 +210,7 @@ Quick example:
 			(= s (clojure.string/reverse s))))
 			
 	(h/conforms? {:predicates {'palindrome #'palindrome?}
-                  :expressions '[pal {:len (len int) :palindrome (and palindrome (cnt len))}
+                  :terms '[pal {:len (len int) :palindrome (and palindrome (cnt len))}
                                  palindromes [pal+]]}
                  'palindromes
                  [{:palindrome "civic" :len 5}

@@ -128,7 +128,7 @@ Returns the successful result of the last rule or the first to fail."
 
 
 (defn ext-rule [sym extensions]
-  (get-in extensions [:expressions sym]))  
+  (get-in extensions [:terms sym]))  
 
 (defn ext-pred [sym extensions]
   (get-in extensions [:predicates sym]))
@@ -198,7 +198,7 @@ Returns the successful result of the last rule or the first to fail."
 (defn bind-name [sym extensions]
   (and (symbol? sym)
        (not (contains? reserved-ops sym))
-       (not (contains? (:expressions extensions) sym))
+       (not (contains? (:terms extensions) sym))
        (not (tcon-pred (simple-sym sym) extensions))
        sym))
 
@@ -216,7 +216,7 @@ Returns the successful result of the last rule or the first to fail."
 (defn pred-term? [extensions sym]
   (and (symbol? sym)
        (or (contains? reserved-ops sym)
-           (contains? (:expressions extensions) sym)
+           (contains? (:terms extensions) sym)
            (tcon-pred (simple-sym sym) extensions))
        sym))
 
@@ -494,12 +494,12 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   (let [preds (reduce (fn [res [k v]] (assoc res k (if (symbol? v) (resolve v) v))) 
                       {} 
                       (pairs (:predicates exts)))]
-    (reduce (fn [es [k v]] (assoc-in es [:expressions k] (mkconstraint v es)))
-            {:predicates preds :expressions {}}
-            (pairs (:expressions exts)))))
+    (reduce (fn [es [k v]] (assoc-in es [:terms k] (mkconstraint v es)))
+            {:predicates preds :terms {}}
+            (pairs (:terms exts)))))
 
   
-;; exts is map of {:predicates? (map sym var) :expressions? [(* sym con-expr)]}
+;; exts is map of {:predicates? (map sym var) :terms? [(* sym con-expr)]}
 (defn constraint-fn 
   ([schema] (constraint-fn {} schema))
   ([context schema]

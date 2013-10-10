@@ -211,12 +211,12 @@
 
 (deftest grammar []
   (is (conforms? {:predicates {'over3 #'over3?} 
-                  :expressions '[long int 
+                  :terms '[long int 
                                  start {:a over3 :b long}]}
                  'start
                  {:a 42 :b 42}))
   (is (conforms? {:predicates {'palindrome #'palindrome?}
-                  :expressions '[pal {:len (len int) :palindrome (and palindrome (cnt len))}
+                  :terms '[pal {:len (len int) :palindrome (and palindrome (cnt len))}
                                  palindromes [pal+]]}
                  'palindromes
                  [{:palindrome "civic" :len 5}
