@@ -186,7 +186,7 @@
   (is (not (conforms? '(& {:a (:= a int) :b {:bb a}}) {:a 10 :b {:bb 11}}))))
 
 (deftest solo-count []
-  (is (conforms? '(& {:a (:= a int) :b (:= b sym) :c? (c [b+])} (assert (= (count c) a))) 
+  (is (conforms? '(& {:a (:= a int) :b (:= b sym) :c? (:= c [b+])} (assert (= (count c) a))) 
              '{:a 2 :b foo :c [foo foo]})))
 
 (deftest bind-args []
@@ -226,7 +226,7 @@
                  'start
                  {:a 42 :b 42}))
   (is (conforms? {:predicates {'palindrome #'palindrome?}
-                  :terms '[pal {:len (len int) :palindrome (and palindrome (cnt len))}
+                  :terms '[pal {:len (:= len int) :palindrome (and palindrome (cnt len))}
                                  palindromes [pal+]]}
                  'palindromes
                  [{:palindrome "civic" :len 5}

@@ -140,7 +140,7 @@ Returns the successful result of the last rule or the first to fail."
 
 (declare mkconstraint)
 
-(defn mk-solo [bname]
+(defn mk-lookup [bname]
   ;; simple name should match item equal to that binding
   (let [solo (gensym bname)]
     (mkscope
@@ -155,7 +155,7 @@ Returns the successful result of the last rule or the first to fail."
         sym (simple-sym sym)
         erule (ext-rule sym extensions)
         pred (when-not erule (tcon-pred sym extensions))
-        brule (or erule (if pred (sp/mkpr pred) (mk-solo sym)))]
+        brule (or erule (if pred (sp/mkpr pred) (mk-lookup sym)))]
     (case lch
       \+ (sp/mk1om brule)
       \* (sp/mkzom brule)
@@ -191,34 +191,6 @@ Returns the successful result of the last rule or the first to fail."
       (if (and name (not= name '_))
         (sp/mkbind rule name)
         rule))))
-
-
-(defn bind-name [sym extensions]
-  (and (symbol? sym)
-       (not (contains? reserved-ops sym))
-       (not (contains? (:terms extensions) sym))
-       (not (tcon-pred (simple-sym sym) extensions))
-       sym))
-
-
-(defn mk-list-type [lexpr extensions]
-  (when-first [fst lexpr]
-    (let [bname (bind-name fst extensions)
-          expr (if bname (rest lexpr) lexpr)]
-      (if (and bname (nil? (seq expr)))
-        (mk-solo bname)
-        (mk-list-bind bname expr extensions)))))
-
-;; :else (throw (ex-info "Unknown mk-list-type" {:name bname :con lexpr}))))))
-
-;; SEM FIXME: this is unfinished and not used
-(defn pred-term? [extensions sym]
-  (and (symbol? sym)
-       (or (contains? reserved-ops sym)
-           (contains? (:terms extensions) sym)
-           (tcon-pred (simple-sym sym) extensions))
-       sym))
-
 
 
 ;; probably don't want this
@@ -306,8 +278,13 @@ Returns the successful result of the last rule or the first to fail."
       list (mkand (sp/mkpr list?) (mk-subseq-constraint (rest lexpr) extensions))
       map (mk-map-constraint (second lexpr) (third lexpr) extensions)
       :=  (mk-list-bind (second lexpr) (nnext lexpr) extensions)
-      ;; else
-      (mk-list-type lexpr extensions))))
+      ;; else it must be a solo reference to a bind name
+      (if (and (nil? (rest lexpr)) (symbol? op))
+        (mk-lookup op)
+        (mk-list-bind nil lexpr extensions)))))
+
+;;      (throw (ex-info "Unknown list expr" {:expr lexpr}))
+
 
 ;; need to reduce the subrules and preserve the bindings
 ;; SEM FIXME -- not sure about merging memo.  This one just passes on original memo.
