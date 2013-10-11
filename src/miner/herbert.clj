@@ -171,32 +171,6 @@ Returns the successful result of the last rule or the first to fail."
     (mkprb pred args)
     (sp/mkpr pred)))
 
-
-(defn mk-list-simple-type [name lexpr extensions]
-  (let [[tcon & args] lexpr
-        lch (last-char tcon)
-        sym (simple-sym tcon)
-        erule (ext-rule sym extensions)
-        pred (when-not erule (tcon-pred sym extensions))
-        brule (or erule (mkbase pred args))
-        rule (case lch
-               \+ (sp/mk1om brule)
-               \* (sp/mkzom brule) 
-               \? (sp/mkopt brule)
-               brule)]
-    (if (and name (not= name '_))
-      (sp/mkbind rule name)
-      rule)))
-
-;; complex implies something like a map or vector that needs further processing
-(defn mk-list-complex-type [name lexpr extensions]
-  (assert (empty? (rest lexpr)))
-  (let [rule (mkconstraint (first lexpr) extensions)]
-    (if (and name (not= name '_))
-      (sp/mkbind rule name)
-      rule)))
-
-;; SEM combining mk-list-complex-type and mk-list-simple-type
 (defn mk-list-bind [name lexpr extensions]
   (if (empty? (rest lexpr))
     (let [rule (mkconstraint (first lexpr) extensions)]
@@ -226,14 +200,14 @@ Returns the successful result of the last rule or the first to fail."
        (not (tcon-pred (simple-sym sym) extensions))
        sym))
 
-;; SEM: FIXME replace with mk-list-bind
+
 (defn mk-list-type [lexpr extensions]
   (when-first [fst lexpr]
     (let [bname (bind-name fst extensions)
           expr (if bname (rest lexpr) lexpr)]
-      (cond (and bname (nil? (seq expr))) (mk-solo bname)
-            (symbol? (first expr)) (mk-list-bind bname expr extensions)
-            :else (mk-list-bind bname expr extensions)))))
+      (if (and bname (nil? (seq expr)))
+        (mk-solo bname)
+        (mk-list-bind bname expr extensions)))))
 
 ;; :else (throw (ex-info "Unknown mk-list-type" {:name bname :con lexpr}))))))
 
