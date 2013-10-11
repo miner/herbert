@@ -171,6 +171,7 @@ Returns the successful result of the last rule or the first to fail."
     (mkprb pred args)
     (sp/mkpr pred)))
 
+
 (defn mk-list-simple-type [name lexpr extensions]
   (let [[tcon & args] lexpr
         lch (last-char tcon)
@@ -194,6 +195,29 @@ Returns the successful result of the last rule or the first to fail."
     (if (and name (not= name '_))
       (sp/mkbind rule name)
       rule)))
+
+;; SEM combining mk-list-complex-type and mk-list-simple-type
+(defn mk-list-any-con [name lexpr extensions]
+  (if (empty? (rest lexpr))
+    (let [rule (mkconstraint (first lexpr) extensions)]
+      (if (and name (not= name '_))
+        (sp/mkbind rule name)
+        rule))
+    (let [[tcon & args] lexpr
+          lch (last-char tcon)
+          sym (simple-sym tcon)
+          erule (ext-rule sym extensions)
+          pred (when-not erule (tcon-pred sym extensions))
+          brule (or erule (mkbase pred args))
+          rule (case lch
+                 \+ (sp/mk1om brule)
+                 \* (sp/mkzom brule) 
+                 \? (sp/mkopt brule)
+                 brule)]
+      (if (and name (not= name '_))
+        (sp/mkbind rule name)
+        rule))))
+
 
 (defn bind-name [sym extensions]
   (and (symbol? sym)
@@ -294,8 +318,12 @@ Returns the successful result of the last rule or the first to fail."
 (defn third [s]
   (first (nnext s)))
 
-(defn as-seq [x]
-  (if (seq? x) x (list x)))
+(defn as-con [lexpr]
+  (let [con (nnext lexpr)
+        fst (first con)]
+    (if (and (seq? fst) (== (count con) 1))
+      fst
+      con)))
 
 (defn mk-list-constraint [lexpr extensions]
   (let [op (first lexpr)
@@ -319,7 +347,7 @@ Returns the successful result of the last rule or the first to fail."
       vec (mkand (sp/mkpr vector?) (mk-subseq-constraint (rest lexpr) extensions))
       list (mkand (sp/mkpr list?) (mk-subseq-constraint (rest lexpr) extensions))
       map (mk-map-constraint (second lexpr) (third lexpr) extensions)
-      as (mk-list-simple-type (second lexpr) (as-seq (third lexpr)) extensions)
+      (:= as) (mk-list-any-con (second lexpr) (nnext lexpr) extensions)
       ;; else
       (mk-list-type lexpr extensions))))
 
