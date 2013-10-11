@@ -278,10 +278,8 @@ Returns the successful result of the last rule or the first to fail."
       list (mkand (sp/mkpr list?) (mk-subseq-constraint (rest lexpr) extensions))
       map (mk-map-constraint (second lexpr) (third lexpr) extensions)
       :=  (mk-list-bind (second lexpr) (nnext lexpr) extensions)
-      ;; else it must be a solo reference to a bind name
-      (if (and (nil? (rest lexpr)) (symbol? op))
-        (mk-lookup op)
-        (mk-list-bind nil lexpr extensions)))))
+      ;; else it must be a constraint
+      (mk-list-bind nil lexpr extensions))))
 
 ;;      (throw (ex-info "Unknown list expr" {:expr lexpr}))
 
@@ -435,7 +433,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
         litset (if (seq nonlits) (set (filter literal? sexpr)) sexpr)]
     (apply mkand (sp/mkpr #(set/subset? litset %)) (map #(mk-set-element % extensions) nonlits))))
            
-
+;; SEM FIXME: use a Protocol
 (defn mkconstraint 
   ([expr] (mkconstraint expr {}))
   ([expr extensions]
