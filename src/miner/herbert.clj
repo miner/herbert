@@ -6,7 +6,7 @@
 
 
 (def predicates-ns (the-ns 'miner.herbert.predicates))
-(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not assert vec seq list map mod as})
+(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not assert vec seq list map mod :=})
 (declare default-predicates)
 ;; default-predicates defined a bit later so it can use some fns
 
@@ -197,7 +197,7 @@ Returns the successful result of the last rule or the first to fail."
       rule)))
 
 ;; SEM combining mk-list-complex-type and mk-list-simple-type
-(defn mk-list-any-con [name lexpr extensions]
+(defn mk-list-bind [name lexpr extensions]
   (if (empty? (rest lexpr))
     (let [rule (mkconstraint (first lexpr) extensions)]
       (if (and name (not= name '_))
@@ -226,13 +226,14 @@ Returns the successful result of the last rule or the first to fail."
        (not (tcon-pred (simple-sym sym) extensions))
        sym))
 
+;; SEM: FIXME replace with mk-list-bind
 (defn mk-list-type [lexpr extensions]
   (when-first [fst lexpr]
     (let [bname (bind-name fst extensions)
           expr (if bname (rest lexpr) lexpr)]
       (cond (and bname (nil? (seq expr))) (mk-solo bname)
-            (symbol? (first expr)) (mk-list-simple-type bname expr extensions)
-            :else (mk-list-complex-type bname expr extensions)))))
+            (symbol? (first expr)) (mk-list-bind bname expr extensions)
+            :else (mk-list-bind bname expr extensions)))))
 
 ;; :else (throw (ex-info "Unknown mk-list-type" {:name bname :con lexpr}))))))
 
@@ -244,23 +245,6 @@ Returns the successful result of the last rule or the first to fail."
            (tcon-pred (simple-sym sym) extensions))
        sym))
 
-;; SEM FIXME: accidentally committed this, not used
-(defn BAD-mk-list-type [lexpr extensions]
-  (when-first [fst lexpr]
-    (if-let [bname (bind-name fst extensions)]
-      ;; first sym is clearly the bind name, not ambiguous
-      (let [expr (rest lexpr)]
-        (cond (nil? (seq expr)) (mk-solo bname)
-              (symbol? (first expr)) (mk-list-simple-type bname expr extensions)
-              :else (mk-list-complex-type bname expr extensions)))
-      ;; first sym might shadow another term
-      (let [sec (second lexpr)]
-        (cond (coll? sec) (mk-list-complex-type fst (rest lexpr) extensions)
-              (pred-term? extensions sec) (mk-list-simple-type fst (rest lexpr) extensions)
-              (not (symbol? sec)) (mk-list-simple-type nil lexpr extensions)
-              :else (mk-list-simple-type nil lexpr extensions))))))
-
-;; :else (throw (ex-info (str "Mangled term: " (pr-str lexpr)) {:bad-expr lexpr})))))))
 
 
 ;; probably don't want this
@@ -347,7 +331,7 @@ Returns the successful result of the last rule or the first to fail."
       vec (mkand (sp/mkpr vector?) (mk-subseq-constraint (rest lexpr) extensions))
       list (mkand (sp/mkpr list?) (mk-subseq-constraint (rest lexpr) extensions))
       map (mk-map-constraint (second lexpr) (third lexpr) extensions)
-      (:= as) (mk-list-any-con (second lexpr) (nnext lexpr) extensions)
+      :=  (mk-list-bind (second lexpr) (nnext lexpr) extensions)
       ;; else
       (mk-list-type lexpr extensions))))
 

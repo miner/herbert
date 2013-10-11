@@ -115,21 +115,21 @@
   (is (conforms? '(and [int+] (indexed miner.test-herbert/nodd)) [1 -2 3 -4 5 -6])))
 
 (deftest binding-with-assert []
-  (is (conforms? '[(n int) (m int) (assert (= (* 2 n) m)) ] [2 4]))
-  (is (conforms? '[(n int) [(ms kw*)] (assert (= (count ms) n))] '[3 [:a :b :c]]))
-  (is (not (conforms? '[(n int) (m int) (assert (= (* 3 n) m)) ] [2 4])))
-  (is (conforms? '(& (ns (and [int+] (step 3))) (assert (== (count ns) 4))) [2 5 8 11]))
+  (is (conforms? '[(:= n int) (:= m int) (assert (= (* 2 n) m)) ] [2 4]))
+  (is (conforms? '[(:= n int) [(:= ms kw*)] (assert (= (count ms) n))] '[3 [:a :b :c]]))
+  (is (not (conforms? '[(:= n int) (:= m int) (assert (= (* 3 n) m)) ] [2 4])))
+  (is (conforms? '(& (:= ns (and [int+] (step 3))) (assert (== (count ns) 4))) [2 5 8 11]))
   ;; better equivalent
   (is (conforms? '(and [int+] (step 3) (cnt 4)) [2 5 8 11])))
 
 (deftest binding-with-implied-assert []
-  (is (conforms? '[(n int) (m int) (>= (* 2 n) m) ] [2 4]))
-  (is (conforms? '[(n int) [(ms kw*)] (<= (count ms) n)] '[3 [:a :b :c]]))
-  (is (not (conforms? '[(n int) (m int) (== (* 3 n) m) ] [2 4])))
-  (is (conforms? '(& (ns (and [int+] (step 3))) (== (count ns) 4)) [2 5 8 11])))
+  (is (conforms? '[(:= n int) (:= m int) (>= (* 2 n) m) ] [2 4]))
+  (is (conforms? '[(:= n int) [(:= ms kw*)] (<= (count ms) n)] '[3 [:a :b :c]]))
+  (is (not (conforms? '[(:= n int) (:= m int) (== (* 3 n) m) ] [2 4])))
+  (is (conforms? '(& (:= ns (and [int+] (step 3))) (== (count ns) 4)) [2 5 8 11])))
 
 (deftest step-count []
-  (is (conforms? '(& (ns [int+]) (assert (and (miner.herbert.predicates/step? 3 ns) 
+  (is (conforms? '(& (:= ns [int+]) (assert (and (miner.herbert.predicates/step? 3 ns) 
                                               (miner.herbert.predicates/cnt? 4 ns)))) 
                  [2 5 8 11]))
   (is (conforms? '(and [int+] (step 3) (cnt 4)) [2 5 8 11]))
@@ -159,11 +159,11 @@
   (is (conforms? '[(+ (even 20)) kw] [4 10 18 :a]))
   (is (conforms? '[(even+ 20) kw] [4 10 18 :a]))
   (is (not (conforms? '[(even+ 20) kw] [4 30 18 :a])))
-  (is (conforms? '[(lo int) (hi int) (even+ lo hi) kw] [4 20 14 10 18 :a]))
-  (is (conforms? '[(lo int) (hi int) (es even+ lo hi) 
+  (is (conforms? '[(:= lo int) (:= hi int) (even+ lo hi) kw] [4 20 14 10 18 :a]))
+  (is (conforms? '[(:= lo int) (:= hi int) (:= es even+ lo hi) 
                    (assert (miner.herbert.predicates/step? 4 es)) kw]
                  [4 20 6 10 14 18 :a]))
-  (is (not (conforms? '[(lo int) (hi int) (es even+ lo hi) 
+  (is (not (conforms? '[(:= lo int) (:= hi int) (:= es even+ lo hi) 
                         (assert (miner.herbert.predicates/step? 4 es)) kw]
                       [4 20 6 10 16 18 :a]))))
 
@@ -173,34 +173,34 @@
   (is (not (conforms? '(str "f.*r") "xfoobar"))))
 
 (deftest nested-map-assert []
-  (is (conforms? '(& {:a (a int) :b {:bb (bb int)}} (assert (== a bb))) 
+  (is (conforms? '(& {:a (:= a int) :b {:bb (:= bb int)}} (assert (== a bb))) 
                  {:a 10 :b {:bb 10}}))
-  (is (not (conforms? '(& {:a (a int) :b {:bb (bb int)}} (assert (== a bb))) 
+  (is (not (conforms? '(& {:a (:= a int) :b {:bb (:= bb int)}} (assert (== a bb))) 
                       {:a 11 :b {:bb 10}}))))
 
 (deftest solo-constraints-for-equality []
-  (is (conforms? '(& {:a (a int) :b {:bb (a)}}) {:a 10 :b {:bb 10}}))
-  (is (conforms? '(& {:a (a int) :b {:bb a}}) {:a 10 :b {:bb 10}}))
-  (is (conforms? '(& {:a (a int) :b {:bb [a+]}}) {:a 10 :b {:bb [10 10 10]}}))
-  (is (not (conforms? '(& {:a (a int) :b {:bb [a+]}}) {:a 10 :b {:bb 10}})))
-  (is (not (conforms? '(& {:a (a int) :b {:bb a}}) {:a 10 :b {:bb 11}}))))
+  (is (conforms? '(& {:a (:= a int) :b {:bb (a)}}) {:a 10 :b {:bb 10}}))
+  (is (conforms? '(& {:a (:= a int) :b {:bb a}}) {:a 10 :b {:bb 10}}))
+  (is (conforms? '(& {:a (:= a int) :b {:bb [a+]}}) {:a 10 :b {:bb [10 10 10]}}))
+  (is (not (conforms? '(& {:a (:= a int) :b {:bb [a+]}}) {:a 10 :b {:bb 10}})))
+  (is (not (conforms? '(& {:a (:= a int) :b {:bb a}}) {:a 10 :b {:bb 11}}))))
 
 (deftest solo-count []
-  (is (conforms? '(& {:a (a int) :b (b sym) :c? (c [b+])} (assert (= (count c) a))) 
+  (is (conforms? '(& {:a (:= a int) :b (:= b sym) :c? (c [b+])} (assert (= (count c) a))) 
              '{:a 2 :b foo :c [foo foo]})))
 
 (deftest bind-args []
-  (is (conforms? '[(a int) (b int) (c int a b)] [3 7 5])))
+  (is (conforms? '[(:= a int) (:= b int) (:= c int a b)] [3 7 5])))
 
 (deftest underbar-bind-args []
   ;; underbar _ should be ignored as a binding name
-  (is (conforms? '[(_ int) (_ sym "f.*") (_ str ".*r")] '[42 foo "bar"])))
+  (is (conforms? '[(:= _ int) (:= _ sym "f.*") (:= _ (str ".*r"))] '[42 foo "bar"])))
 
 (deftest as-bind-args []
-  (is (conforms? '[(as a int) (as b (int 2 15)) (as c (int a b))] [3 7 5]))
-  (is (not (conforms? '[(as a int) (as b (int 2 15)) (as c (int a b))] [3 4 5])))
-  (is (conforms? '[(as _ int) (as _ (sym "f.*")) (as _ (str ".*r"))] '[42 foo "bar"]))
-  (is (not (conforms? '[(as _ int) (as _ (sym "f.*")) (as _ (str ".*r"))] '[42 "foo" bar]))))
+  (is (conforms? '[(:= a int) (:= b (int 2 15)) (:= c (int a b))] [3 7 5]))
+  (is (not (conforms? '[(:= a int) (:= b (int 2 15)) (:= c (int a b))] [3 4 5])))
+  (is (conforms? '[(:= _ int) (:= _ (sym "f.*")) (:= _ (str ".*r"))] '[42 foo "bar"]))
+  (is (not (conforms? '[(:= _ int) (:= _ (sym "f.*")) (:= _ (str ".*r"))] '[42 "foo" bar]))))
 
 (deftest quoted-syms []
   (is (conforms? '[int 'int sym] '[42 int foo]))
@@ -209,7 +209,7 @@
 (deftest regex-forms []
   (is (conforms? '(kw ":foo/.*") :foo/bar))
   (is (not (conforms? '(kw ":foo/.*") :foo)))
-  (is (conforms? '(kw ":miner[.]test-herbert/foo") ::foo))
+  (is (conforms? '(kw ":miner[.]test-herbert.?/foo") ::foo))
   (is (conforms? '(str "foo/.*") "foo/bar"))
   (is (conforms? '(str "fo+.ar") "fooooobar"))
   (is (conforms? '(sym "user/.*") 'user/foobar))
