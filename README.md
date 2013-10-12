@@ -35,7 +35,7 @@ documenting **edn** data structures.
 
 Add the dependency to your project.clj:
 
-    [com.velisco/herbert "0.5.1"]
+    [com.velisco/herbert "0.5.3"]
 
 In case I forget to update the version number here in the README, the latest version is available on
 Clojars.org:
@@ -72,7 +72,26 @@ Quick example:
 **nil**, **true**, **false**, *numbers*, *"strings"*, *:keywords*
 
 * A simple schema expression is named by a symbol: <BR>
-**int**, **str**, **kw**, **sym**, **vec**, **list**, **seq**, **map**
+- **int** integer
+- **float** floating-point
+- **str** string
+- **kw** keyword
+- **sym** symbol
+- **vec** vector
+- **list** list or cons (actually anything that satisfies `clojure.core/seq?`)
+- **seq** any sequential (including vectors)
+- **map** map
+- **char** character
+- **bool** boolean
+- **any** anything
+
+* A few additional schemas for numeric sub-types:
+- **num** any number
+- **pos** positive number
+- **neg** negative number
+- **zero** zero number
+- **even** even integer
+- **odd** odd integer
 
 * A quantified schema expression: adding a __*__, __+__ or __?__ at the end of a symbol for
   zero-or-more, one-or-more, or zero-or-one (optional): <BR>
@@ -93,21 +112,21 @@ Quick example:
   `when` expressions.<BR>
 `(:= n int 1 10)`
 
-* A symbol by itself matches an element equal to the value that the name was bound to
+* A bound symbol matches an element equal to the value that the name was bound to
   previously. <BR>
 `[(:= n int) n n]` -- matches [3 3 3]
 	
-* A literal vector (in square brackets) matches any seq (not just a vector) with the contained
-  pattern <BR>
-`[(* kw sym)]`  -- matches (:a foo :b bar :c baz)
+* A literal vector [in square brackets] matches any sequential (not just a vector) with the
+  contained pattern <BR>
+`[(* kw sym)]`  -- matches (:a foo :b bar :c baz) and [:a foo]
 
-* A literal map (in curly braces) matches any map with the given literal keys and values matching
+* A literal map {in curly braces} matches any map with the given literal keys and values matching
   the corresponding schemas.  Optional keywords are written with a ? suffix such as **:kw?**.  For
   convenience, an optional keyword schema implicitly allows **nil** for the corresponding
   value. <BR>
-`{:a int :b sym :c? [int*]}`  -- matches {:a 10 :b foo :c [1 2 3]} as well as {:a 1 :b bar}
+`{:a int :b sym :c? [int*]}`  -- matches {:a 10 :b foo :c [1 2 3]} and {:a 1 :b bar}
 
-* A literal set with multiple schema expressions denotes the required element types, but does not
+* A literal #{set} with multiple schema expressions denotes the required element types, but does not
   exclude others.  A single element might match multiple schemas.  A set with a single quantified
   schema expression, defines the requirement on all elements. <BR>
 `#{int :a :b}` -- matches #{:a :b :c 10}, but not #{:a 10} <BR>
@@ -128,7 +147,7 @@ Quick example:
   parameter is given, it defines the _high_, and the _low_ defaults to 0 in that case.  If neither
   is given, there is no restriction on the high or low values.  Quantified numeric schemas apply the
   _high_ and _low_ to all the matched elements. A name maybe added as the optional first element.
-  (See Named schemas above.)<BR>
+  (See named schemas above.)<BR>
 `(int 1 10)`  -- matches 4, but not 12
 
 * String, symbol and keyword schema expressions (such as __str__, __sym__ and __kw__) may take an
@@ -138,15 +157,28 @@ Quick example:
 `(kw ":user/.*")` -- matches :user/foo
 
 * An inlined schema expression:  a list starting with `&` as the first element refers to multiple
-  items in order (as opposed to being within a collection). <BR>
-`[:a (& (:= n int) (:= f float) (> n f)) :b]` -- matches (:a 4 3.14 :b)
+  items in order (as opposed to being within a collection).  It can be useful for adding `when`
+  tests where an extra element would not normally be allowed.<BR>
+`{:a (:= n int) :b (& (:= f float) (> n f))}` -- matches {:a 4 :b 3.14}
 
 * The `map` schema predicate can take two optional arguments, the *key-schema* and the
   *val-schema*.  The matching element must be a map whose `keys` all satisfy *key-schema*
   and whose `vals` all satisfy *val-schema*. <BR>
-`(map sym int)` -- matches {a 42}
+`(map sym int)` -- matches {a 42 b 52}
 
-* Users may extend the schema system in two ways: (1) by declaring new schema terms (predicates) and
+* The `list` schema predicate matches a list or cons.  It can take multiple optional arguments to
+  specify the schemas for the ordered elements of the list. <BR> 
+`(list sym (* kw int))` -- matches (foo :a 42 :b 52 :c 22)
+
+* The `vec` schema predicate matches a vector.  It can take multiple optional arguments to
+  specify the schemas for the ordered elements of the vector. <BR> 
+`(vec int (* sym int))` -- matches [4 foo 42 bar 52]
+
+* The `seq` schema predicate matches any sequential (vector or list).  It's basically the same as
+  using the [square bracket] notation. <BR>
+`(seq kw int sym)` -- matches (:a 10 foo) and [:b 11 bar]
+
+* Users may extend the schema system in two ways: (1) by declaring new schema predicates and
   (2) by naming schema expressions.  Schema predicates are associated with Clojure predicate
   functions.  A named schema expression is a convenient way to encapsulate a constraint.  The
   `conform` function (and variants) take a `context` argument which is a map with two significant

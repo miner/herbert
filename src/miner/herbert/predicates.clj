@@ -1,6 +1,6 @@
 (ns miner.herbert.predicates
   (:refer-clojure 
-   :exclude [float? list? char? empty? map? seq? set? coll? even? odd?])
+   :exclude [float? list? char? empty? map? seq? set? coll? even? odd? pos? neg? zero?])
   )
 
 (defn- numeric
@@ -23,7 +23,7 @@
 (def float? (numeric clojure.core/float?))
 
 (defn mod?
-  ([d x] (and (integer? x) (zero? (clojure.core/mod x d))))
+  ([d x] (and (integer? x) (clojure.core/zero? (clojure.core/mod x d))))
   ([d r x] (and (integer? x) (== r (clojure.core/mod x d)))))
 
 (def list? clojure.core/seq?)
@@ -37,8 +37,10 @@
 (defn bool? [x] (or (true? x) (false? x)))
 
 (def even? (numeric integer? clojure.core/even?))
-
 (def odd? (numeric integer? clojure.core/odd?))
+(def pos? (numeric number? clojure.core/pos?))
+(def neg? (numeric number? clojure.core/neg?))
+(def zero? (numeric number? clojure.core/zero?))
 
 (defn literal? [x]
   (or (keyword? x) (number? x) (string? x) (false? x) (true? x) (nil? x)))
