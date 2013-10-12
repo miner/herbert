@@ -12,6 +12,13 @@
   (is (conforms? 'float 1.23))
   (is (not (conforms? 'sym :foo))))
 
+(deftest numbers []
+  (is (conforms? 'even 10))
+  (is (not (conforms? 'even 'foo)))
+  (is (conforms? '(and int pos (not neg) (not odd) (not zero)) 10))
+  (is (not (conforms? '(or int pos neg odd zero) 'foo)))
+  (is (conforms? '[(* (or neg zero))] [-1 0.0 0 -100.0 0])))
+
 (deftest nested []
   (is (conforms? '[int sym str kw] '(10 foo "foo" :foo)))
   (is (not (conforms? '[int sym str kw] '(10 :a foo "foo" :foo))))
