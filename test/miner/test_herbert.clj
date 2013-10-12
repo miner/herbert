@@ -209,7 +209,7 @@
 (deftest regex-forms []
   (is (conforms? '(kw ":foo/.*") :foo/bar))
   (is (not (conforms? '(kw ":foo/.*") :foo)))
-  (is (conforms? '(kw ":miner[.]test-herbert.?/foo") ::foo))
+  (is (conforms? '(kw ":miner[.]test-herbert/foo") ::foo))
   (is (conforms? '(str "foo/.*") "foo/bar"))
   (is (conforms? '(str "fo+.ar") "fooooobar"))
   (is (conforms? '(sym "user/.*") 'user/foobar))

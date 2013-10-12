@@ -248,13 +248,6 @@ Returns the successful result of the last rule or the first to fail."
 (defn third [s]
   (first (nnext s)))
 
-(defn as-con [lexpr]
-  (let [con (nnext lexpr)
-        fst (first con)]
-    (if (and (seq? fst) (== (count con) 1))
-      fst
-      con)))
-
 (defn mk-list-constraint [lexpr extensions]
   (let [op (first lexpr)
         mkconstr #(mkconstraint % extensions)]
