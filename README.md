@@ -72,26 +72,26 @@ Quick example:
 **nil**, **true**, **false**, *numbers*, *"strings"*, *:keywords*
 
 * A simple schema expression is named by a symbol: <BR>
-  - **int** integer
-  - **float** floating-point
-  - **str** string
-  - **kw** keyword
-  - **sym** symbol
-  - **vec** vector
-  - **list** list or cons (actually anything that satisfies `clojure.core/seq?`)
-  - **seq** any sequential (including vectors)
-  - **map** map
-  - **char** character
-  - **bool** boolean
-  - **any** anything
+  - **int** - integer
+  - **float** - floating-point
+  - **str** - string
+  - **kw** - keyword
+  - **sym** - symbol
+  - **vec** - vector
+  - **list** - list or cons (actually anything that satisfies `clojure.core/seq?`)
+  - **seq** - any sequential (including vectors)
+  - **map** - map
+  - **char** - character
+  - **bool** - boolean
+  - **any** - anything
 
 * A few additional schemas for numeric sub-types:
-  - **num** any number
-  - **pos** positive number
-  - **neg** negative number
-  - **zero** zero number
-  - **even** even integer
-  - **odd** odd integer
+  - **num** - any number
+  - **pos** - positive number
+  - **neg** - negative number
+  - **zero** - zero number
+  - **even** - even integer
+  - **odd** - odd integer
 
 * A quantified schema expression: adding a __*__, __+__ or __?__ at the end of a symbol for
   zero-or-more, one-or-more, or zero-or-one (optional): <BR>
