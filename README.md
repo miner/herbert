@@ -85,22 +85,17 @@ Quick example:
 * A quantified schema expression: a list beginning with __*__, __+__ or __?__ as the first element. <BR>
 `(* kw sym)`  -- zero or more pairs of keywords and symbols
 
-* A named schema expression is written as a list with the first item being the `as` operator,
-  followed by a (non-reserved) symbol as the binding name, and the third element being a schema
+* A named schema expression is written as a list with the first item being the `:=` operator,
+  followed by a (non-reserved) symbol as the binding name, and the rest of the list being a schema
   expression.  The names of predicates and special operators (like **and**, **or**, etc.) are not
-  allowed as binding names.  As a special case, a binding name of underbar `_` means "don't care"
-  and is ignored.  The name may be used as a parameter to other schemas and to assert
-  expressions.<BR> 
-`(as n (int 1 10))`
-
-* A short-hand version of a named schema expression is written as a list with the first item being a
-  (non-reserved) symbol, which is used as a binding name for the value conforming to the rest of the
-  schema expression.<BR>
-`(n int 1 10)`
+  allowed as binding names.  (As a special case, a binding name of underbar `_` means "don't care"
+  and is ignored.)  The name may be used as a parameter to other schemas and may alse appear in
+  `when` expressions.<BR>
+`(:= n int 1 10)`
 
 * A symbol by itself matches an element equal to the value that the name was bound to
   previously. <BR>
-`[(n int) n n]` -- matches [3 3 3]
+`[(:= n int) n n]` -- matches [3 3 3]
 	
 * A literal vector (in square brackets) matches any seq (not just a vector) with the contained
   pattern <BR>
@@ -118,14 +113,14 @@ Quick example:
 `#{int :a :b}` -- matches #{:a :b :c 10}, but not #{:a 10} <BR>
 `#{int+}` -- matches #{1 3 5}, but not #{1 :a 3}
 
-* The `assert` form does not consume any input.  The expression is evaluated within the enviroment
+* The `when` form does not consume any input.  The expression is evaluated within the enviroment
   of the previous bindings -- if it returns a logical true, the match continues.  On a logical
   false, the whole match fails. <BR>
-`[(n int) (m int) (assert (== (* 3 n) m))]` -- matches [2 6]
+`[(:= n int) (:= m int) (when (== (* 3 n) m))]` -- matches [2 6]
 
-* A list starting with `=`, `==`, `not=`, `<`, `>`, `<=` or `>=` is an *implied assert* and treated
-  as if the form was within an `assert` test. <BR>
-`[(n int) (m int) (== (* 3 n) m)]` -- matches [2 6]
+* A list starting with `=`, `==`, `not=`, `<`, `>`, `<=` or `>=` is an *implied when* and treated
+  as if the form was within an `when` test. <BR>
+`[(:= n int) (:= m int) (== (* 3 n) m)]` -- matches [2 6]
 
 * Numeric schema expresssions, such as __int__, __even__, __odd__, __float__, or __num__, may take
   optional parameters in a list following the schema.  Numerics take a _low_ and a _high_ parameter.
@@ -144,7 +139,7 @@ Quick example:
 
 * An inlined schema expression:  a list starting with `&` as the first element refers to multiple
   items in order (as opposed to being within a collection). <BR>
-`[:a (& (n int) (f float) (> n f)) :b]` -- matches (:a 4 3.14 :b)
+`[:a (& (:= n int) (:= f float) (> n f)) :b]` -- matches (:a 4 3.14 :b)
 
 * The `map` schema predicate can take two optional arguments, the *key-schema* and the
   *val-schema*.  The matching element must be a map whose `keys` all satisfy *key-schema*
@@ -188,26 +183,26 @@ Quick example:
 	(h/conforms? '{:a int :b sym :c? [str*]} '{:a foo :b bar})
 	;=> false
 
-    (h/conforms? '{:a (a int) :b sym :c? [a+]} '{:a 1 :b foo :c [1 1 1]})
+    (h/conforms? '{:a (:= a int) :b sym :c? [a+]} '{:a 1 :b foo :c [1 1 1]})
 	; a is bound to the int associated with :a, and then used again to define the values in the
 	; seq associated with :c.
     ;=> true
 
-    (h/conforms? '(& {:a (a int) :b (b sym) :c (c [b+])} (assert (= (count c) a))) 
+    (h/conforms? '(& {:a (:= a int) :b (:= b sym) :c (:= c [b+])} (when (= (count c) a))) 
 	           '{:a 2 :b foo :c [foo foo]})
     ; The & operator just means the following elements are found inline, not in a collection.
-	; In this case, we use it to associate the assertion with the single map constraint.  The
+	; In this case, we use it to associate the when-test with the single map constraint.  The
 	; assertion says that number or items in the :c value must be equal to the value associated
 	; with :a.  Notice that all the elements in the :c seq must be equal to the symbol associated 
 	; with :b.			   
     ;=> true
 
-    (h/conform '[(a int) (b int) (c int+ a b)] [3 7 4 5 6])
+    (h/conform '[(:= a int) (:= b int) (:= c int+ a b)] [3 7 4 5 6])
 	; Inside a seq, the first two ints establish the low and high range of the rest 
 	; of the int values.
     ;=> {c [4 5 6], b 7, a 3}
 
-	(def my-checker (h/conform-fn '[(max int) (xs int+ max)]))
+	(def my-checker (h/conform-fn '[(:= max int) (:= xs int+ max)]))
 	(my-checker [7 3 5 6 4])
 	;=> {xs [3 5 6 4], max 7}
 
@@ -216,7 +211,7 @@ Quick example:
 			(= s (clojure.string/reverse s))))
 			
 	(h/conforms? {:predicates {'palindrome #'palindrome?}
-                  :terms '[pal {:len (len int) :palindrome (and palindrome (cnt len))}
+                  :terms '[pal {:len (:= len int) :palindrome (and palindrome (cnt len))}
                                  palindromes [pal+]]}
                  'palindromes
                  [{:palindrome "civic" :len 5}
@@ -232,7 +227,10 @@ Quick example:
 * edn: http://edn-format.org
 * Clojure: http://clojure.org
 * Square Peg parser:  https://github.com/ericnormand/squarepeg
+
+## Related Projects
 * clj-schema:  https://github.com/runa-dev/clj-schema
+* Prismatic Schema:  https://github.com/prismatic/schema
 
 
 ## Star Trek: _The Way to Eden_  

@@ -6,7 +6,7 @@
 
 
 (def predicates-ns (the-ns 'miner.herbert.predicates))
-(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not assert vec seq list map mod :=})
+(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not when vec seq list map mod :=})
 (declare default-predicates)
 ;; default-predicates defined a bit later so it can use some fns
 
@@ -218,7 +218,7 @@ Returns the successful result of the last rule or the first to fail."
                ;; ignore anonymous fns and quoted values
                (fn quote) res
                ;; disallow some fns
-               (apply eval) (throw (ex-info "Herbert asserts do not allow 'apply' or 'eval'"
+               (apply eval) (throw (ex-info "Herbert 'when' tests do not allow 'apply' or 'eval'"
                                             {:form expr}))
                ;; for a normal list, skip the "fn", first element
                (reduce set/union res (map args-from-body (rest expr)))))))
@@ -235,8 +235,8 @@ Returns the successful result of the last rule or the first to fail."
         pred (eval `(fn [{:syms [~@args]}] ~body))]
     pred))
 
-(defn mk-assert [body]
-  ;; assert syntax takes just a single expr.  Symbols are looked up from previously bound names,
+(defn mk-when [body]
+  ;; when syntax takes just a single expr.  Symbols are looked up from previously bound names,
   ;; except for the first "fn" position of a list.  Some fns are not allowed, such as "apply" and
   ;; "eval".  
   (let [pred (runtime-pred body)]
@@ -267,8 +267,8 @@ Returns the successful result of the last rule or the first to fail."
               (sp/mklit (second lexpr))
               ;; dequoting here is convenient for macros
               (mkconstr (second lexpr)))
-      (= == not= < > <= >=) (mk-assert lexpr)
-      assert (mk-assert (second lexpr))
+      (= == not= < > <= >=) (mk-when lexpr)
+      when (mk-when (second lexpr))
       * (sp/mkzom (mk-con-seq (rest lexpr) extensions))
       + (sp/mk1om (mk-con-seq (rest lexpr) extensions)) 
       ? (sp/mkopt (mk-con-seq (rest lexpr) extensions))
