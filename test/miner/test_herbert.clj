@@ -242,15 +242,15 @@
                   {:palindrome "ere" :len 3}
                   {:palindrome "racecar" :len 7}])))
 
-(deftest non-literal-map
-  (is (conforms? '(map kw int) {:a 42}))
-  (is (not (conforms? '(map kw int) {'a 42})))
-  (is (not (conforms? '(map kw int) {:a 'b52})))
-  (is (conforms? '(map (or sym kw) (or sym int)) {:a 'b52}))
-  (is (conforms? '(map (or sym kw) (or sym int)) {'b 'b52}))
-  (is (conforms? '(map (or sym kw) (or sym int)) {'b 52}))
-  (is (conforms? '(map sym) {'b 52}))
-  (is (conforms? '(map) {'b 52}))
-  (is (conforms? 'map {'b 52}))
-  (is (not (conforms? '(map (or sym kw) (or sym int)) {:a :b52}))))
+(deftest non-literal-mapkv
+  (is (conforms? '(mapkv kw int) {:a 42}))
+  (is (not (conforms? '(mapkv kw int) {'a 42})))
+  (is (not (conforms? '(mapkv kw int) {:a 'b52})))
+  (is (conforms? '(mapkv (or sym kw) (or sym int)) {:a 'b52}))
+  (is (conforms? '(mapkv (or sym kw) (or sym int)) {'b 'b52}))
+  (is (conforms? '(mapkv (or sym kw) (or sym int)) {'b 52}))
+  (is (conforms? '(mapkv sym) {'b 52}))
+  (is (conforms? '(mapkv) {'b 52}))
+  (is (conforms? 'mapkv {'b 52}))
+  (is (not (conforms? '(mapkv (or sym kw) (or sym int)) {:a :b52}))))
   

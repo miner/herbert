@@ -6,7 +6,7 @@
 
 
 (def predicates-ns (the-ns 'miner.herbert.predicates))
-(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not when vec seq list map mod :=})
+(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not when vec seq list map mapkv mod :=})
 (declare default-predicates)
 ;; default-predicates defined a bit later so it can use some fns
 
@@ -243,7 +243,8 @@ Returns the successful result of the last rule or the first to fail."
     (sp/mkpred (fn [bindings context] (pred (merge context bindings))))))
 
 
-(declare mk-map-constraint)
+(declare mk-mapkv-constraint)
+(declare mk-map-op-constraint)
 
 (defn third [s]
   (first (nnext s)))
@@ -269,7 +270,8 @@ Returns the successful result of the last rule or the first to fail."
       seq  (mk-subseq-constraint (rest lexpr) extensions)
       vec (mkand (sp/mkpr vector?) (mk-subseq-constraint (rest lexpr) extensions))
       list (mkand (sp/mkpr list?) (mk-subseq-constraint (rest lexpr) extensions))
-      map (mk-map-constraint (second lexpr) (third lexpr) extensions)
+      map (mk-map-op-constraint (rest lexpr) extensions)
+      mapkv (mk-mapkv-constraint (second lexpr) (third lexpr) extensions)
       :=  (mk-list-bind (second lexpr) (nnext lexpr) extensions)
       ;; else it must be a constraint
       (mk-list-bind nil lexpr extensions))))
@@ -358,7 +360,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   (ex-info (str "Unsupported literal key " (pr-str k)) 
            {:key k :constraint c}))
 
-(defn mk-map-entry [[key con] extensions]
+(defn mk-map-pair [key con extensions]
   ;; FIXME -- only handles kw literals and optional :kw? for keys
   ;; doesn't carry context or results for individual key/val matches
   ;; Note: each rule expect full map as input, but only looks at one key
@@ -373,11 +375,17 @@ nil value also succeeds for an optional kw.  Does not consume anything."
                        (throw (bad-key-exception key con)))
           :else (throw (bad-key-exception key con)))))
 
+(defn mk-map-entry [[key con] extensions]
+  (mk-map-pair key con extensions))
+
 (defn mk-map-literal-constraint [mexpr extensions]
   (mkmap (map #(mk-map-entry % extensions) mexpr)))
 
+(defn mk-map-op-constraint [kvexprs extensions]
+  (mkmap (map #(mk-map-entry % extensions) (partition 2 kvexprs))))
+
 ;; SEM FIXME: bindings don't get passed down from krule and vrule
-(defn mk-map-constraint [key-con val-con extensions]
+(defn mk-mapkv-constraint [key-con val-con extensions]
   (let [krule (when key-con (mkconstraint key-con extensions))
         vrule (when val-con (mkconstraint val-con extensions))]
     (sp/mkpr (fn [m]
