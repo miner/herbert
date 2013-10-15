@@ -6,7 +6,7 @@
 
 
 (def predicates-ns (the-ns 'miner.herbert.predicates))
-(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not when vec seq list map keys mod :=})
+(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not when vec seq list set map keys mod :=})
 (declare default-predicates)
 ;; default-predicates defined a bit later so it can use some fns
 
@@ -245,6 +245,7 @@ Returns the successful result of the last rule or the first to fail."
 
 (declare mk-keys-constraint)
 (declare mk-map-op-constraint)
+(declare mk-set-constraint)
 
 (defn third [s]
   (first (nnext s)))
@@ -268,6 +269,7 @@ Returns the successful result of the last rule or the first to fail."
       ? (sp/mkopt (mk-con-seq (rest lexpr) extensions))
       & (mk-con-seq (rest lexpr) extensions)
       seq  (mk-subseq-constraint (rest lexpr) extensions)
+      set (mk-set-constraint (rest lexpr) extensions)
       vec (mkand (sp/mkpr vector?) (mk-subseq-constraint (rest lexpr) extensions))
       list (mkand (sp/mkpr list?) (mk-subseq-constraint (rest lexpr) extensions))
       map (mk-map-op-constraint (rest lexpr) extensions)
@@ -393,17 +395,29 @@ nil value also succeeds for an optional kw.  Does not consume anything."
                     (or (not krule) (every? #(sp/success? (krule (list %) {} {} {})) (keys m)))
                     (or (not vrule) (every? #(sp/success? (vrule (list %) {} {} {})) (vals m))))))))
 
+(defn set-zom [rule] 
+  (fn [s] (every? #(sp/success? (rule (list %) {} {} {})) s)))
+
+(defn set-1om [rule] 
+  (fn [s] (and (seq s) (every? #(sp/success? (rule (list %) {} {} {})) s))))
+
+(defn set-opt [rule] 
+  (fn [s] (or (empty? s) 
+              (and (empty? (rest s))
+                   (sp/success? (rule (seq s) {} {} {}))))))
+
+(defn set-some [rule]
+  (fn [s] (some #(sp/success? (rule (list %) {} {} {})) s)))
+
 (defn mk-set-sym [sym extensions]
   (let [simple (simple-sym sym)
         rule (mkconstraint simple extensions)]
     (case (last-char sym)
-      \* (sp/mkpr (fn [s] (every? #(sp/success? (rule (list %) {} {} {})) s)))
-      \+ (sp/mkpr (fn [s] (and (seq s) (every? #(sp/success? (rule (list %) {} {} {})) s))))
-      \? (sp/mkpr (fn [s] (or (empty? s) 
-                              (and (empty? (rest s))
-                                   (sp/success? (rule (seq s) {} {} {}))))))
+      \* (sp/mkpr (set-zom rule))
+      \+ (sp/mkpr (set-1om rule))
+      \? (sp/mkpr (set-opt rule))
       ;; else simple
-      (sp/mkpr (fn [s] (some #(sp/success? (rule (list %) {} {} {})) s))))))
+      (sp/mkpr (set-some rule)))))
 
 (defn mk-set-list [lst extensions]
   (let [[op con unexpected] lst
@@ -412,14 +426,11 @@ nil value also succeeds for an optional kw.  Does not consume anything."
     (when (and quantified unexpected)
       (throw (ex-info "Unexpectedly more" {:con lst})))
     (case op
-      * (sp/mkpr (fn [s] (every? #(sp/success? (rule (list %) {} {} {})) s)))
-      + (sp/mkpr (fn [s] (some #(sp/success? (rule (list %) {} {} {})) s)))
-      ? (sp/mkpr (fn [s] (or (empty? s) 
-                              (and (== (count s) 1)
-                                   (sp/success? (rule (seq s) {} {} {}))))))
+      * (sp/mkpr (set-zom rule))
+      + (sp/mkpr (set-1om rule))
+      ? (sp/mkpr (set-opt rule))
       ;; else quantified
-      (sp/mkpr (fn [s] (some #(sp/success? (rule (list %) {} {} {})) s))))))
-
+      (sp/mkpr (set-some rule)))))
 
 (defn mk-set-element [con extensions]
   (cond (symbol? con) (mk-set-sym con extensions)
@@ -427,7 +438,6 @@ nil value also succeeds for an optional kw.  Does not consume anything."
         (literal? con) (throw (ex-info "Literals should be handled separately" 
                                        {:con con :extensions extensions}))
         :else (throw (ex-info "I didn't think of that" {:con con :extensions extensions}))))
-
 
 (defn mk-set-constraint [sexpr extensions]
   (let [nonlits (remove literal? sexpr)

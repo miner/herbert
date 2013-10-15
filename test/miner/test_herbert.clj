@@ -101,6 +101,63 @@
        #{10} false
        #{:a 'foo} false))
 
+(deftest sets2 []
+  (are [val result] (= (conforms? '(set :a :b :c) val) result)
+       #{:a :b :c}   true
+       #{:d :c :a :b}   true
+       #{:d :c :a}   false)
+  (are [val result] (= (conforms? '(set int :a :b :c) val) result)
+       #{:a 10 :b :c}   true
+       #{:d :c :a :b}   false
+       #{10 20}   false
+       #{:b 10 :c 20 :a}   true)
+  (are [val result] (= (conforms? '(set int sym) val) result)
+       #{10 :a :b 'foo}   true
+       #{:d :c :a :b 10} false
+       #{'foo 10}   true)
+  (are [val result] (= (conforms? '(set kw*) val) result)
+       #{:a :b :c}   true
+       #{:d :c :a :b}   true
+       #{:d :c :a}   true
+       #{} true
+       #{:d 10 :a} false
+       #{:a :b :c 'foo} false)
+  (are [val result] (= (conforms? '(set (* kw)) val) result)
+       #{:a :b :c}   true
+       #{:d :c :a :b}   true
+       #{:d :c :a}   true
+       #{} true
+       #{:d 10 :a} false
+       #{:a :b :c 'foo} false)
+  (are [val result] (= (conforms? '(set kw+) val) result)
+       #{:a :b :c}   true
+       #{:d :c :a :b}   true
+       #{:d :c :a}   true
+       #{} false
+       #{:d 10 :a} false
+       #{:a :b :c 'foo} false)
+  (are [val result] (= (conforms? '(set (+ kw)) val) result)
+       #{:a :b :c}   true
+       #{:d :c :a :b}   true
+       #{:d :c :a}   true
+       #{} false
+       #{:d 10 :a} false
+       #{:a :b :c 'foo} false)
+  (are [val result] (= (conforms? '(set kw?) val) result)
+       #{:a :b :c}   false
+       #{:d :c :a :b}   false
+       #{:a}   true
+       #{} true
+       #{10} false
+       #{:a 'foo} false)
+  (are [val result] (= (conforms? '(set (? kw)) val) result)
+       #{:a :b :c}   false
+       #{:d :c :a :b}   false
+       #{:a}   true
+       #{} true
+       #{10} false
+       #{:a 'foo} false))
+
 ;; Note (or xxx+ yyy+) works but (or xxx* yyy*) can fail since zero xxx matches and yyy doesn't
 ;; get the chance after that.  Remember, no backtracking.  The + lets it work as expected.
 (deftest or-plus []
