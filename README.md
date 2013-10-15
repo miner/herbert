@@ -120,7 +120,7 @@ Quick example:
   contained pattern <BR>
 `[(* kw sym)]`  -- matches (:a foo :b bar :c baz) and [:a foo]
 
-* A literal map {in curly braces} matches any map with the given literal keys and values matching
+* A literal map in {curly braces} matches any map with the given literal keys and values matching
   the corresponding schemas.  Optional keywords are written with a ? suffix such as **:kw?**.  For
   convenience, an optional keyword schema implicitly allows **nil** for the corresponding
   value. <BR>
@@ -161,10 +161,14 @@ Quick example:
   tests where an extra element would not normally be allowed.<BR>
 `{:a (:= n int) :b (& (:= f float) (> n f))}` -- matches {:a 4 :b 3.14}
 
-* The `map` schema predicate can take two optional arguments, the *key-schema* and the
-  *val-schema*.  The matching element must be a map whose `keys` all satisfy *key-schema*
+* The `map` schema predicate matches a map.  It takes the same arguments as the {curly brace}
+  literal map schema. <BR>
+`(map :a int :b sym :c? [int*])`  -- matches {:a 10 :b foo :c [1 2 3]} and {:a 1 :b bar}
+
+* The `keys` schema predicate matches a map.  It can take two optional arguments, the *key-schema*
+  and the *val-schema*.  The matching element must be a map whose `keys` all satisfy *key-schema*
   and whose `vals` all satisfy *val-schema*. <BR>
-`(map sym int)` -- matches {a 42 b 52}
+`(keys sym int)` -- matches {a 42 b 52}
 
 * The `list` schema predicate matches a list or cons.  It can take multiple optional arguments to
   specify the schemas for the ordered elements of the list. <BR> 
