@@ -117,7 +117,7 @@ Quick example:
 `[(:= n int) n n]` -- matches [3 3 3]
 	
 * A literal vector [in square brackets] matches any sequential (not just a vector) with the
-  contained pattern <BR>
+  contained pattern. <BR>
 `[(* kw sym)]`  -- matches (:a foo :b bar :c baz) and [:a foo]
 
 * A literal map in {curly braces} matches any map with the given literal keys and values matching
@@ -126,9 +126,9 @@ Quick example:
   value. <BR>
 `{:a int :b sym :c? [int*]}`  -- matches {:a 10 :b foo :c [1 2 3]} and {:a 1 :b bar}
 
-* A literal #{set} with multiple schema expressions denotes the required element types, but does not
-  exclude others.  A single element might match multiple schemas.  A set with a single quantified
-  schema expression, defines the requirement on all elements. <BR>
+* A literal #{set} with multiple schema expressions denotes the required element types, but does
+  not exclude others.  A single element might match multiple schemas.  A set with a quantified
+  schema expression defines the requirement on all elements. <BR>
 `#{int :a :b}` -- matches #{:a :b :c 10}, but not #{:a 10} <BR>
 `#{int+}` -- matches #{1 3 5}, but not #{1 :a 3}
 
@@ -181,6 +181,11 @@ Quick example:
 * The `seq` schema predicate matches any sequential (vector or list).  It's basically the same as
   using the [square bracket] notation. <BR>
 `(seq kw int sym)` -- matches (:a 10 foo) and [:b 11 bar]
+
+* The `set` schema predicate matches a set.  It's basically the same as the #{set} literal
+  notation. <BR>
+`(set :a :b)` -- matches #{:a :b :c 10}, but not #{:a 10} <BR>
+`(set int+)` -- matches #{1 3 5}, but not #{1 :a 3}
 
 * Users may extend the schema system in two ways: (1) by declaring new schema predicates and
   (2) by naming schema expressions.  Schema predicates are associated with Clojure predicate
