@@ -6,7 +6,7 @@
 
 
 (def predicates-ns (the-ns 'miner.herbert.predicates))
-(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not when vec seq list map mapkv mod :=})
+(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not when vec seq list map keys mod :=})
 (declare default-predicates)
 ;; default-predicates defined a bit later so it can use some fns
 
@@ -243,7 +243,7 @@ Returns the successful result of the last rule or the first to fail."
     (sp/mkpred (fn [bindings context] (pred (merge context bindings))))))
 
 
-(declare mk-mapkv-constraint)
+(declare mk-keys-constraint)
 (declare mk-map-op-constraint)
 
 (defn third [s]
@@ -271,7 +271,7 @@ Returns the successful result of the last rule or the first to fail."
       vec (mkand (sp/mkpr vector?) (mk-subseq-constraint (rest lexpr) extensions))
       list (mkand (sp/mkpr list?) (mk-subseq-constraint (rest lexpr) extensions))
       map (mk-map-op-constraint (rest lexpr) extensions)
-      mapkv (mk-mapkv-constraint (second lexpr) (third lexpr) extensions)
+      keys (mk-keys-constraint (second lexpr) (third lexpr) extensions)
       :=  (mk-list-bind (second lexpr) (nnext lexpr) extensions)
       ;; else it must be a constraint
       (mk-list-bind nil lexpr extensions))))
@@ -385,7 +385,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   (mkmap (map #(mk-map-entry % extensions) (partition 2 kvexprs))))
 
 ;; SEM FIXME: bindings don't get passed down from krule and vrule
-(defn mk-mapkv-constraint [key-con val-con extensions]
+(defn mk-keys-constraint [key-con val-con extensions]
   (let [krule (when key-con (mkconstraint key-con extensions))
         vrule (when val-con (mkconstraint val-con extensions))]
     (sp/mkpr (fn [m]

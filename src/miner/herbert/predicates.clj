@@ -32,7 +32,7 @@
 (def seq? clojure.core/sequential?)
 (def coll? clojure.core/coll?)
 (def map? clojure.core/map?)
-(def mapkv? clojure.core/map?)
+(def keys? clojure.core/map?)
 (def set? clojure.core/set?)
 
 (defn bool? [x] (or (true? x) (false? x)))
