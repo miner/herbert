@@ -271,7 +271,7 @@ Returns the successful result of the last rule or the first to fail."
       seq  (mk-subseq-constraint (rest lexpr) extensions)
       set (mk-set-constraint (rest lexpr) extensions)
       vec (mkand (sp/mkpr vector?) (mk-subseq-constraint (rest lexpr) extensions))
-      list (mkand (sp/mkpr list?) (mk-subseq-constraint (rest lexpr) extensions))
+      list (mkand (sp/mkpr seq?) (mk-subseq-constraint (rest lexpr) extensions))
       map (mk-map-op-constraint (rest lexpr) extensions)
       keys (mk-keys-constraint (second lexpr) (third lexpr) extensions)
       :=  (mk-list-bind (second lexpr) (nnext lexpr) extensions)
@@ -434,7 +434,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 
 (defn mk-set-element [con extensions]
   (cond (symbol? con) (mk-set-sym con extensions)
-        (list? con) (mk-set-list con extensions)
+        (seq? con) (mk-set-list con extensions)
         (literal? con) (throw (ex-info "Literals should be handled separately" 
                                        {:con con :extensions extensions}))
         :else (throw (ex-info "I didn't think of that" {:con con :extensions extensions}))))
