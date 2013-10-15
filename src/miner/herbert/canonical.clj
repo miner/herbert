@@ -24,17 +24,18 @@
   (cons 'seq (map rewrite v)))
 
 (defn seq-rewrite [s]
-  (if (= (count s) 1)
-    (rewrite (first s))
-    (let [op (get reserved-ops (first s))]
-      (if op
-        (cons op (map rewrite (rest s)))
-        ;; pred and args
-        (let [pred (first s)
-              quant (symbol-quantifier pred)]
-          (if quant
-            (list quant (cons (simple-sym pred) (rest s)))
-            (cons (rewrite pred) (rest s))))))))
+  (cond (= (count s) 1) (rewrite (first s))
+        (= (first s) 'when) s
+        (case (first s) (= == not= < > <= >=) true false) (list 'when s)
+        :else  (let [op (get reserved-ops (first s))]
+                 (if op
+                   (cons op (map rewrite (rest s)))
+                   ;; pred and args
+                   (let [pred (first s)
+                         quant (symbol-quantifier pred)]
+                     (if quant
+                       (list quant (cons (simple-sym pred) (rest s)))
+                       (cons (rewrite pred) (rest s))))))))
 
 (defn set-rewrite [st]
   (cons 'set (map rewrite st)))

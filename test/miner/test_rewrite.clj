@@ -7,10 +7,20 @@
 
 
 (defn conforms? [schema val]
-  (h/conforms? (c/rewrite schema) val))
+  (let [rewr (c/rewrite schema)]
+    (when-not (= schema rewr)
+      (println "Schema: " (pr-str schema))
+      (println "Rewrite:" (pr-str rewr))
+      (println))    
+    (h/conforms? rewr val)))
 
 (defn conform [schema val]
-  (h/conform (c/rewrite schema) val))
+  (let [rewr (c/rewrite schema)]
+    (when-not (= schema rewr)
+      (println "Schema: " (pr-str schema))
+      (println "Rewrite:" (pr-str rewr))
+      (println))    
+    (h/conform rewr val)))
 
 (deftest basics []
   (is (conforms? 'int 10))
