@@ -172,6 +172,7 @@ Returns the successful result of the last rule or the first to fail."
     (sp/mkpr pred)))
 
 (defn mk-list-bind [name lexpr extensions]
+  ;;(assert (or (nil? name) (not (.contains (pr-str name) "."))))
   (if (empty? (rest lexpr))
     (let [rule (mkconstraint (first lexpr) extensions)]
       (if (and name (not= name '_))
@@ -211,7 +212,7 @@ Returns the successful result of the last rule or the first to fail."
 (defn args-from-body 
   ([expr] (args-from-body #{} expr))
   ([res expr]
-     (cond (symbol? expr) (conj res expr)
+     (cond (and (symbol? expr) (not (.contains (pr-str expr) "."))) (conj res expr)
            (vector? expr) (reduce set/union res (map args-from-body expr))
            (seq? expr) 
              (case (first expr) 
