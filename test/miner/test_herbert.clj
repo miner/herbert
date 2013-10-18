@@ -69,7 +69,16 @@
   (are [val result] (= (conforms? '#{:a :b :c} val) result)
        #{:a :b :c}   true
        #{:d :c :a :b}   true
+       [:a :b :c] false
+       '(:a :b :c) false
        #{:d :c :a}   false)
+  (are [val result] (= (conforms? '#{0 1 2} val) result)
+       #{0 1 2}   true
+       #{1 2} false
+       #{1 2 3 0} true
+       [0 1 2] false
+       '(0 1 2) false
+       {0 :a 1 :b 2 :c} false)
   (are [val result] (= (conforms? '#{int :a :b :c} val) result)
        #{:a 10 :b :c}   true
        #{:d :c :a :b}   false

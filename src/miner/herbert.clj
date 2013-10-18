@@ -442,7 +442,10 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 (defn mk-set-constraint [sexpr extensions]
   (let [nonlits (remove literal? sexpr)
         litset (if (seq nonlits) (set (filter literal? sexpr)) sexpr)]
-    (apply mkand (sp/mkpr #(set/subset? litset %)) (map #(mk-set-element % extensions) nonlits))))
+    (apply mkand 
+           (sp/mkpr set?)
+           (sp/mkpr #(set/subset? litset %)) 
+           (map #(mk-set-element % extensions) nonlits))))
            
 ;; SEM FIXME: use a Protocol
 (defn mkconstraint 
