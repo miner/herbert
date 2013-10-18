@@ -320,3 +320,16 @@
   (is (conforms? 'keys {'b 52}))
   (is (not (conforms? '(keys (or sym kw) (or sym int)) {:a :b52}))))
   
+
+(defrecord Foo [a])
+
+(deftest on-records
+  (is (conforms? '{:a int} (->Foo 42)))
+  (is (conforms? '(& (:= rec {:a int}) (when (instance? miner.test_herbert.Foo rec)))
+                 (->Foo 42)))
+  (is (not (conforms? '(& (:= rec {:a int}) (when (instance? miner.test_herbert.Foo rec)))
+                 {:a 42})))
+  (is (not (conforms? '(& (:= rec {:a int}) (when (instance? miner.test_herbert.Foo rec)))
+                 {->Foo "bar"}))))
+
+
