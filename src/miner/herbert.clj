@@ -172,7 +172,7 @@ Returns the successful result of the last rule or the first to fail."
     (sp/mkpr pred)))
 
 (defn mk-list-bind [name lexpr extensions]
-  ;;(assert (or (nil? name) (not (.contains (pr-str name) "."))))
+  (assert (or (nil? name) (not (or (.contains (pr-str name) ".") (.contains (pr-str name) "/")))))
   (if (empty? (rest lexpr))
     (let [rule (mkconstraint (first lexpr) extensions)]
       (if (and name (not= name '_))
@@ -207,12 +207,19 @@ Returns the successful result of the last rule or the first to fail."
 (defn mk-subseq-constraint [vexpr extensions]
   (sp/mksub (apply sp/mkseq (conj (mapv #(mkconstraint % extensions) vexpr) sp/end))))
 
+
+(defn bind-symbol? [expr]
+  (and (symbol? expr)
+       (not (or (.contains (pr-str expr) ".")
+                (.contains (pr-str expr) "/")))))
+
 ;; SEM FIXME: strictly speaking, anonymous fns might have some free symbols mixed in so really you
 ;; should disjoin the fn args within that scope but take the other symbols.
+;; SEM FIXME: untested for maps and sets
 (defn args-from-body 
   ([expr] (args-from-body #{} expr))
   ([res expr]
-     (cond (and (symbol? expr) (not (.contains (pr-str expr) "."))) (conj res expr)
+     (cond (bind-symbol? expr) (conj res expr)
            (vector? expr) (reduce set/union res (map args-from-body expr))
            (seq? expr) 
              (case (first expr) 
@@ -222,7 +229,9 @@ Returns the successful result of the last rule or the first to fail."
                (apply eval) (throw (ex-info "Herbert 'when' tests do not allow 'apply' or 'eval'"
                                             {:form expr}))
                ;; for a normal list, skip the "fn", first element
-               (reduce set/union res (map args-from-body (rest expr)))))))
+               (reduce set/union res (map args-from-body (rest expr))))
+           (map? expr) (reduce set/union res (map args-from-body (vals expr)))
+           (set? expr) (reduce set/union res (map args-from-body (seq expr))))))
 
 ;; SEM FIXME: potentially dangerous eval;  Maybe try Clojail or something to have a restricted eval,
 ;; but the args-from-body restricts some obviously dangerous calls.
