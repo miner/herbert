@@ -171,8 +171,14 @@ Returns the successful result of the last rule or the first to fail."
     (mkprb pred args)
     (sp/mkpr pred)))
 
+(defn bind-symbol? [expr]
+  ;; unqualified symbol with no dot
+  (and (symbol? expr)
+       (nil? (namespace expr))
+       (not (.contains (name expr) ".")))) 
+
 (defn mk-list-bind [name lexpr extensions]
-  (assert (or (nil? name) (not (or (.contains (pr-str name) ".") (.contains (pr-str name) "/")))))
+  (assert (or (nil? name) (bind-symbol? name)))
   (if (empty? (rest lexpr))
     (let [rule (mkconstraint (first lexpr) extensions)]
       (if (and name (not= name '_))
@@ -206,12 +212,6 @@ Returns the successful result of the last rule or the first to fail."
 
 (defn mk-subseq-constraint [vexpr extensions]
   (sp/mksub (apply sp/mkseq (conj (mapv #(mkconstraint % extensions) vexpr) sp/end))))
-
-
-(defn bind-symbol? [expr]
-  (and (symbol? expr)
-       (not (or (.contains (pr-str expr) ".")
-                (.contains (pr-str expr) "/")))))
 
 ;; SEM FIXME: strictly speaking, anonymous fns might have some free symbols mixed in so really you
 ;; should disjoin the fn args within that scope but take the other symbols.
