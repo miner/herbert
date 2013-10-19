@@ -185,20 +185,26 @@ Quick example:
 `(set :a :b)` -- matches #{:a :b :c 10}, but not #{:a 10} <BR>
 `(set int+)` -- matches #{1 3 5}, but not #{1 :a 3}
 
-* Users may extend the schema system in two ways: (1) by declaring new schema predicates and
-  (2) by naming schema expressions.  Schema predicates are associated with Clojure predicate
-  functions.  A named schema expression is a convenient way to encapsulate a constraint.  The
-  `conform` function (and variants) take a `context` argument which is a map with two significant
-  keys:  `:predicates` and `:terms`.  The value for :predicates is a map of symbols to vars.
-  The vars name Clojure functions that implement the predicate test for the key symbol.  If the
-  predicate is parameterized, the implementing function should take those parameters first.  In all
-  cases, the last argument should be the item in question.  Note, the predicate should accept all
-  values for consideration without throwing an exception.  For example, the `even` schema predicate
-  is implemented with a test of `integer?` as well as `even?` because the latter will throw on
-  non-integer values.  The default predicates are defined in the var
-  `miner.herbert/default-predicates`.  The :terms value should be a vector of alternating
-  symbol and schema-expression pairs (as in a `let` form).  The schema expressions are processed in
-  order.  A schema expression can refer to previously named schema expressions.
+
+## Extensibility
+
+Users may extend the schema system in two ways: (1) by declaring new schema predicates and (2) by
+naming schema expression as terms.  Schema predicates are associated with Clojure predicate
+functions.  A named schema term is a convenient way to encapsulate a schema expression.
+
+The `conform` function (and variants) take a `context` argument which is a map with two significant
+keys:  `:predicates` and `:terms`.
+  
+The value for :predicates is a map of symbols to vars.  The vars name Clojure functions that
+implement the predicate test for the key symbol.  If the predicate is parameterized, the
+implementing function should take those parameters first.  In all cases, the last argument should be
+the item in question.  Note, the predicate should accept all values for consideration without
+throwing an exception.  For example, the `even` schema predicate is implemented with a test of
+`clojure.core/integer?` as well as `clojure.core/even?` because the latter will throw on non-integer
+values.  The default predicates are defined in the var `miner.herbert/default-predicates`.
+  
+The :terms value should be a vector of alternating symbol and schema-expression pairs (as in a `let`
+form).  The schema terms are processed in order.  A schema expression can refer to prior terms.
 
 
 ## Examples
