@@ -333,3 +333,15 @@
                  {->Foo "bar"}))))
 
 
+(deftest readme-examples
+  (is (= ((conform '[(:= a int) (:= b int) (:= c int+ a b)]) [3 7 4 5 6])
+         '{c [4 5 6], b 7, a 3}))
+  (is (= ((conform '[(:= max int) (:= xs int+ max)]) [7 3 5 6 4])
+         '{xs [3 5 6 4], max 7}))
+  (is (conforms? '{:a int :b [sym+] :c str} '{:a 42 :b [foo bar baz] :c "foo"}))
+  (is (conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo}))
+  (is (conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo :c ["foo" "bar" "baz"]}))
+  (is (not (conforms? '{:a int :b sym :c? [str*]} '{:a foo :b bar})))
+  (is (conforms? '{:a (:= a int) :b sym :c? [a+]} '{:a 1 :b foo :c [1 1 1]})))
+
+

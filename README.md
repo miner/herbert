@@ -9,9 +9,7 @@ of the *Herbert* project is to provide a schema for defining **edn** data struct
 used for documentation, validation and conformance testing.  The schema expressions are
 represented as **edn** values.
 
-A significant feature of Clojure programming is the avoidance of required type declarations.  When
-you're trying to get a project started, you don't want to be forced to declare every term.
-Refactoring is also simpler without type declarations.  On the other hand, there are times when you
+Clojure generally avoids type declarations.  However, there are times when you
 know the required *shape* of your data and you would like to guarantee that it conforms to
 expectations.  I usually end up writing custom predicates and using `assert` statements as a sanity
 check on my data.  They often catch simple typos and careless errors in my code and data files.
@@ -35,7 +33,7 @@ documenting **edn** data structures.
 
 Add the dependency to your project.clj:
 
-    [com.velisco/herbert "0.5.4"]
+    [com.velisco/herbert "0.5.5"]
 
 In case I forget to update the version number here in the README, the latest version is available on
 Clojars.org:
@@ -47,17 +45,17 @@ Clojars.org:
 
 ## Usage
 
-The `conform` function with two arguments (the *schema* expression and the value to test) returns
-either a map of bindings for a successful match or nil for a failed match.  The three-argument
-variant takes an *schema-context* map as the first arg.  More about that later.
+The `conforms?` predicate takes a schema expression and a value to test.  It returns `true` if the
+value conforms to the schema expression, `false` otherwise.  The three-argument variant of
+`conforms?` takes an *schema-context* map as the first arg for extensibility (more about that
+later).
 
-The `conform-fn` function returns a function that will execute the match against a schema
-expression.  It also allows for an optional *schema-context* map.  If you need to check the same
-schema multiple times, you can use `conform-fn` to define a predicate.
-
-For the common case of testing conformation, the `conforms?` predicate takes a schema expression
-and a value.  It returns `true` if the value conforms to the schema expression, `false`
-otherwise.  (Again, there's a variant that takes an *schema-context* map as the first argument.)
+The `conform` function is used for building a test function from a schema.  Given a *schema*, it
+returns a function of one argument that will execute a match against the schema and return a map
+of bindings if successful or nil for a failed match.  A variant of `conform` allows for an optional
+*schema-context* map as with `conforms?`.  If you need to know how the schema bindings matched a
+value or you want to test against a schema multiple times, you should use `conform` to define a test
+function.
 
 Quick example:
 
@@ -238,12 +236,12 @@ Quick example:
 	; with :b.			   
     ;=> true
 
-    (h/conform '[(:= a int) (:= b int) (:= c int+ a b)] [3 7 4 5 6])
+    ((h/conform '[(:= a int) (:= b int) (:= c int+ a b)]) [3 7 4 5 6])
 	; Inside a seq, the first two ints establish the low and high range of the rest 
 	; of the int values.
     ;=> {c [4 5 6], b 7, a 3}
 
-	(def my-checker (h/conform-fn '[(:= max int) (:= xs int+ max)]))
+	(def my-checker (h/conform '[(:= max int) (:= xs int+ max)]))
 	(my-checker [7 3 5 6 4])
 	;=> {xs [3 5 6 4], max 7}
 

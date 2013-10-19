@@ -507,21 +507,18 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 
 
 ;; creates a fn that test for conformance to the schema with the given context
-(defn conform-fn
-  ([schema] (if (fn? schema) schema (conform-fn {} schema)))
+(defn conform
+  ([schema] (if (fn? schema) schema (conform {} schema)))
   ([context schema]
-     (let [schema-context (assoc context :schema schema)]
+     (let [schema-context (assoc context :schema schema)
+           con-fn (constraint-fn context schema)]
        (fn 
          ([] schema-context)
-         ([x] (let [res ((constraint-fn context schema) x)]
+         ([x] (let [res (con-fn x)]
                 (when (sp/success? res)
                   (with-meta (:b res) {::schema-context schema-context}))))))))
-
-(defn conform
-  ([schema x] ((conform-fn {} schema) x))
-  ([context schema x] ((conform-fn context schema) x)))
 
 (defn conforms? 
   ([schema x] (conforms? {} schema x))
   ([context schema x]
-     (boolean (conform context schema x))))
+     (boolean ((conform context schema) x))))
