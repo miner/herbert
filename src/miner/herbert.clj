@@ -492,11 +492,11 @@ nil value also succeeds for an optional kw.  Does not consume anything."
                              (assoc-in es [:predicates k] (resolve v))
                              (assoc-in es [:terms k] (mkconstraint v es))))
             {:predicates {} :terms {}}
-            (partition 2 (rest schema)))))
+            (partition 2 (nnext schema)))))
 
 (defn schema->start [schema]
   (if (complex-schema? schema)
-    (last (take-nth 2 (rest schema)))
+    (second schema)
     schema))
 
 (defn constraint-fn [schema]

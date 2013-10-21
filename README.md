@@ -188,25 +188,21 @@ Users may extend the schema system in two ways: (1) by declaring new schema pred
 naming schema expression as terms.  Schema predicates are associated with Clojure predicate
 functions.  A named schema term is a convenient way to encapsulate a schema expression.
 
-The complex form of a schema expression is a list beginning with the symbol `schema` followed by
-inline pairs defining either schema predicates or schema terms.  A schema predicate is defined by a
-pair of an unqualified symbol (naming the schema predicate) and a fully qualified symbol
-(identifying the Clojure var bound to an appropriate predicate function).  If the predicate is
-parameterized, the implementing function should take those parameters first.  In all cases, the last
-argument should be the item in question.  Note, the predicate should accept all values for
-consideration without throwing an exception.  For example, the `even` schema predicate is
-implemented with a test of `clojure.core/integer?` as well as `clojure.core/even?` because the
-latter will throw on non-integer values.  The default predicates are defined in the var
-`miner.herbert/default-predicates`.
+The complex form of a schema expression is a list beginning with the symbol `schema` followed by a
+single schema expression which is the "start expression".  After that, a series of inline pairs may
+appear which define either schema predicates or schema terms.  A schema predicate is defined by a an
+unqualified symbol (naming the schema predicate) and a fully qualified symbol (identifying the
+Clojure var bound to an appropriate predicate function).  If the predicate is parameterized, the
+implementing function should take those parameters first.  In all cases, the last argument should be
+the item in question.  Note, the predicate should accept all values for consideration without
+throwing an exception.  For example, the `even` schema predicate is implemented with a test of
+`clojure.core/integer?` as well as `clojure.core/even?` because the latter will throw on non-integer
+values.  The default predicates are defined in the var `miner.herbert/default-predicates`.
 
-A schema term is defined by a pair of an unqualified symbol (naming the schema term) and a schema
-expression.  The schema terms are processed in order.  A schema expression can refer to
-prior terms.
-
-The last item in a complex schema may be a single schema expression which will be matched against.
-The schema terms and predicates preceeding it may appear in the final expression.  Complex `schema`
-expressions cannot be nested.  In other words, `schema` should appear only as the first item of the
-outermost schema expression.
+A schema term is defined by an unqualified symbol (naming the schema term) and a schema expression.
+The schema terms are processed in order.  A schema expression can refer to prior terms.  The "start
+expression" may refer to any of the terms defined by the clauses in the `(schema ...)` form.  Nested
+`(schema ...)` forms are not allowed.
 
 
 ## Examples
@@ -257,9 +253,9 @@ outermost schema expression.
 		(and (string? s)
 			(= s (clojure.string/reverse s))))
 			
-	(h/conforms? '(schema palindrome user/palindrome?
-	                      pal {:len (:= len int) :palindrome (and palindrome (cnt len))}
-                          [pal+])
+	(h/conforms? '(schema [pal+]
+		              palindrome user/palindrome?
+	                  pal {:len (:= len int) :palindrome (and palindrome (cnt len))})
                  [{:palindrome "civic" :len 5}
                   {:palindrome "kayak" :len 5} 
                   {:palindrome "level" :len 5}
