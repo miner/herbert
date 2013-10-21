@@ -140,8 +140,7 @@ Quick example:
   The value must be between to the _low_ and _high_ (inclusive) for it to match.  If only one
   parameter is given, it defines the _high_, and the _low_ defaults to 0 in that case.  If neither
   is given, there is no restriction on the high or low values.  Quantified numeric schemas apply the
-  _high_ and _low_ to all the matched elements. A name maybe added as the optional first element.
-  (See named schemas above.)<BR>
+  _high_ and _low_ to all the matched elements. <BR>
 `(int 1 10)`  -- matches 4, but not 12
 
 * String, symbol and keyword schema expressions (such as __str__, __sym__ and __kw__) may take an
