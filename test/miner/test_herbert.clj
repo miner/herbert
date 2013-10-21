@@ -224,9 +224,10 @@
 
 ;; not the best way to handle this case, but imagine a fancier function
 (deftest with-constraints []
-  (is (conforms? {:predicates {'over3 #'over3?}} '[over3*]  [4 5 6 9]))
-  (is (conforms? {:predicates {'over3 #'over3?}} '[over3*]  []))
-  (is (conforms? {:predicates {'over3 #'over3?}} '[over3?]  [33])))
+  (is (conforms? '(schema over3 miner.test-herbert/over3? [over3*]) [4 5 6 9]))
+  (is (not (conforms? '(schema over3 miner.test-herbert/over3? [over3*]) [4 5 2 9])))
+  (is (conforms? '(schema over3 miner.test-herbert/over3? [over3*]) []))
+  (is (conforms? '(schema over3 miner.test-herbert/over3? [over3? int]) [2])))
 
 (deftest pred-args []
   (is (conforms? '[(+ (even 20)) kw] [4 10 18 :a]))
@@ -293,15 +294,13 @@
        (= s (clojure.string/reverse s))))
 
 (deftest grammar []
-  (is (conforms? {:predicates {'over3 #'over3?} 
-                  :terms '[long int 
-                                 start {:a over3 :b long}]}
-                 'start
+  (is (conforms? '(schema over3 miner.test-herbert/over3?
+                          long int 
+                          {:a over3 :b long})
                  {:a 42 :b 42}))
-  (is (conforms? {:predicates {'palindrome #'palindrome?}
-                  :terms '[pal {:len (:= len int) :palindrome (and palindrome (cnt len))}
-                                 palindromes [pal+]]}
-                 'palindromes
+  (is (conforms? '(schema palindrome miner.test-herbert/palindrome?
+                          pal {:len (:= len int) :palindrome (and palindrome (cnt len))}
+                          palindromes [pal+])
                  [{:palindrome "civic" :len 5}
                   {:palindrome "kayak" :len 5} 
                   {:palindrome "level" :len 5}

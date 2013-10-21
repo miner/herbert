@@ -286,7 +286,7 @@ Returns the successful result of the last rule or the first to fail."
       map (mk-map-op-constraint (rest lexpr) extensions)
       keys (mk-keys-constraint (second lexpr) (third lexpr) extensions)
       :=  (mk-list-bind (second lexpr) (nnext lexpr) extensions)
-      schema (throw (ex-info "Schema term definitions allowed only at the top-level."))
+      schema (throw (ex-info "Schema term definitions allowed only at the top-level." {:bad-schema lexpr}))
       ;; else it must be a constraint
       (mk-list-bind nil lexpr extensions))))
 
@@ -496,31 +496,60 @@ nil value also succeeds for an optional kw.  Does not consume anything."
             {:predicates preds :terms {}}
             (pairs (:terms exts)))))
 
-  
+(defn qsymbol? [x]
+  (and (symbol? x) (namespace x)))
+
+(defn complex-schema? [schema]
+  (and (seq? schema) (= (first schema) 'schema)))
+
 ;; exts is map of {:predicates? (map sym var) :terms? [(* sym con-expr)]}
-(defn constraint-fn 
-  ([schema] (constraint-fn {} schema))
-  ([context schema]
-     (let [cfn (mkconstraint schema (as-extensions context))]
+(defn schema->extensions [schema]
+  (if-not (complex-schema? schema)
+    {} ; not exts should be empty map, not nil for now
+    (reduce (fn [es [k v]] (if (qsymbol? v) 
+                             (assoc-in es [:predicates k] (resolve v))
+                             (assoc-in es [:terms k] (mkconstraint v es))))
+            {:predicates {} :terms {}}
+            (partition 2 (rest schema)))))
+
+(defn schema->start [schema]
+  (if (complex-schema? schema)
+    (last (take-nth 2 (rest schema)))
+    schema))
+
+(defn constraint-fn [schema]
+  (let [exts (schema->extensions schema)
+        start (schema->start schema)
+        cfn (mkconstraint start exts)]
+
+      ;; debug
+      (when (complex-schema? schema)
+        (println "Complex schema: " schema)
+        (println "  Exts: " exts)
+        (println "  Start: " start))
+
        (fn ff
          ([item] (ff item {} {} {}))
          ([item context] (ff item context {} {}))
-         ([item context bindings memo] (cfn (list item) context bindings memo))))))
+         ([item context bindings memo] (cfn (list item) context bindings memo)))))
 
+
+(defn schema->context [schema]
+  (if (complex-schema? schema)
+    schema
+    (list 'schema schema)))
 
 ;; creates a fn that test for conformance to the schema with the given context
-(defn conform
-  ([schema] (if (fn? schema) schema (conform {} schema)))
-  ([context schema]
-     (let [schema-context (assoc context :schema schema)
-           con-fn (constraint-fn context schema)]
+(defn conform [schema] 
+  (if (fn? schema) 
+    schema 
+    (let [schema-context (schema->context schema)
+          con-fn (constraint-fn schema)]
        (fn 
          ([] schema-context)
          ([x] (let [res (con-fn x)]
                 (when (sp/success? res)
-                  (with-meta (:b res) {::schema-context schema-context}))))))))
+                  (with-meta (:b res) {::schema schema-context}))))))))
 
-(defn conforms? 
-  ([schema x] (conforms? {} schema x))
-  ([context schema x]
-     (boolean ((conform context schema) x))))
+(defn conforms? [schema x] 
+  (boolean ((conform schema) x)))
