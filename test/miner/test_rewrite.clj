@@ -8,7 +8,7 @@
 
 (defn conforms? [schema val]
   (let [rewr (c/rewrite schema)]
-    (when-not (= schema rewr)
+   #_ (when-not (= schema rewr)
       (println "Schema: " (pr-str schema))
       (println "Rewrite:" (pr-str rewr))
       (println))    
@@ -16,7 +16,7 @@
 
 (defn conform [schema val]
   (let [rewr (c/rewrite schema)]
-    (when-not (= schema rewr)
+    #_ (when-not (= schema rewr)
       (println "Schema: " (pr-str schema))
       (println "Rewrite:" (pr-str rewr))
       (println))    
