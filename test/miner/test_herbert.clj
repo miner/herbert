@@ -227,6 +227,7 @@
   (is (conforms? '(schema over3 miner.test-herbert/over3? [over3*]) [4 5 6 9]))
   (is (not (conforms? '(schema over3 miner.test-herbert/over3? [over3*]) [4 5 2 9])))
   (is (conforms? '(schema over3 miner.test-herbert/over3? [over3*]) []))
+  (is (conforms? '(schema over3 miner.test-herbert/over3? [over3? int]) [4 2]))
   (is (conforms? '(schema over3 miner.test-herbert/over3? [over3? int]) [2])))
 
 (deftest pred-args []

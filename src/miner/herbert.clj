@@ -478,24 +478,6 @@ nil value also succeeds for an optional kw.  Does not consume anything."
            (number? expr) (sp/mklit expr)
            :else (throw (ex-info "Unknown constraint form" {:con expr :extensions extensions})))))
 
-
-;; util
-(defn pairs [map-or-flatseq]
-  ;; array-map will preserve order, but a hash-map gives no guaranteed order
-  (if (map? map-or-flatseq)
-    (seq map-or-flatseq)
-    (partition-all 2 map-or-flatseq)))
-
-;; SEM FIXME:  should we allow symbols instead of requiring vars for predicates?
-;; SEM FIXME:  won't work with recursive constraints, order-sensistive
-(defn as-extensions [exts]
-  (let [preds (reduce (fn [res [k v]] (assoc res k (if (symbol? v) (resolve v) v))) 
-                      {} 
-                      (pairs (:predicates exts)))]
-    (reduce (fn [es [k v]] (assoc-in es [:terms k] (mkconstraint v es)))
-            {:predicates preds :terms {}}
-            (pairs (:terms exts)))))
-
 (defn qsymbol? [x]
   (and (symbol? x) (namespace x)))
 
@@ -521,13 +503,6 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   (let [exts (schema->extensions schema)
         start (schema->start schema)
         cfn (mkconstraint start exts)]
-
-      ;; debug
-      (when (complex-schema? schema)
-        (println "Complex schema: " schema)
-        (println "  Exts: " exts)
-        (println "  Start: " start))
-
        (fn ff
          ([item] (ff item {} {} {}))
          ([item context] (ff item context {} {}))
