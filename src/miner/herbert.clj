@@ -509,7 +509,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
          ([item context bindings memo] (cfn (list item) context bindings memo)))))
 
 
-(defn schema->context [schema]
+(defn schema->complex [schema]
   (if (complex-schema? schema)
     schema
     (list 'schema schema)))
@@ -518,13 +518,13 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 (defn conform [schema] 
   (if (fn? schema) 
     schema 
-    (let [schema-context (schema->context schema)
+    (let [schema-complex (schema->complex schema)
           con-fn (constraint-fn schema)]
        (fn 
-         ([] schema-context)
+         ([] schema-complex)
          ([x] (let [res (con-fn x)]
                 (when (sp/success? res)
-                  (with-meta (:b res) {::schema schema-context}))))))))
+                  (with-meta (:b res) {::schema schema-complex}))))))))
 
 (defn conforms? [schema x] 
   (boolean ((conform schema) x)))
