@@ -6,7 +6,8 @@
 
 
 (def predicates-ns (the-ns 'miner.herbert.predicates))
-(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not when vec seq list set map keys mod :=})
+(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not when vec seq list set map keys mod
+                     := schema})
 (declare default-predicates)
 ;; default-predicates defined a bit later so it can use some fns
 
@@ -285,6 +286,7 @@ Returns the successful result of the last rule or the first to fail."
       map (mk-map-op-constraint (rest lexpr) extensions)
       keys (mk-keys-constraint (second lexpr) (third lexpr) extensions)
       :=  (mk-list-bind (second lexpr) (nnext lexpr) extensions)
+      schema (throw (ex-info "Schema term definitions allowed only at the top-level."))
       ;; else it must be a constraint
       (mk-list-bind nil lexpr extensions))))
 
