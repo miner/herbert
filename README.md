@@ -33,7 +33,7 @@ documenting **edn** data structures.
 
 Add the dependency to your project.clj:
 
-    [com.velisco/herbert "0.5.5"]
+    [com.velisco/herbert "0.5.6"]
 
 In case I forget to update the version number here in the README, the latest version is available on
 Clojars.org:
@@ -46,16 +46,12 @@ Clojars.org:
 ## Usage
 
 The `conforms?` predicate takes a schema expression and a value to test.  It returns `true` if the
-value conforms to the schema expression, `false` otherwise.  The three-argument variant of
-`conforms?` takes an *schema-context* map as the first arg for extensibility (more about that
-later).
+value conforms to the schema expression, `false` otherwise.
 
-The `conform` function is used for building a test function from a schema.  Given a *schema*, it
-returns a function of one argument that will execute a match against the schema and return a map
-of bindings if successful or nil for a failed match.  A variant of `conform` allows for an optional
-*schema-context* map as with `conforms?`.  If you need to know how the schema bindings matched a
-value or you want to test against a schema multiple times, you should use `conform` to define a test
-function.
+The `conform` function is used to build a test function.  Given a *schema*, it returns a function of
+one argument that will execute a match against the schema and return a map of bindings if successful
+or nil for a failed match.  If you need to know how the schema bindings matched a value or you want
+to test against a schema multiple times, you should use `conform` to define a test function.
 
 Quick example:
 
@@ -192,19 +188,25 @@ Users may extend the schema system in two ways: (1) by declaring new schema pred
 naming schema expression as terms.  Schema predicates are associated with Clojure predicate
 functions.  A named schema term is a convenient way to encapsulate a schema expression.
 
-The `conform` function (and variants) take a `context` argument which is a map with two significant
-keys:  `:predicates` and `:terms`.
-  
-The value for :predicates is a map of symbols to vars.  The vars name Clojure functions that
-implement the predicate test for the key symbol.  If the predicate is parameterized, the
-implementing function should take those parameters first.  In all cases, the last argument should be
-the item in question.  Note, the predicate should accept all values for consideration without
-throwing an exception.  For example, the `even` schema predicate is implemented with a test of
-`clojure.core/integer?` as well as `clojure.core/even?` because the latter will throw on non-integer
-values.  The default predicates are defined in the var `miner.herbert/default-predicates`.
-  
-The :terms value should be a vector of alternating symbol and schema-expression pairs (as in a `let`
-form).  The schema terms are processed in order.  A schema expression can refer to prior terms.
+The complex form of a schema expression is a list beginning with the symbol `schema` followed by
+inline pairs defining either schema predicates or schema terms.  A schema predicate is defined by a
+pair of an unqualified symbol (naming the schema predicate) and a fully qualified symbol
+(identifying the Clojure var bound to an appropriate predicate function).  If the predicate is
+parameterized, the implementing function should take those parameters first.  In all cases, the last
+argument should be the item in question.  Note, the predicate should accept all values for
+consideration without throwing an exception.  For example, the `even` schema predicate is
+implemented with a test of `clojure.core/integer?` as well as `clojure.core/even?` because the
+latter will throw on non-integer values.  The default predicates are defined in the var
+`miner.herbert/default-predicates`.
+
+A schema term is defined by a pair of an unqualified symbol (naming the schema term) and a schema
+expression.  The schema terms are processed in order.  A schema expression can refer to
+prior terms.
+
+The last item in a complex schema may be a single schema expression which will be matched against.
+The schema terms and predicates preceeding it may appear in the final expression.  Complex `schema`
+expressions cannot be nested.  In other words, `schema` should appear only as the first item of the
+outermost schema expression.
 
 
 ## Examples
@@ -214,8 +216,8 @@ form).  The schema terms are processed in order.  A schema expression can refer 
     (h/conforms? 'int 10)
 	;=> true
 
-    (h/conforms? {} 'int 10)
-	; empty "schema-context" map has no effect
+    (h/conforms? '(schema int) 10)
+	; a very simple "complex schema" with no extensions
 	;=> true
 
 	(h/conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo :c ["foo" "bar" "baz"]})
@@ -255,10 +257,9 @@ form).  The schema terms are processed in order.  A schema expression can refer 
 		(and (string? s)
 			(= s (clojure.string/reverse s))))
 			
-	(h/conforms? {:predicates {'palindrome #'palindrome?}
-                  :terms '[pal {:len (:= len int) :palindrome (and palindrome (cnt len))}
-                                 palindromes [pal+]]}
-                 'palindromes
+	(h/conforms? '(schema palindrome user/palindrome?
+	                      pal {:len (:= len int) :palindrome (and palindrome (cnt len))}
+                          [pal+])
                  [{:palindrome "civic" :len 5}
                   {:palindrome "kayak" :len 5} 
                   {:palindrome "level" :len 5}

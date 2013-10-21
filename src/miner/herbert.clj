@@ -484,7 +484,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 (defn complex-schema? [schema]
   (and (seq? schema) (= (first schema) 'schema)))
 
-;; exts is map of {:predicates? (map sym var) :terms? [(* sym con-expr)]}
+;; exts is map of {:predicates? (map sym var) :terms? (keys sym rule)}
 (defn schema->extensions [schema]
   (if-not (complex-schema? schema)
     {} ; not exts should be empty map, not nil for now

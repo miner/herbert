@@ -301,7 +301,7 @@
                  {:a 42 :b 42}))
   (is (conforms? '(schema palindrome miner.test-herbert/palindrome?
                           pal {:len (:= len int) :palindrome (and palindrome (cnt len))}
-                          palindromes [pal+])
+                          [pal+])
                  [{:palindrome "civic" :len 5}
                   {:palindrome "kayak" :len 5} 
                   {:palindrome "level" :len 5}
