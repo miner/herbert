@@ -536,9 +536,9 @@ first argument, arranging rules so that first schema can use rules from subseque
   ([start] (schema->grammar start))
   ([start s1] (let [grammar (schema->grammar start)]
                 (concat (list 'schema (second grammar))
-                        (nnext (schema->grammar s1))
+                        (when (grammar? s1) (nnext s1))
                         (nnext grammar))))
   ([start s1 & more] (let [grammar (schema->grammar start)]
                        (concat (list 'schema (second grammar))
-                               (mapcat (comp nnext schema->grammar) (cons s1 more))
+                               (mapcat #(when (grammar? %) (nnext %)) (cons s1 more))
                                (nnext grammar)))))

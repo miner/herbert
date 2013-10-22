@@ -348,3 +348,20 @@
 (deftest nested-schema
   (is (not (conforms? '(schema [short+] short (schema sh sh (int 255))) '[2 3000 2 4])))
   (is (conforms? '(schema [short+] short (schema sh sh (int 255))) '[2 3 2 4])))
+
+(deftest merging-schema
+  (let [s1 '(schema [iii+] iii (int 3))
+        s2 '(schema [sss+] sss (sym "..."))
+        s3 '(schema [kkk+] kkk (kw ":..."))]
+    (is (schema-merge '[iii sss kkk] s1 s2 s3)
+        '(schema [iii sss kkk]
+                 iii (int 3)
+                 sss (sym "...")
+                 kkk (kw ":...")))
+    (is (schema-merge '(schema [jjj sss kkk] jjj {:a iii}) s1 s2 s3)
+        '(schema [jjj sss kkk]
+                 iii (int 3)
+                 sss (sym "...")
+                 kkk (kw ":...")
+                 jjj {:a iii}))))
+
