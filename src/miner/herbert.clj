@@ -481,12 +481,12 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 (defn qsymbol? [x]
   (and (symbol? x) (namespace x)))
 
-(defn complex-schema? [schema]
+(defn grammar? [schema]
   (and (seq? schema) (= (first schema) 'schema)))
 
 ;; exts is map of {:predicates? (map sym var) :terms? (keys sym rule)}
 (defn schema->extensions [schema]
-  (if-not (complex-schema? schema)
+  (if-not (grammar? schema)
     {} ; not exts should be empty map, not nil for now
     (reduce (fn [es [k v]] (if (qsymbol? v) 
                              (assoc-in es [:predicates k] (resolve v))
@@ -495,7 +495,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
             (partition 2 (nnext schema)))))
 
 (defn schema->start [schema]
-  (if (complex-schema? schema)
+  (if (grammar? schema)
     (second schema)
     schema))
 
@@ -509,8 +509,8 @@ nil value also succeeds for an optional kw.  Does not consume anything."
          ([item context bindings memo] (cfn (list item) context bindings memo)))))
 
 
-(defn schema->complex [schema]
-  (if (complex-schema? schema)
+(defn schema->grammar [schema]
+  (if (grammar? schema)
     schema
     (list 'schema schema)))
 
@@ -518,13 +518,26 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 (defn conform [schema] 
   (if (fn? schema) 
     schema 
-    (let [schema-complex (schema->complex schema)
+    (let [grammar (schema->grammar schema)
           con-fn (constraint-fn schema)]
        (fn 
-         ([] schema-complex)
+         ([] grammar)
          ([x] (let [res (con-fn x)]
                 (when (sp/success? res)
-                  (with-meta (:b res) {::schema schema-complex}))))))))
+                  (with-meta (:b res) {::schema grammar}))))))))
 
 (defn conforms? [schema x] 
   (boolean ((conform schema) x)))
+
+(defn schema-merge
+  "Makes one schema expression out of several, ignoring the 'start' expression from all but the
+first argument, arranging rules so that first schema can use rules from subsequent schemata."
+  ([start] (schema->grammar start))
+  ([start s1] (let [grammar (schema->grammar start)]
+                (concat (list 'schema (second grammar))
+                        (nnext (schema->grammar s1))
+                        (nnext grammar))))
+  ([start s1 & more] (let [grammar (schema->grammar start)]
+                       (concat (list 'schema (second grammar))
+                               (mapcat (comp nnext schema->grammar) (cons s1 more))
+                               (nnext grammar)))))
