@@ -189,19 +189,23 @@ functions.  A named schema term is a convenient way to encapsulate a schema expr
 
 The complex form of a schema expression defines a grammar with rules for sub-expressions.  The
 grammar notation is a list beginning with the symbol `schema` followed by a single schema expression
-(the "start expression") and a series of clauses.  The clauses are inline pairs which define
-either schema predicates or schema terms.  A schema predicate is defined by a an unqualified symbol
-(naming the schema predicate) and a fully qualified symbol (identifying the Clojure var bound to an
-appropriate predicate function).  If the predicate is parameterized, the implementing function
+(the "start expression") and a series of clauses.  The clauses are inline pairs defining either
+schema predicates or schema terms.  A schema predicate declares that the unqualified symbol naming
+the schema predicate is implemented by a fully qualified symbol identifying the Clojure var bound to
+an appropriate predicate function.  If the predicate is parameterized, the implementing function
 should take those parameters first.  In all cases, the last argument should be the item in question.
-Note, the predicate should accept all values for consideration without throwing an exception.  For
+Note that the predicate should accept all values for consideration without throwing an exception.  For
 example, the `even` schema predicate is implemented with a test of `clojure.core/integer?` as well
 as `clojure.core/even?` because the latter will throw on non-integer values.  The default predicates
 are defined in the var `miner.herbert/default-predicates`.
 
-A schema term is defined by an unqualified symbol (naming the schema term) and a schema expression.
-The schema terms are processed in order.  A schema expression can refer to prior terms.  The "start
+The definition of a schema term is an unqualified symbol naming the term followed by a schema
+expression.  Once a name is defined, it can be used in other schema expressions.  The "start
 expression" may refer to any of the terms defined by the clauses in the `(schema ...)` form.
+
+If you want to go crazy, you can nest `schema` expressions as the definition of a term, but the
+nested `schema` expression is in an isolated scope so its rules are not available to the outer
+scope.
 
 
 ## Examples
