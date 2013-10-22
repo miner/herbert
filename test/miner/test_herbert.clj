@@ -345,3 +345,6 @@
   (is (conforms? '{:a (:= a int) :b sym :c? [a+]} '{:a 1 :b foo :c [1 1 1]})))
 
 
+(deftest nested-schema
+  (is (not (conforms? '(schema [short+] short (schema sh sh (int 255))) '[2 3000 2 4])))
+  (is (conforms? '(schema [short+] short (schema sh sh (int 255))) '[2 3 2 4])))
