@@ -257,6 +257,7 @@ Returns the successful result of the last rule or the first to fail."
 (declare mk-keys-constraint)
 (declare mk-map-op-constraint)
 (declare mk-set-constraint)
+(declare constraint-fn)
 
 (defn third [s]
   (first (nnext s)))
@@ -286,7 +287,7 @@ Returns the successful result of the last rule or the first to fail."
       map (mk-map-op-constraint (rest lexpr) extensions)
       keys (mk-keys-constraint (second lexpr) (third lexpr) extensions)
       :=  (mk-list-bind (second lexpr) (nnext lexpr) extensions)
-      schema (throw (ex-info "Schema term definitions allowed only at the top-level." {:bad-schema lexpr}))
+      schema (sp/mkpr (constraint-fn lexpr))
       ;; else it must be a constraint
       (mk-list-bind nil lexpr extensions))))
 
