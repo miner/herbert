@@ -33,7 +33,7 @@ documenting **edn** data structures.
 
 Add the dependency to your project.clj:
 
-    [com.velisco/herbert "0.5.6"]
+    [com.velisco/herbert "0.5.7"]
 
 In case I forget to update the version number here in the README, the latest version is available on
 Clojars.org:
