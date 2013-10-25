@@ -217,6 +217,8 @@ Returns the successful result of the last rule or the first to fail."
 ;; SEM FIXME: strictly speaking, anonymous fns might have some free symbols mixed in so really you
 ;; should disjoin the fn args within that scope but take the other symbols.
 ;; SEM FIXME: untested for maps and sets
+;; SEM FIXME: let not supported (buggy)
+;; SEM FIXME: overall, pretty rough
 (defn args-from-body 
   ([expr] (args-from-body #{} expr))
   ([res expr]

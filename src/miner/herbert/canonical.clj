@@ -26,6 +26,7 @@
 (defn seq-rewrite [s]
   (cond (= (count s) 1) (rewrite (first s))
         (= (first s) 'when) s
+        (and (= (first s) 'schema) (= (count s) 2)) (rewrite (second s))
         (case (first s) (= == not= < > <= >=) true false) (list 'when s)
         :else  (let [op (get reserved-ops (first s))]
                  (if op
@@ -52,8 +53,8 @@
 
 
 (defn vc? [schema val]
-  (let [direct (conform schema val)
-        rewr (conform (rewrite schema) val)]
+  (let [direct ((conform schema) val)
+        rewr ((conform (rewrite schema)) val)]
     (println "direct" direct "; rewr" rewr)
     (= direct rewr)))
 
