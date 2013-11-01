@@ -373,7 +373,7 @@
   (is (conforms? '[char+] (vec (seq "bar")))))
 
 (deftest top-kw
-  ;; top level keywords are always literals, only {map} gets special postfix optional
+  ;; top level keywords are always literals, only {map} gets special postfix optional :k?
   (is (conforms? [:k?] [:k?]))
   (is (not (conforms? [:k?] [])))
   (is (conforms? [':k] [:k]))
