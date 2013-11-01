@@ -6,8 +6,12 @@
 
 
 (def predicates-ns (the-ns 'miner.herbert.predicates))
-(def reserved-ops '#{+ * ? & = == < > not= >= <= quote and or not when vec seq list set map keys mod
+
+(def reserved-ops '#{+ * ? & = == < > not= >= <= 
+                     quote and or not when 
+                     vec seq list set map keys mod
                      := schema})
+
 (declare default-predicates)
 ;; default-predicates defined a bit later so it can use some fns
 
@@ -47,6 +51,25 @@
     (keyword ns name1)
     (symbol ns name1))))
 
+(defn has-keys? [m ks]
+  (and (map? m)
+       (every? (partial contains? m) ks)))
+
+(defn optional-key? [kw]
+  (and (keyword? kw)
+       (= (last-char kw) \?)))
+
+(defn simple-key [kw]
+  (if (optional-key? kw)
+    (strip-last kw)
+    kw))
+
+(defn optional-keys [m]
+  (filter optional-key? (keys m)))
+
+(defn required-keys [m]
+  (remove optional-key? (keys m)))
+
 (defn ns->predicates [ns]
   (reduce-kv (fn [cm k v] (if (= (last-char k) \?) (assoc cm (simple-sym k) v) cm))
              {}
@@ -60,11 +83,9 @@
 (defn quantified-sym? [sym]
   (not= sym (simple-sym sym)))
 
-(defn literal? [con]
-  (or (keyword? con) (number? con) (string? con) (false? con) (true? con) (nil? con)))
+(def literal? miner.herbert.predicates/literal?)
 
-
-
+;; SEM FIXME not used
 (defrecord TaggedValue [tag value])
 
 (defn taggedValue? [x]
@@ -272,9 +293,9 @@ Returns the successful result of the last rule or the first to fail."
       and (apply mkand (map mkconstr (rest lexpr)))
       not (sp/mkseq (sp/mknot (mkconstr (second lexpr))) sp/anything)
       quote (if (symbol? (second lexpr))
-              ;; symbols can be used as literals if quoted
+                ;; symbols can be used as literals if quoted
               (sp/mklit (second lexpr))
-              ;; dequoting here is convenient for macros
+                ;; dequoting here is convenient for macros
               (mkconstr (second lexpr)))
       (= == not= < > <= >=) (mk-when lexpr)
       when (mk-when (second lexpr))
@@ -316,25 +337,6 @@ Returns the successful result of the last rule or the first to fail."
             (sp/succeed m [m] (rest input) mbindings memo)))
         (sp/fail "Input failed to match required map." memo)))))
 
-
-(defn has-keys? [m ks]
-  (and (map? m)
-       (every? (partial contains? m) ks)))
-
-(defn optional-key? [kw]
-  (and (keyword? kw)
-       (= (last-char kw) \?)))
-
-(defn simple-key [kw]
-  (if (optional-key? kw)
-    (strip-last kw)
-    kw))
-
-(defn optional-keys [m]
-  (filter optional-key? (keys m)))
-
-(defn required-keys [m]
-  (remove optional-key? (keys m)))
 
 ;; SEM FIXME -- everywhere we use sp/success? we have to look for passing up the bindings
 ;; which means sp/mkpr is not going to be sufficient in many cases.
@@ -473,12 +475,8 @@ nil value also succeeds for an optional kw.  Does not consume anything."
            (vector? expr) (mk-subseq-constraint expr extensions)
            (set? expr) (mk-set-constraint expr extensions)
            (map? expr) (mk-map-literal-constraint expr extensions) 
-           (string? expr) (sp/mklit expr)
-           (keyword? expr) (sp/mklit expr)
-           (nil? expr) (sp/mkpr nil?)
-           (false? expr) (sp/mkpr false?)
-           (true? expr) (sp/mkpr true?)
-           (number? expr) (sp/mklit expr)
+           ;; (optional-key? expr) (sp/mkopt (sp/mklit (simple-key expr)))
+           (literal? expr) (sp/mklit expr)
            :else (throw (ex-info "Unknown constraint form" {:con expr :extensions extensions})))))
 
 (defn qsymbol? [x]

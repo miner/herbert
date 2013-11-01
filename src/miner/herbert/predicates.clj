@@ -1,7 +1,6 @@
 (ns miner.herbert.predicates
   (:refer-clojure 
-   :exclude [float? list? char? empty? map? seq? set? coll? even? odd? pos? neg? zero?])
-  )
+   :exclude [float? list? char? empty? map? seq? set? coll? even? odd? pos? neg? zero?]))
 
 (defn- numeric
   ([pred]
@@ -44,7 +43,7 @@
 (def zero? (numeric number? clojure.core/zero?))
 
 (defn literal? [x]
-  (or (keyword? x) (number? x) (string? x) (false? x) (true? x) (nil? x)))
+  (or (keyword? x) (number? x) (string? x) (false? x) (true? x) (nil? x) (char? x)))
 
 (defn empty? [x]
   (or (nil? x)

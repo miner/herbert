@@ -365,3 +365,25 @@
                     kkk (kw ":...")
                     jjj {:a iii})))))
 
+(deftest char-lits
+  (is (conforms? \k \k))
+  (is (conforms? [\f \o \o] (seq "foo")))
+  (is (conforms? \f (first "foo")))
+  (is (conforms? \o (last "foo")))
+  (is (conforms? '[char+] (vec (seq "bar")))))
+
+(deftest top-kw
+  ;; top level keywords are always literals, only {map} gets special postfix optional
+  (is (conforms? [:k?] [:k?]))
+  (is (not (conforms? [:k?] [])))
+  (is (conforms? [':k] [:k]))
+  (is (conforms? '[(? :k)] [:k]))
+  (is (conforms? '[(? :k)] []))
+  (is (conforms? '[(? :k?)] [:k?]))
+  (is (not (conforms? '[(? :k?)] [:k])))
+  (is (conforms? [':k?] [:k?]))
+  (is (not (conforms? [':k?] [:k])))
+  (is (conforms? '[(? :k)] [:k]))
+  (is (not (conforms? '[(? :k)] [:k?])))
+  (is (not (conforms? [:k?] [42])))
+  (is (not (conforms? [:k?] [:a]))))
