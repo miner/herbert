@@ -26,7 +26,6 @@
   ([d r x] (and (integer? x) (== r (clojure.core/mod x d)))))
 
 (def list? clojure.core/seq?)
-(def char? clojure.core/char?)
 (def vec? clojure.core/vector?)
 (def seq? clojure.core/sequential?)
 (def coll? clojure.core/coll?)
@@ -43,7 +42,7 @@
 (def zero? (numeric number? clojure.core/zero?))
 
 (defn literal? [x]
-  (or (keyword? x) (number? x) (string? x) (false? x) (true? x) (nil? x) (char? x)))
+  (or (keyword? x) (number? x) (string? x) (false? x) (true? x) (nil? x) (clojure.core/char? x)))
 
 (defn empty? [x]
   (or (nil? x)
@@ -57,7 +56,11 @@
 
 (defn str?
   ([x] (string? x))
-  ([regex x] (regex-match? regex x)))
+  ([regex x] (and (string? x) (regex-match? regex x))))
+
+(defn char?
+  ([x] (clojure.core/char? x))
+  ([regex x] (and (clojure.core/char? x) (regex-match? regex (str x)))))
 
 (defn sym? 
   ([x] (symbol? x))

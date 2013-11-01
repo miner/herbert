@@ -372,6 +372,13 @@
   (is (conforms? \o (last "foo")))
   (is (conforms? '[char+] (vec (seq "bar")))))
 
+(deftest char-regex
+  (is (conforms? '(char "x") \x))
+  (is (conforms? '(char "[a-z]") \x))
+  (is (not (conforms? '(char "[a-z]") \X)))
+  (is (not (conforms? '(char "[a-z]") 42)))
+  (is (not (conforms? '(char "[a-z]x") \x))))
+
 (deftest top-kw
   ;; top level keywords are always literals, only {map} gets special postfix optional :k?
   (is (conforms? [:k?] [:k?]))
