@@ -475,7 +475,6 @@ nil value also succeeds for an optional kw.  Does not consume anything."
            (vector? expr) (mk-subseq-constraint expr extensions)
            (set? expr) (mk-set-constraint expr extensions)
            (map? expr) (mk-map-literal-constraint expr extensions) 
-           ;; (optional-key? expr) (sp/mkopt (sp/mklit (simple-key expr)))
            (literal? expr) (sp/mklit expr)
            :else (throw (ex-info "Unknown constraint form" {:con expr :extensions extensions})))))
 
