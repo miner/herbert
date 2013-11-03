@@ -180,12 +180,12 @@ a hack:
 ## Extensibility
 
 Users may extend the schema system in two ways: (1) by declaring new schema predicates and (2) by
-naming schema expression as terms.  Schema predicates are associated with Clojure predicate
-functions.  A named schema term is a convenient way to encapsulate a schema expression.
+naming schema patterns as terms.  Schema predicates are associated with Clojure predicate
+functions.  A named schema term is a convenient way to encapsulate a schema pattern.
 
 The complex form of a schema expression defines a grammar with rules for sub-expressions.  The
-grammar notation is a list beginning with the symbol `schema` followed by a single schema expression
-(the "start expression") and a series of clauses.  The clauses are inline pairs defining either
+grammar notation is a list beginning with the symbol `schema` followed by a single schema pattern
+(the "start pattern") and a series of clauses.  The clauses are inline pairs defining either
 schema predicates or schema terms.  A schema predicate declares that the unqualified symbol naming
 the schema predicate is implemented by a fully qualified symbol identifying the Clojure var bound to
 an appropriate predicate function.  If the predicate is parameterized, the implementing function
@@ -196,8 +196,8 @@ as `clojure.core/even?` because the latter will throw on non-integer values.  Th
 are defined in the var `miner.herbert/default-predicates`.
 
 The definition of a schema term is an unqualified symbol naming the term followed by a schema
-expression.  Once a name is defined, it can be used in other schema expressions.  The "start
-expression" may refer to any of the terms defined by the clauses in the `(schema ...)` form.
+pattern.  Once a name is defined, it can be used in other schema patterns.  The "start
+pattern" may refer to any of the terms defined by the clauses in the `(schema ...)` form.
 
 If you want to go crazy, you can nest `schema` expressions as the definition of a term, but the
 nested `schema` expression is in an isolated scope so its rules are not available to the outer
