@@ -4,36 +4,26 @@ A schema language for **edn** (Clojure data).
 
 [![Way to Eden](img/way-to-eden.png)](#star-trek-reference)
 
-The _extensible data notation_ **(edn)** defines a useful subset of Clojure data types.  The goal
-of the *Herbert* project is to provide a schema for defining **edn** data structures that can be
-used for documentation, validation and conformance testing.  The schema expressions are
-represented as **edn** values.
+The _extensible data notation_ **(edn)** defines a useful subset of Clojure data types.  As
+described on [edn-format.org](http://edn-format.org):
 
-Clojure generally avoids type declarations.  However, there are times when you
-know the required *shape* of your data and you would like to guarantee that it conforms to
-expectations.  I usually end up writing custom predicates and using `assert` statements as a sanity
-check on my data.  They often catch simple typos and careless errors in my code and data files.
+> **edn** is a system for the conveyance of values.
+> It is not a type system, and has no schemas.
 
-Documentation is required to explain the data structures used in a program.  In some cases, the
-data format is more important than the code that manipulates it.  At times, I've found it tedious to
-document the data formats of some of the nested data structures that I pass around in my programs.
-Explaining that a map can have such-and-such keys referring to values of particular types takes a
-lot of words if you want to be precise.  Most of the time, a simple data example helps to convey the
-essence of the data format but it's hard to capture the full scope of possibilities with only a few
-examples.
+The explicit lack of schemas in **edn** stands in marked contrast to many serialization libraries
+which use an interface definition language.  The **edn** values essentially speak for themselves,
+without the need for a separate description or layer of interpretation.  That is not to say that
+schemas aren't potentially useful, they're just not part of the definition of the **edn** format.
 
-*Herbert* is designed to describe the format of **edn** data.  It provides a convenient way to turn
-those data format descriptions into Clojure predicates which can be used for conformance testing.  A
-*Herbert* test can be especially useful in `assert` statements and pre-conditions, but they're also
-applicable to many other data matching tasks.  Naturally, the *Herbert* notation is appropriate for
-documenting **edn** data structures.
-
+The goal of the *Herbert* project is to provide a convenient schema language for defining **edn** data
+structures that can be used for documentation and validation.  The schema patterns are represented
+as **edn** values.
 
 ## Leiningen
 
 Add the dependency to your project.clj:
 
-    [com.velisco/herbert "0.5.7"]
+    [com.velisco/herbert "0.5.8"]
 
 In case I forget to update the version number here in the README, the latest version is available on
 Clojars.org:
@@ -45,13 +35,14 @@ Clojars.org:
 
 ## Usage
 
-The `conforms?` predicate takes a schema expression and a value to test.  It returns `true` if the
-value conforms to the schema expression, `false` otherwise.
+The `conforms?` predicate takes a schema pattern and a value to test.  It returns `true` if the
+value conforms to the schema pattern, `false` otherwise.
 
 The `conform` function is used to build a test function.  Given a *schema*, it returns a function of
-one argument that will execute a match against the schema and return a map of bindings if successful
-or nil for a failed match.  If you need to know how the schema bindings matched a value or you want
-to test against a schema multiple times, you should use `conform` to define a test function.
+one argument that will execute a match against the schema pattern and return a map of bindings if
+successful or nil for a failed match.  If you need to know how the schema bindings matched a value
+or you want to test against a schema multiple times, you should use `conform` to define a test
+function.
 
 Quick example:
 
@@ -60,12 +51,12 @@ Quick example:
 	;=> true
 
 
-## Notation for Schema Expressions
+## Notation for Schema Patterns
 
 * Literal constants match themselves: <BR>
 **nil**, **true**, **false**, *numbers*, *"strings"*, *:keywords*
 
-* A simple schema expression is named by a symbol: <BR>
+* A simple schema pattern is named by a symbol: <BR>
   - **int** - integer
   - **float** - floating-point
   - **str** - string
@@ -79,7 +70,7 @@ Quick example:
   - **bool** - boolean
   - **any** - anything
 
-* A few additional schemas for numeric sub-types:
+* A few additional schema patterns for numeric sub-types:
   - **num** - any number
   - **pos** - positive number
   - **neg** - negative number
@@ -87,23 +78,22 @@ Quick example:
   - **even** - even integer
   - **odd** - odd integer
 
-* A quantified schema expression: adding a __*__, __+__ or __?__ at the end of a symbol for
+* A quantified schema pattern: adding a __*__, __+__ or __?__ at the end of a symbol for
   zero-or-more, one-or-more, or zero-or-one (optional): <BR>
 **int***, **str+**, **sym?**
   
-* A compound schema expression: using **and**, **or** and **not** <BR>
+* A compound schema pattern: using **and**, **or** and **not** <BR>
 `(or sym+ nil)`  -- one or more symbols or nil <BR>
 `(or (vec int*) (list kw+))`  -- either a vector of ints or a list of one or more keywords
 
-* A quantified schema expression: a list beginning with __*__, __+__ or __?__ as the first element. <BR>
+* A quantified schema pattern: a list beginning with __*__, __+__ or __?__ as the first element. <BR>
 `(* kw sym)`  -- zero or more pairs of keywords and symbols
 
-* A named schema expression is written as a list with the first item being the `:=` operator,
+* A named schema expression is written as a list with the first element being the `:=` operator,
   followed by a (non-reserved) symbol as the binding name, and the rest of the list being a schema
-  expression.  The names of predicates and special operators (like **and**, **or**, etc.) are not
+  pattern.  The names of predicates and special operators (like **and**, **or**, etc.) are not
   allowed as binding names.  (As a special case, a binding name of underbar `_` means "don't care"
-  and is ignored.)  The name may be used as a parameter to other schemas and may alse appear in
-  `when` expressions.<BR>
+  and is ignored.)  The name may be used as a parameter to other schema patterns.<BR>
 `(:= n int 1 10)`
 
 * A bound symbol matches an element equal to the value that the name was bound to
@@ -120,37 +110,28 @@ Quick example:
   value. <BR>
 `{:a int :b sym :c? [int*]}`  -- matches {:a 10 :b foo :c [1 2 3]} and {:a 1 :b bar}
 
-* A literal #{set} with multiple schema expressions denotes the required element types, but does
-  not exclude others.  A single element might match multiple schemas.  A set with a quantified
-  schema expression defines the requirement on all elements. <BR>
+* A literal #{set} with multiple schema patterns denotes the required elements, but does
+  not exclude others.  A single element might match multiple patterns.  A set with a quantified
+  schema pattern defines the requirement on all elements. <BR>
 `#{int :a :b}` -- matches #{:a :b :c 10}, but not #{:a 10} <BR>
 `#{int+}` -- matches #{1 3 5}, but not #{1 :a 3}
 
-* The `when` form does not consume any input.  The expression is evaluated within the enviroment
-  of the previous bindings -- if it returns a logical true, the match continues.  On a logical
-  false, the whole match fails. <BR>
-`[(:= n int) (:= m int) (when (== (* 3 n) m))]` -- matches [2 6]
-
-* A list starting with `=`, `==`, `not=`, `<`, `>`, `<=` or `>=` is an *implied when* and treated
-  as if the form was within an `when` test. <BR>
-`[(:= n int) (:= m int) (== (* 3 n) m)]` -- matches [2 6]
-
-* Numeric schema expresssions, such as __int__, __even__, __odd__, __float__, or __num__, may take
-  optional parameters in a list following the schema.  Numerics take a _low_ and a _high_ parameter.
+* Numeric schema patterns, such as __int__, __even__, __odd__, __float__, or __num__, may take
+  optional parameters in a list following the pattern name.  Numerics take a _low_ and a _high_ parameter.
   The value must be between to the _low_ and _high_ (inclusive) for it to match.  If only one
   parameter is given, it defines the _high_, and the _low_ defaults to 0 in that case.  If neither
-  is given, there is no restriction on the high or low values.  Quantified numeric schemas apply the
+  is given, there is no restriction on the high or low values.  Quantified numeric patterns apply the
   _high_ and _low_ to all the matched elements. <BR>
 `(int 1 10)`  -- matches 4, but not 12
 
-* String, symbol and keyword schema expressions (such as __str__, __sym__ and __kw__) may take an
+* String, symbol and keyword schema patterns (such as __str__, __sym__ and __kw__) may take an
   optional regex argument, specified as a string (for EDN compatibility) or a Clojure regular
   expression (like *#"regex"*).  In that case, the `pr-str` of the element must match the
   regex. <BR>
 `(kw ":user/.*")` -- matches :user/foo
 
-* An inlined schema expression:  a list starting with `&` as the first element refers to multiple
-  items in order (as opposed to being within a collection).  It can be useful for adding `when`
+* An inlined schema pattern:  a list starting with `&` as the first element refers to multiple
+  elements in order (as opposed to being within a collection).  It can be useful for adding `when`
   tests where an extra element would not normally be allowed.<BR>
 `{:a (:= n int) :b (& (:= f float) (> n f))}` -- matches {:a 4 :b 3.14}
 
@@ -179,6 +160,21 @@ Quick example:
   notation. <BR>
 `(set :a :b)` -- matches #{:a :b :c 10}, but not #{:a 10} <BR>
 `(set int+)` -- matches #{1 3 5}, but not #{1 :a 3}
+
+
+## Experimental Features
+
+These features are implemented as an experiment, but I'm not sure I'll keep them as they're a bit of
+a hack:
+
+* The `when` form does not consume any input.  The expression is evaluated within the enviroment
+  of the previous bindings -- if it returns a logical true, the match continues.  On a logical
+  false, the whole match fails. <BR>
+`[(:= n int) (:= m int) (when (== (* 3 n) m))]` -- matches [2 6]
+
+* A list starting with `=`, `==`, `not=`, `<`, `>`, `<=` or `>=` is an *implied when* and treated
+  as if the form was within an `when` test. <BR>
+`[(:= n int) (:= m int) (== (* 3 n) m)]` -- matches [2 6]
 
 
 ## Extensibility
@@ -238,7 +234,7 @@ scope.
 	           '{:a 2 :b foo :c [foo foo]})
     ; The & operator just means the following elements are found inline, not in a collection.
 	; In this case, we use it to associate the when-test with the single map constraint.  The
-	; assertion says that number or items in the :c value must be equal to the value associated
+	; assertion says that number of elements in the :c value must be equal to the value associated
 	; with :a.  Notice that all the elements in the :c seq must be equal to the symbol associated 
 	; with :b.			   
     ;=> true
