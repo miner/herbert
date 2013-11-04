@@ -204,6 +204,7 @@ Returns the successful result of the last rule or the first to fail."
     (let [[tcon & args] lexpr
           lch (last-char tcon)
           sym (simple-sym tcon)
+          ;; SEM FIXME erule ignores extra args
           erule (ext-rule sym extensions)
           pred (when-not erule (tcon-pred sym extensions))
           brule (or erule (mkbase pred args))
@@ -490,12 +491,11 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   (and (seq? schema) (= (first schema) 'schema)))
 
 ;; exts is map of {:predicates? (map sym var) :terms? (keys sym rule)}
+;; SEM FIXME dropping :predicates in favor or (pred foo/bar?) notation
 (defn schema->extensions [schema]
   (if-not (grammar? schema)
     {} ; not exts should be empty map, not nil for now
-    (reduce (fn [es [k v]] (if (qsymbol? v) 
-                             (assoc-in es [:predicates k] (resolve v))
-                             (assoc-in es [:terms k] (mkconstraint v es))))
+    (reduce (fn [es [k v]] (assoc-in es [:terms k] (mkconstraint v es)))
             {:predicates {} :terms {}}
             (partition 2 (nnext schema)))))
 
