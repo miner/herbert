@@ -1,15 +1,15 @@
 (ns miner.herbert
   (:require [clojure.string :as str]
             [clojure.set :as set]
+            [miner.tagged :as tag]
             [squarepeg.core :as sp]
             [miner.herbert.predicates]))
-
 
 (def predicates-ns (the-ns 'miner.herbert.predicates))
 
 (def reserved-ops '#{+ * ? & = == < > not= >= <= 
-                     quote and or not when 
-                     vec seq list set map keys mod
+                     quote and or not when class pred
+                     vec seq list set map keys mod tag
                      := schema})
 
 (declare default-predicates)
@@ -85,12 +85,7 @@
 
 (def literal? miner.herbert.predicates/literal?)
 
-;; SEM FIXME not used
-(defrecord TaggedValue [tag value])
-
-(defn taggedValue? [x]
-  (instance? TaggedValue x))
-
+(def tagged? miner.herbert.predicates/tagged?)
 
 ;; loosey-goosey get or just yourself, sort of an ersatz lexical binding
 (defn lookup [sym bindings]
@@ -189,7 +184,7 @@ Returns the successful result of the last rule or the first to fail."
 
 ;; args can be literals or keys into the bindings.  Unknown keys are just literal values.
 (defn mkbase [pred args]
-  (if args
+  (if (not-empty args)
     (mkprb pred args)
     (sp/mkpr pred)))
 
@@ -277,6 +272,14 @@ Returns the successful result of the last rule or the first to fail."
     (sp/mkpred (fn [bindings context] (pred (merge context bindings))))))
 
 
+(defn mk-pred-args [sym args]
+  (let [pred (if (fn? sym) sym (resolve sym))]
+    (mkbase pred args)))
+
+(defn mk-class [sym]
+  (let [clazz (if (class? sym) sym (resolve sym))]
+    (sp/mkpr (fn [x] (instance? clazz x)))))
+
 (declare mk-keys-constraint)
 (declare mk-map-op-constraint)
 (declare mk-set-constraint)
@@ -310,6 +313,8 @@ Returns the successful result of the last rule or the first to fail."
       map (mk-map-op-constraint (rest lexpr) extensions)
       keys (mk-keys-constraint (second lexpr) (third lexpr) extensions)
       :=  (mk-list-bind (second lexpr) (nnext lexpr) extensions)
+      pred (mk-pred-args (second lexpr) (nnext lexpr))
+      class (mk-class (second lexpr))
       schema (mkconstraint (second lexpr) (schema->extensions lexpr))
       ;; else it must be a constraint
       (mk-list-bind nil lexpr extensions))))

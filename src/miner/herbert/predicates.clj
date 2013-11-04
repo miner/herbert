@@ -1,6 +1,18 @@
 (ns miner.herbert.predicates
   (:refer-clojure 
-   :exclude [float? list? char? empty? map? seq? set? coll? even? odd? pos? neg? zero?]))
+   :exclude [float? list? char? empty? map? seq? set? coll? even? odd? pos? neg? zero?])
+  (:require [miner.tagged :as tag])
+  (:import [miner.tagged.TaggedValue]))
+
+
+(defn tagged? 
+  ([x] (or (instance? clojure.lang.IRecord x)
+           ;;(instance? miner.tagged.TaggedValue x)
+           (:tag (meta x))))
+  ([sym x] (or (let [clazz (resolve sym)] (and (class? clazz) (instance? clazz x)))
+               (and (instance? miner.tagged.TaggedValue x)
+                    (= (:tag x) sym))
+               (= sym (:tag (meta x))))))
 
 (defn- numeric
   ([pred]
