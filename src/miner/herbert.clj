@@ -3,7 +3,8 @@
             [clojure.set :as set]
             [miner.tagged :as tag]
             [squarepeg.core :as sp]
-            [miner.herbert.predicates]))
+            [miner.herbert.predicates])
+  (:import miner.tagged.TaggedValue))
 
 (def predicates-ns (the-ns 'miner.herbert.predicates))
 
@@ -147,13 +148,13 @@ Returns the successful result of the last rule or the first to fail."
 (defn ext-rule [sym extensions]
   (get-in extensions [:terms sym]))  
 
-(defn ext-pred [sym extensions]
+#_ (defn ext-pred [sym extensions]
   (get-in extensions [:predicates sym]))
 
 ;; SEM FIXME -- a bit of extra work to test pred as var but safer
+;; SEM FIXME -- no longer need extensions here
 (defn tcon-pred [tcon extensions]
-  (or (ext-pred tcon extensions)
-      (get default-predicates tcon)))
+  (get default-predicates tcon))
 
 (declare mkconstraint)
 
@@ -281,6 +282,45 @@ Returns the successful result of the last rule or the first to fail."
   (let [clazz (if (class? sym) sym (resolve sym))]
     (sp/mkpr (fn [x] (instance? clazz x)))))
 
+;; SEM FIXME: hack!
+(defn hack-reverse-engineer-value [item tag extensions]
+  (cond (not tag) item
+        (instance? miner.tagged.TaggedValue item) (:value item)
+        (instance? clojure.lang.IRecord item) item
+        :else (let [str-val (pr-str item)
+                    tag-prefix (str "#" (pr-str tag) " ")]
+                (if (.startsWith str-val tag-prefix)
+                  ;; this is the hack to reverse engineer the pr-str in tagged literal format
+                  ;; by ignoring the tag part in the reader
+                  (tag/read-string (subs str-val (.length tag-prefix)))
+                  ;; give up and use the original item
+                  item))))
+
+(defn hack-reverse-engineer-tag [item extensions]
+  (if (instance? miner.tagged.TaggedValue item) 
+    (:tag item)
+    (let [clazz (class item)]
+      (if-let [tag (get-in extensions [:class-tags clazz])]
+        tag
+        (when (instance? clojure.lang.IRecord item)
+          (tag/class->tag clazz))))))
+
+(defn mk-tag [tag valpat extensions]
+  ;;SEM for now tag is a literal symbol
+  (let [vrule (when valpat (mkconstraint valpat extensions))]
+    (fn [input bindings context memo]
+      (let [item (first input)
+            itag (hack-reverse-engineer-tag item extensions)
+            ival (hack-reverse-engineer-value item itag extensions)]
+        (if (= itag tag)
+          (if vrule
+            (let [res (vrule (list ival) bindings context memo)]
+              (if (sp/failure? res)
+                res
+                (sp/succeed item [item] (rest input) (:b res) memo)))
+            (sp/succeed item [item] (rest input) bindings memo))
+          (sp/fail (str "Not tagged " tag) memo))))))
+
 (declare mk-keys-constraint)
 (declare mk-map-op-constraint)
 (declare mk-set-constraint)
@@ -316,6 +356,7 @@ Returns the successful result of the last rule or the first to fail."
       :=  (mk-list-bind (second lexpr) (nnext lexpr) extensions)
       pred (mk-pred-args (second lexpr) (nnext lexpr))
       class (mk-class (second lexpr))
+      tag (mk-tag (second lexpr) (third lexpr) extensions)
       schema (mkconstraint (second lexpr) (schema->extensions lexpr))
       ;; else it must be a constraint
       (mk-list-bind nil lexpr extensions))))
@@ -490,14 +531,26 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 (defn grammar? [schema]
   (and (seq? schema) (= (first schema) 'schema)))
 
+;; SEM FIXME: should check known subclasses.  Hacked GregorianCalendar
+(def default-class-tags
+  {java.util.Date 'inst
+   java.util.Calendar 'inst
+   java.util.GregorianCalendar 'inst
+   java.sql.Timestamp 'inst
+   java.util.UUID 'uuid})
+
 ;; exts is map of {:predicates? (map sym var) :terms? (keys sym rule)}
 ;; SEM FIXME dropping :predicates in favor or (pred foo/bar?) notation
 (defn schema->extensions [schema]
-  (if-not (grammar? schema)
-    {} ; not exts should be empty map, not nil for now
-    (reduce (fn [es [k v]] (assoc-in es [:terms k] (mkconstraint v es)))
-            {:predicates {} :terms {}}
-            (partition 2 (nnext schema)))))
+  (let [default-exts {:predicates {} :terms {} :class-tags default-class-tags}]
+    (if-not (grammar? schema)
+      default-exts
+      (reduce (fn [es [k v]] 
+                (cond (and (seq? k) (= (first k) 'class) (seq? v) (= (first v) 'tag))
+                        (assoc-in es [:class-tags (resolve (second k))] (second v))
+                        :else (assoc-in es [:terms k] (mkconstraint v es))))
+              default-exts
+              (partition 2 (nnext schema))))))
 
 (defn schema->start [schema]
   (if (grammar? schema)

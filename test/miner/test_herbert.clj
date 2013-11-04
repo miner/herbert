@@ -2,6 +2,7 @@
   (:use clojure.test
         miner.herbert)
   (:require miner.herbert.predicates
+            [miner.tagged :as tag]
             clojure.string))
 
 (deftest basics []
@@ -340,6 +341,20 @@
                  {:a 42})))
   (is (not (conforms? '(and {:a int} (class miner.test_herbert.Foo))
                  {->Foo "bar"}))))
+
+(deftest records-by-tag
+  (is (conforms? '(tag miner.test-herbert/Foo) (->Foo 42)))
+  (is (conforms? '(tag foo.bar/Baz) (tag/read-string "#foo.bar/Baz {:a 42}")))
+  (is (not (conforms? '(tag miner.test-herbert/Bad) (->Foo 42))))
+  (is (not (conforms? '(tag foo.wrong/Bar) (tag/read-string "#foo.bar/Baz {:a 42}"))))
+  (is (conforms? '(tag miner.test-herbert/Foo {:a int}) (->Foo 42)))
+  (is (conforms? '(tag foo.bar/Baz {:a int}) (tag/read-string "#foo.bar/Baz {:a 42}")))
+  (is (not (conforms? '(tag miner.test-herbert/Foo {:b any}) (->Foo 42))))
+  (is (not (conforms? '(tag foo.wrong/Bar {:a int}) (tag/read-string "#foo.bar/Baz {:a 42}")))))
+
+(deftest dates-and-uuid
+  (is (conforms? '(tag inst) (java.util.Date.)))
+  (is (conforms? '(tag inst) (java.util.Calendar/getInstance))))
 
 
 (deftest readme-examples
