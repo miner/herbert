@@ -5,15 +5,6 @@
   (:import miner.tagged.TaggedValue))
 
 
-(defn tagged? 
-  ([x] (or (instance? clojure.lang.IRecord x)
-           ;;(instance? miner.tagged.TaggedValue x)
-           (:tag (meta x))))
-  ([sym x] (or (let [clazz (resolve sym)] (and (class? clazz) (instance? clazz x)))
-               (and (instance? miner.tagged.TaggedValue x)
-                    (= (:tag x) sym))
-               (= sym (:tag (meta x))))))
-
 (defn- numeric
   ([pred]
      (fn pnum

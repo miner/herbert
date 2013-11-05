@@ -86,8 +86,6 @@
 
 (def literal? miner.herbert.predicates/literal?)
 
-(def tagged? miner.herbert.predicates/tagged?)
-
 ;; loosey-goosey get or just yourself, sort of an ersatz lexical binding
 (defn lookup [sym bindings]
   (if (symbol? sym)
