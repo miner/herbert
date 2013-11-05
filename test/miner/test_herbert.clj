@@ -358,6 +358,7 @@
 
 (deftest dates-and-uuid
   (is (conforms? '(tag inst) (java.util.Date.)))
+  (is (conforms? '(tag inst) (java.sql.Timestamp. 0)))
   (is (conforms? '(tag inst) (java.util.Calendar/getInstance))))
 
 
