@@ -1,8 +1,7 @@
 (ns miner.herbert.predicates
   (:refer-clojure 
    :exclude [float? list? char? empty? map? seq? set? coll? even? odd? pos? neg? zero?])
-  (:require [miner.tagged :as tag])
-  (:import miner.tagged.TaggedValue))
+  (:require [miner.tagged :as tag]))
 
 
 (defn- numeric
