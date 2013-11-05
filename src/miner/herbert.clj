@@ -282,16 +282,23 @@ Returns the successful result of the last rule or the first to fail."
   (let [clazz (if (class? sym) sym (resolve sym))]
     (sp/mkpr (fn [x] (instance? clazz x)))))
 
+(defn- regex-sym-match? [regex-or-str sym]
+  (and (re-matches (if (string? regex-or-str) (re-pattern regex-or-str) regex-or-str) (pr-str sym))
+       true))
+
 (defn mk-tag 
-  ([tag]  (sp/mkpr #(= (tag/edn-tag %) tag)))
+  ;; tag could be a symbol (exact match) or a string/regex to match pr-str of item's actual tag
+  ([tag] (if (symbol? tag) 
+           (sp/mkpr #(= (tag/edn-tag %) tag))
+           (sp/mkpr #(regex-sym-match? tag (tag/edn-tag %)))))
+
   ([tag valpat extensions]
-     ;;SEM for now tag is a literal symbol
      (let [vrule (when valpat (mkconstraint valpat extensions))]
        (fn [input bindings context memo]
          (let [item (first input)
                ival (tag/edn-value item)
                itag (tag/edn-tag item)]
-           (if (= itag tag)
+           (if (if (symbol? tag) (= itag tag) (regex-sym-match? tag itag))
              (if vrule
                (let [res (vrule (list ival) bindings context memo)]
                  (if (sp/failure? res)
