@@ -146,9 +146,6 @@ Returns the successful result of the last rule or the first to fail."
 (defn ext-rule [sym extensions]
   (get-in extensions [:terms sym]))  
 
-#_ (defn ext-pred [sym extensions]
-  (get-in extensions [:predicates sym]))
-
 ;; SEM FIXME -- a bit of extra work to test pred as var but safer
 ;; SEM FIXME -- no longer need extensions here
 (defn tcon-pred [tcon extensions]
@@ -515,10 +512,9 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 (defn grammar? [schema]
   (and (seq? schema) (= (first schema) 'schema)))
 
-;; exts is map of {:predicates? (map sym var) :terms? (keys sym rule)}
-;; SEM FIXME dropping :predicates in favor or (pred foo/bar?) notation
+;; exts is map of {:terms? (keys sym rule)} with provision for future expansion
 (defn schema->extensions [schema]
-  (let [default-exts {:predicates {} :terms {}}]
+  (let [default-exts {:terms {}}]
     (if-not (grammar? schema)
       default-exts
       (reduce (fn [es [k v]] (assoc-in es [:terms k] (mkconstraint v es)))
