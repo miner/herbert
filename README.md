@@ -249,11 +249,13 @@ a hack:
 
 (h/conforms? '(& {:a (:= a int) :b (:= b sym) :c (:= c [b+])} (when (= (count c) a))) 
            '{:a 2 :b foo :c [foo foo]})
-; The & operator just means the following elements are found inline, not in a collection.
-; In this case, we use it to associate the when-test with the single map constraint.  The
-; assertion says that number of elements in the :c value must be equal to the value associated
-; with :a.  Notice that all the elements in the :c seq must be equal to the symbol associated 
-; with :b.			   
+
+; The & operator just means the following elements are found inline,
+; not in a collection.  In this case, we use it to associate the
+; when-test with the single map constraint.  The assertion says that
+; number of elements in the :c value must be equal to the value
+; associated with :a.  Notice that all the elements in the :c seq
+; must be equal to the symbol associated with :b.
 ;=> true
 
 ((h/conform '[(:= a int) (:= b int) (:= c int+ a b)]) [3 7 4 5 6])
