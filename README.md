@@ -243,8 +243,8 @@ a hack:
 ;=> false
 
 (h/conforms? '{:a (:= a int) :b sym :c? [a+]} '{:a 1 :b foo :c [1 1 1]})
-; a is bound to the int associated with :a, and then used again to define the values in the
-; seq associated with :c.
+; a is bound to the int associated with :a, and then used again to define the values
+; in the seq associated with :c.  
 ;=> true
 
 (h/conforms? '(& {:a (:= a int) :b (:= b sym) :c (:= c [b+])} (when (= (count c) a))) 
@@ -256,7 +256,7 @@ a hack:
 ; number of elements in the :c value must be equal to the value
 ; associated with :a.  Notice that all the elements in the :c seq
 ; must be equal to the symbol associated with :b.
-;=> true
+=> true
 
 ((h/conform '[(:= a int) (:= b int) (:= c int+ a b)]) [3 7 4 5 6])
 ; Inside a seq, the first two ints establish the low and high range of the rest 
