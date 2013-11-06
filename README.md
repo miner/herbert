@@ -23,7 +23,7 @@ as **edn** values.
 
 Add the dependency to your project.clj:
 
-    [com.velisco/herbert "0.5.8"]
+    [com.velisco/herbert "0.5.9"]
 
 In case I forget to update the version number here in the README, the latest version is available on
 Clojars.org:
@@ -46,10 +46,11 @@ function.
 
 Quick example:
 
-	(require '[miner.herbert :as h])
-	(h/conforms? '{:a int :b [sym+] :c str} '{:a 42 :b [foo bar baz] :c "foo"})
-	;=> true
-
+```clojure
+(require '[miner.herbert :as h])
+(h/conforms? '{:a int :b [sym+] :c str} '{:a 42 :b [foo bar baz] :c "foo"})
+;=> true
+```
 
 ## Notation for Schema Patterns
 
@@ -161,6 +162,49 @@ Quick example:
 `(set :a :b)` -- matches #{:a :b :c 10}, but not #{:a 10} <BR>
 `(set int+)` -- matches #{1 3 5}, but not #{1 :a 3}
 
+* A list starting with `class` followed by a dotted symbol matches an instance of that Java class.
+  In general, you should avoid bringing classes directly into your schema pattern.  It's more
+  flexible and extensible to use `tag`. <BR>
+`(class java.util.Date)` -- matches a java.util.Date, but not a java.util.Calendar
+
+* The `tag` list pattern takes a symbol as its first argument.  The pattern matches against the
+  `edn-tag` of the item.  The first argument may also be a string which is interpreted as a regex
+  matching the `pr-str` of the `edn-tag`.  The optional second argument is a schema pattern that
+  will be matched against the `edn-value` of the item.  The `edn-tag` and `edn-value` are defined in
+  the [tagged][] project.  See the `miner.tagged.EdnTag` protocol for more information.  Basically,
+  the `edn-tag` is the symbol that normally would be used to print as a _tagged record_ (record
+  class `my.ns.Rec` would use tag `my.ns/Rec`).  Several Java classes corresponding to built-in
+  tagged literals (see `clojure.core/default-data-readers`) have predefined tags as well.  The
+  `edn-value` is typically a map for a record or the item itself for most other classes.  Custom
+  records and Java classes can extend the `miner.tagged.EdnTag` protocol to participate in `tag`
+  pattern matching. <BR>
+`(tag my.ns/Rec {:a int})` -- matches an instance of the record class `my.ns.Rec` with an integer
+  value for the key `:a`. <BR>
+`(tag inst)` -- matches any instance of java.util.Date, java.util.Calendar or java.sql.Timestamp
+
+[tagged]: https://github.com/miner/tagged "tagged"
+
+* The `pred` list pattern takes as the first argument the name of a Clojure function that should be
+  called to test the input.  The function name should be a fully qualified symbol naming the var
+  holding the predicate function.  If the predicate is parameterized, the implementing function
+  should take those parameters first.  In all cases, the last argument should be the item in
+  question.  Note that the predicate should accept all values for consideration without throwing an
+  exception.  For example, the `even` schema predicate is implemented with a test of
+  `clojure.core/integer?` as well as `clojure.core/even?` because the latter will throw on
+  non-integer values.  The default predicates are defined in the var
+  `miner.herbert/default-predicates`. <BR>
+`(pred clojure.string/blank?)` -- matches nil or "" or "  "  
+
+* The `schema` list pattern defines a grammar for more complex schema patterns.  The first argument
+  is the *start-pattern* which is the actual pattern to match.  It is followed by zero or more
+  rules, declared as an inline pair of a symbol, the `term`, and its pattern definition.  A rule can
+  refer to previously defined terms.  The *start-pattern* can refer to any of the terms in the
+  `(schema ...)` form.  If you want to go crazy, you can nest another `schema` pattern as the
+  definition of a term, but the nested `schema` expression is in an isolated scope so its rules are
+  not available to the outer scope. <BR> 
+`(schema [person+] phone (str "\\d{3}+-\\d{3}+-\\d{4}+") person {:name str :phone phone})` --
+  matches [{:name "Herbert" :phone "408-555-1212"} {:name "Jenny" :phone "415-867-5309"}]
+  
 
 ## Experimental Features
 
@@ -176,98 +220,72 @@ a hack:
   as if the form was within an `when` test. <BR>
 `[(:= n int) (:= m int) (== (* 3 n) m)]` -- matches [2 6]
 
-
-## Extensibility
-
-Users may extend the schema system in two ways: (1) by declaring new schema predicates and (2) by
-naming schema patterns as terms.  Schema predicates are associated with Clojure predicate
-functions.  A named schema term is a convenient way to encapsulate a schema pattern.
-
-The complex form of a schema expression defines a grammar with rules for sub-expressions.  The
-grammar notation is a list beginning with the symbol `schema` followed by a single schema pattern
-(the "start pattern") and a series of clauses.  The clauses are inline pairs defining either
-schema predicates or schema terms.  A schema predicate declares that the unqualified symbol naming
-the schema predicate is implemented by a fully qualified symbol identifying the Clojure var bound to
-an appropriate predicate function.  If the predicate is parameterized, the implementing function
-should take those parameters first.  In all cases, the last argument should be the item in question.
-Note that the predicate should accept all values for consideration without throwing an exception.  For
-example, the `even` schema predicate is implemented with a test of `clojure.core/integer?` as well
-as `clojure.core/even?` because the latter will throw on non-integer values.  The default predicates
-are defined in the var `miner.herbert/default-predicates`.
-
-The definition of a schema term is an unqualified symbol naming the term followed by a schema
-pattern.  Once a name is defined, it can be used in other schema patterns.  The "start
-pattern" may refer to any of the terms defined by the clauses in the `(schema ...)` form.
-
-If you want to go crazy, you can nest `schema` expressions as the definition of a term, but the
-nested `schema` expression is in an isolated scope so its rules are not available to the outer
-scope.
-
-
 ## Examples
 
-	(require '[miner.herbert :as h])
+```clojure
+(require '[miner.herbert :as h])
 
-    (h/conforms? 'int 10)
-	;=> true
+(h/conforms? 'int 10)
+;=> true
 
-    (h/conforms? '(schema int) 10)
-	; a very simple "complex schema" with no extensions
-	;=> true
+(h/conforms? '(schema int) 10)
+; a very simple "complex schema" with no extensions
+;=> true
 
-	(h/conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo :c ["foo" "bar" "baz"]})
-	;=> true
+(h/conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo :c ["foo" "bar" "baz"]})
+;=> true
 
-	(h/conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo})
-	; :c is optional so it's OK if it's not there at all.
-	;=> true
+(h/conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo})
+; :c is optional so it's OK if it's not there at all.
+;=> true
 
-	(h/conforms? '{:a int :b sym :c? [str*]} '{:a foo :b bar})
-	;=> false
+(h/conforms? '{:a int :b sym :c? [str*]} '{:a foo :b bar})
+;=> false
 
-    (h/conforms? '{:a (:= a int) :b sym :c? [a+]} '{:a 1 :b foo :c [1 1 1]})
-	; a is bound to the int associated with :a, and then used again to define the values in the
-	; seq associated with :c.
-    ;=> true
+(h/conforms? '{:a (:= a int) :b sym :c? [a+]} '{:a 1 :b foo :c [1 1 1]})
+; a is bound to the int associated with :a, and then used again to define the values in the
+; seq associated with :c.
+;=> true
 
-    (h/conforms? '(& {:a (:= a int) :b (:= b sym) :c (:= c [b+])} (when (= (count c) a))) 
-	           '{:a 2 :b foo :c [foo foo]})
-    ; The & operator just means the following elements are found inline, not in a collection.
-	; In this case, we use it to associate the when-test with the single map constraint.  The
-	; assertion says that number of elements in the :c value must be equal to the value associated
-	; with :a.  Notice that all the elements in the :c seq must be equal to the symbol associated 
-	; with :b.			   
-    ;=> true
+(h/conforms? '(& {:a (:= a int) :b (:= b sym) :c (:= c [b+])} (when (= (count c) a))) 
+           '{:a 2 :b foo :c [foo foo]})
+; The & operator just means the following elements are found inline, not in a collection.
+; In this case, we use it to associate the when-test with the single map constraint.  The
+; assertion says that number of elements in the :c value must be equal to the value associated
+; with :a.  Notice that all the elements in the :c seq must be equal to the symbol associated 
+; with :b.			   
+;=> true
 
-    ((h/conform '[(:= a int) (:= b int) (:= c int+ a b)]) [3 7 4 5 6])
-	; Inside a seq, the first two ints establish the low and high range of the rest 
-	; of the int values.
-    ;=> {c [4 5 6], b 7, a 3}
+((h/conform '[(:= a int) (:= b int) (:= c int+ a b)]) [3 7 4 5 6])
+; Inside a seq, the first two ints establish the low and high range of the rest 
+; of the int values.
+;=> {c [4 5 6], b 7, a 3}
 
-	(def my-checker (h/conform '[(:= max int) (:= xs int+ max)]))
-	(my-checker [7 3 5 6 4])
-	;=> {xs [3 5 6 4], max 7}
+(def my-checker (h/conform '[(:= max int) (:= xs int+ max)]))
+(my-checker [7 3 5 6 4])
+;=> {xs [3 5 6 4], max 7}
 
-	(defn palindrome? [s]
-		(and (string? s)
-			(= s (clojure.string/reverse s))))
-			
-	(h/conforms? '(schema [pal+]
-		              palindrome user/palindrome?
-	                  pal {:len (:= len int) :palindrome (and palindrome (cnt len))})
-                 [{:palindrome "civic" :len 5}
-                  {:palindrome "kayak" :len 5} 
-                  {:palindrome "level" :len 5}
-                  {:palindrome "ere" :len 3}
-                  {:palindrome "racecar" :len 7}])
-	;=> true
-
+(defn palindrome? [s]
+	(and (string? s)
+		(= s (clojure.string/reverse s))))
+		
+(h/conforms? '(schema [pal+]
+	              palindrome user/palindrome?
+                  pal {:len (:= len int) :palindrome (and palindrome (cnt len))})
+             [{:palindrome "civic" :len 5}
+              {:palindrome "kayak" :len 5} 
+              {:palindrome "level" :len 5}
+              {:palindrome "ere" :len 3}
+              {:palindrome "racecar" :len 7}])
+;=> true
+```
 
 ## References
 
 * edn: http://edn-format.org
 * Clojure: http://clojure.org
 * Square Peg parser:  https://github.com/ericnormand/squarepeg
+* tagged:  https://github.com/miner/tagged
 
 ## Related Projects
 * clj-schema:  https://github.com/runa-dev/clj-schema

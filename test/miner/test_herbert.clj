@@ -373,6 +373,18 @@
   (is (not (conforms? '{:a int :b sym :c? [str*]} '{:a foo :b bar})))
   (is (conforms? '{:a (:= a int) :b sym :c? [a+]} '{:a 1 :b foo :c [1 1 1]})))
 
+(deftest schema-with-regex
+  (is (conforms? '(schema [person+] 
+                          phone (str #"\d{3}+-\d{3}+-\d{4}+") 
+                          person {:name str :phone phone}) 
+                 [{:name "Steve" :phone "408-555-1212"}
+                  {:name "Jenny" :phone "415-867-5309"}]))
+  ;; only difference is a regex above and a string with escape notation below
+  (is (conforms? '(schema [person+] 
+                          phone (str "\\d{3}+-\\d{3}+-\\d{4}+") 
+                          person {:name str :phone phone}) 
+                 [{:name "Steve" :phone "408-555-1212"}
+                  {:name "Jenny" :phone "415-867-5309"}])))
 
 (deftest nested-schema
   (is (not (conforms? '(schema [short+] short (schema sh sh (int 255))) '[2 3000 2 4])))
