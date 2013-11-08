@@ -7,6 +7,5 @@
                  [com.velisco/tagged "0.3.3"]
                  [squarepeg "0.6.1"]]
   :profiles {:snapshot {:dependencies [[org.clojure/clojure "1.6.0-master-SNAPSHOT"]]}
-             :alpha {:dependencies [[org.clojure/clojure "1.6.0-alpha1"]]} }
+             :alpha {:dependencies [[org.clojure/clojure "1.6.0-alpha2"]]} }
   :repositories [["sonatype-public" {:url "https://oss.sonatype.org/content/groups/public/"}]])
-
