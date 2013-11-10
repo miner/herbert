@@ -107,8 +107,7 @@ made in rule do not escape this rule's scope."
   "Like mkpr but allows extra args to be added before item.  Args are either literal values or keys
 that are looked up in bindings.  If the key is not found, the value is the key itself."
   [pr args]
-  (if-not args
-    (sp/mkpr pr)
+  (if-let [args (seq args)]
     (fn [input bindings context memo]
       (if (nil? (seq input))
         (sp/fail "End of input" memo)
@@ -116,7 +115,8 @@ that are looked up in bindings.  If the key is not found, the value is the key i
               pred (apply partial pr (map #(lookup % bindings) args))]
           (if (pred i)
             (sp/succeed i [i] (rest input) bindings memo)
-            (sp/fail (str i " does not match predicate.") memo)))))))
+            (sp/fail (str i " does not match predicate.") memo)))))
+    (sp/mkpr pr)))
 
 ;; SEM FIXME -- maybe a little shakey on merging bindings and memo stuff
 ;; returns only the bindings, etc. of the first rule
@@ -144,7 +144,7 @@ Returns the successful result of the last rule or the first to fail."
 
 
 (defn ext-rule [sym extensions]
-  (get-in extensions [:terms sym]))  
+  (get-in extensions [:terms sym]))
 
 ;; SEM FIXME -- a bit of extra work to test pred as var but safer
 ;; SEM FIXME -- no longer need extensions here
@@ -178,12 +178,6 @@ Returns the successful result of the last rule or the first to fail."
 ;; SEM FIXME: be careful about where the iterfn is resolved
 ;; maybe should bind or use *ns* directly
 
-;; args can be literals or keys into the bindings.  Unknown keys are just literal values.
-(defn mkbase [pred args]
-  (if (not-empty args)
-    (mkprb pred args)
-    (sp/mkpr pred)))
-
 (defn bind-symbol? [expr]
   ;; unqualified symbol with no dot
   (and (symbol? expr)
@@ -203,7 +197,7 @@ Returns the successful result of the last rule or the first to fail."
           ;; SEM FIXME erule ignores extra args
           erule (ext-rule sym extensions)
           pred (when-not erule (tcon-pred sym extensions))
-          brule (or erule (mkbase pred args))
+          brule (or erule (mkprb pred args))
           rule (case lch
                  \+ (sp/mk1om brule)
                  \* (sp/mkzom brule) 
@@ -271,7 +265,7 @@ Returns the successful result of the last rule or the first to fail."
 
 (defn mk-pred-args [sym args]
   (let [pred (if (fn? sym) sym (resolve sym))]
-    (mkbase pred args)))
+    (mkprb pred args)))
 
 (defn mk-class [sym]
   (let [clazz (if (class? sym) sym (resolve sym))]
