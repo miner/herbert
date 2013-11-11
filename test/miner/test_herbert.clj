@@ -225,11 +225,11 @@
 
 ;; not the best way to handle this case, but imagine a fancier function
 (deftest with-constraints []
-  (is (conforms? '(schema [over3*] over3 (pred miner.test-herbert/over3?)) [4 5 6 9]))
-  (is (not (conforms? '(schema [over3*] over3 (pred miner.test-herbert/over3?)) [4 5 2 9])))
-  (is (conforms? '(schema [over3*] over3 (pred miner.test-herbert/over3?)) []))
-  (is (conforms? '(schema [over3? int] over3 (pred miner.test-herbert/over3?)) [4 2]))
-  (is (conforms? '(schema [over3? int] over3 (pred miner.test-herbert/over3?)) [2])))
+  (is (conforms? '(grammar [over3*] over3 (pred miner.test-herbert/over3?)) [4 5 6 9]))
+  (is (not (conforms? '(grammar [over3*] over3 (pred miner.test-herbert/over3?)) [4 5 2 9])))
+  (is (conforms? '(grammar [over3*] over3 (pred miner.test-herbert/over3?)) []))
+  (is (conforms? '(grammar [over3? int] over3 (pred miner.test-herbert/over3?)) [4 2]))
+  (is (conforms? '(grammar [over3? int] over3 (pred miner.test-herbert/over3?)) [2])))
 
 (deftest pred-args []
   (is (conforms? '[(+ (even 20)) kw] [4 10 18 :a]))
@@ -296,11 +296,11 @@
        (= s (clojure.string/reverse s))))
 
 (deftest grammar []
-  (is (conforms? '(schema {:a over3 :b long}
+  (is (conforms? '(grammar {:a over3 :b long}
                           over3 (pred miner.test-herbert/over3?)
                           long int)
                  {:a 42 :b 42}))
-  (is (conforms? '(schema [pal+]
+  (is (conforms? '(grammar [pal+]
                           palindrome (pred miner.test-herbert/palindrome?)
                           pal {:len (:= len int) :palindrome (and palindrome (cnt len))})
                  [{:palindrome "civic" :len 5}
@@ -373,34 +373,34 @@
   (is (not (conforms? '{:a int :b sym :c? [str*]} '{:a foo :b bar})))
   (is (conforms? '{:a (:= a int) :b sym :c? [a+]} '{:a 1 :b foo :c [1 1 1]})))
 
-(deftest schema-with-regex
-  (is (conforms? '(schema [person+] 
+(deftest grammar-with-regex
+  (is (conforms? '(grammar [person+] 
                           phone (str #"\d{3}+-\d{3}+-\d{4}+") 
                           person {:name str :phone phone}) 
                  [{:name "Steve" :phone "408-555-1212"}
                   {:name "Jenny" :phone "415-867-5309"}]))
   ;; only difference is a regex above and a string with escape notation below
-  (is (conforms? '(schema [person+] 
+  (is (conforms? '(grammar [person+] 
                           phone (str "\\d{3}+-\\d{3}+-\\d{4}+") 
                           person {:name str :phone phone}) 
                  [{:name "Steve" :phone "408-555-1212"}
                   {:name "Jenny" :phone "415-867-5309"}])))
 
-(deftest nested-schema
-  (is (not (conforms? '(schema [short+] short (schema sh sh (int 255))) '[2 3000 2 4])))
-  (is (conforms? '(schema [short+] short (schema sh sh (int 255))) '[2 3 2 4])))
+(deftest nested-grammar
+  (is (not (conforms? '(grammar [short+] short (grammar sh sh (int 255))) '[2 3000 2 4])))
+  (is (conforms? '(grammar [short+] short (grammar sh sh (int 255))) '[2 3 2 4])))
 
-(deftest merging-schema
-  (let [s1 '(schema [iii+] iii (int 3))
-        s2 '(schema [sss+] sss (sym "..."))
-        s3 '(schema [kkk+] kkk (kw ":..."))]
+(deftest merging-grammar
+  (let [s1 '(grammar [iii+] iii (int 3))
+        s2 '(grammar [sss+] sss (sym "..."))
+        s3 '(grammar [kkk+] kkk (kw ":..."))]
     (is (= (schema-merge '[iii sss kkk] s1 s2 s3)
-           '(schema [iii sss kkk]
+           '(grammar [iii sss kkk]
                     iii (int 3)
                     sss (sym "...")
                     kkk (kw ":..."))))
-    (is (= (schema-merge '(schema [jjj sss kkk] jjj {:a iii}) s1 s2 s3)
-           '(schema [jjj sss kkk]
+    (is (= (schema-merge '(grammar [jjj sss kkk] jjj {:a iii}) s1 s2 s3)
+           '(grammar [jjj sss kkk]
                     iii (int 3)
                     sss (sym "...")
                     kkk (kw ":...")

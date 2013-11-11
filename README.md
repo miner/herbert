@@ -15,9 +15,9 @@ which use an interface definition language.  The **edn** values essentially spea
 without the need for a separate description or layer of interpretation.  That is not to say that
 schemas aren't potentially useful, they're just not part of the definition of the **edn** format.
 
-The goal of the *Herbert* project is to provide a convenient schema language for defining **edn** data
-structures that can be used for documentation and validation.  The schema patterns are represented
-as **edn** values.
+The goal of the *Herbert* project is to provide a convenient schema language for defining **edn**
+data structures that can be used for documentation and validation.  The schema patterns are
+represented as **edn** values.
 
 ## Leiningen
 
@@ -195,14 +195,14 @@ Quick example:
   `miner.herbert/default-predicates`. <BR>
 `(pred clojure.string/blank?)` -- matches nil or "" or "  "  
 
-* The `schema` list pattern defines a grammar for more complex schema patterns.  The first argument
+* The `grammar` pattern defines a grammar for more complex schema patterns.  The first argument
   is the *start-pattern* which is the actual pattern to match.  It is followed by zero or more
   rules, declared as an inline pair of a symbol, the `term`, and its pattern definition.  A rule can
   refer to previously defined terms.  The *start-pattern* can refer to any of the terms in the
-  `(schema ...)` form.  If you want to go crazy, you can nest another `schema` pattern as the
-  definition of a term, but the nested `schema` expression is in an isolated scope so its rules are
+  `(schema ...)` form.  If you want to go crazy, you can nest another `grammar` pattern as the
+  definition of a term, but the nested `grammar` expression is in an isolated scope so its rules are
   not available to the outer scope. <BR> 
-`(schema [person+] phone (str "\\d{3}+-\\d{3}+-\\d{4}+") person {:name str :phone phone})` --
+`(grammar [person+] phone (str "\\d{3}+-\\d{3}+-\\d{4}+") person {:name str :phone phone})` --
   matches [{:name "Herbert" :phone "408-555-1212"} {:name "Jenny" :phone "415-867-5309"}]
   
 
@@ -228,8 +228,8 @@ a hack:
 (h/conforms? 'int 10)
 ;=> true
 
-(h/conforms? '(schema int) 10)
-; a very simple "complex schema" with no extensions
+(h/conforms? '(grammar int) 10)
+; a very simple "grammar" with no rules, equivalent to the start pattern
 ;=> true
 
 (h/conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo :c ["foo" "bar" "baz"]})
@@ -271,7 +271,7 @@ a hack:
 	(and (string? s)
 		(= s (clojure.string/reverse s))))
 		
-(h/conforms? '(schema [pal+]
+(h/conforms? '(grammar [pal+]
 	              palindrome user/palindrome?
                   pal {:len (:= len int) :palindrome (and palindrome (cnt len))})
              [{:palindrome "civic" :len 5}

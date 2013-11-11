@@ -11,7 +11,7 @@
 (def reserved-ops '#{+ * ? & = == < > not= >= <= 
                      quote and or not when class pred
                      vec seq list set map keys mod tag
-                     := schema})
+                     := grammar})
 
 (declare default-predicates)
 ;; default-predicates defined a bit later so it can use some fns
@@ -164,15 +164,15 @@ Returns the successful result of the last rule or the first to fail."
 ;; extensions could have a user-defined erule
 ;; erule wins over built-in pred
 (defn mk-symbol-constraint [sym extensions]
-  (let [lch (last-char sym)
-        sym (simple-sym sym)
-        erule (ext-rule sym extensions)
-        pred (when-not erule (tcon-pred sym extensions))
-        brule (or erule (if pred (sp/mkpr pred) (mk-lookup sym)))]
-    (case lch
-      \+ (sp/mk1om brule)
-      \* (sp/mkzom brule)
-      \? (sp/mkopt brule)
+    (let [lch (last-char sym)
+          sym (simple-sym sym)
+          erule (ext-rule sym extensions)
+          pred (when-not erule (tcon-pred sym extensions))
+          brule (or erule (if pred (sp/mkpr pred) (mk-lookup sym)))]
+      (case lch
+        \+ (sp/mk1om brule)
+        \* (sp/mkzom brule)
+        \? (sp/mkopt brule)
       brule)))
 
 ;; SEM FIXME: be careful about where the iterfn is resolved
@@ -332,7 +332,7 @@ Returns the successful result of the last rule or the first to fail."
       pred (mk-pred-args (second lexpr) (nnext lexpr))
       class (mk-class (second lexpr))
       tag (mk-tag (second lexpr) (third lexpr) extensions)
-      schema (mkconstraint (second lexpr) (schema->extensions lexpr))
+      grammar (mkconstraint (second lexpr) (schema->extensions lexpr))
       ;; else it must be a constraint
       (mk-list-bind nil lexpr extensions))))
 
@@ -504,7 +504,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   (and (symbol? x) (namespace x)))
 
 (defn grammar? [schema]
-  (and (seq? schema) (= (first schema) 'schema)))
+  (and (seq? schema) (= (first schema) 'grammar)))
 
 ;; exts is map of {:terms? (keys sym rule)} with provision for future expansion
 (defn schema->extensions [schema]
@@ -533,7 +533,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 (defn schema->grammar [schema]
   (if (grammar? schema)
     schema
-    (list 'schema schema)))
+    (list 'grammar schema)))
 
 ;; creates a fn that test for conformance to the schema with the given context
 (defn conform [schema] 
@@ -555,10 +555,10 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 first argument, arranging rules so that first schema can use rules from subsequent schemata."
   ([start] (schema->grammar start))
   ([start s1] (let [grammar (schema->grammar start)]
-                (concat (list 'schema (second grammar))
+                (concat (list 'grammar (second grammar))
                         (when (grammar? s1) (nnext s1))
                         (nnext grammar))))
   ([start s1 & more] (let [grammar (schema->grammar start)]
-                       (concat (list 'schema (second grammar))
+                       (concat (list 'grammar (second grammar))
                                (mapcat #(when (grammar? %) (nnext %)) (cons s1 more))
                                (nnext grammar)))))
