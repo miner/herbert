@@ -125,10 +125,10 @@ made in rule do not escape this rule's scope."
   ([pr] (mkprb pr pr nil))
   ([pr symbolic] (mkprb pr symbolic nil))
   ([pr symbolic args]
-    (fn [input bindings context memo]
-      (if (nil? (seq input))
-        (sp/fail "End of input" memo)
-        (let [i (first input)
+     (fn [input bindings context memo]
+       (if (nil? (seq input))
+         (sp/fail "End of input" memo)
+         (let [i (first input)
                pred (if-let [args (seq args)] 
                       (apply partial pr (map #(lookup % bindings) args))
                       pr)]
