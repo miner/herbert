@@ -309,6 +309,7 @@
                   {:palindrome "ere" :len 3}
                   {:palindrome "racecar" :len 7}])))
 
+;; `keys` is deprecated so this test will be removed eventually
 (deftest non-literal-mapkv
   (is (conforms? '(keys kw int) {:a 42}))
   (is (not (conforms? '(keys kw int) {'a 42})))
@@ -320,8 +321,22 @@
   (is (conforms? '(keys) {'b 52}))
   (is (conforms? 'keys {'b 52}))
   (is (not (conforms? '(keys (or sym kw) (or sym int)) {:a :b52}))))
-  
 
+(deftest quantifed-keys-vals
+  (is (conforms? '{kw* int*} {:a 42}))
+  (is (conforms? '{kw* int*} {}))
+  (is (conforms? '{kw+ int+} {:a 42}))
+  (is (not (conforms? '{kw+ int+} {})))
+  (is (not (conforms? '{kw* int*} {'a 42})))
+  (is (not (conforms? '{kw* int*} {:a 'b52})))
+  (is (conforms? '{(* (or sym kw)) (* (or sym int))} {:a 'b52}))
+  (is (conforms? '(map (+ (or sym kw)) (+ (or sym int))) {'b 'b52}))
+  (is (conforms? '(map (* (or sym kw)) (* (or sym int))) {'b 52}))
+  (is (conforms? '(map sym* any*) {'b 52}))
+  (is (conforms? '(map any* any*) {'b 52}))
+  (is (conforms? 'map {'b 52}))
+  (is (not (conforms? '(map (* (or sym kw)) (* (or sym int))) {:a :b52}))))
+  
 (defrecord Foo [a])
 
 (deftest on-records
