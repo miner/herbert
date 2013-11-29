@@ -6,6 +6,15 @@
             [miner.herbert.predicates])
   (:import miner.tagged.TaggedValue))
 
+
+(defmacro case-of? 
+  "Returns true if `expr` evaluates to any of the `constants`, otherwise false.
+As with `case`, constants must be compile-time literals, and need not be quoted."
+  [expr & constants]
+  `(case ~expr
+     ~constants true
+     false))
+
 (def predicates-ns (the-ns 'miner.herbert.predicates))
 
 (def reserved-ops '#{+ * ? & = == < > not= >= <= 
@@ -83,6 +92,11 @@
 
 (defn quantified-sym? [sym]
   (not= sym (simple-sym sym)))
+
+(defn many-quantified? [expr]
+  (cond (symbol? expr) (case-of? (symbol-quantifier expr) * +)
+        (seq? expr) (case-of? (first expr) * +)
+        :else false))
 
 (def literal? miner.herbert.predicates/literal?)
 
@@ -296,8 +310,8 @@ Returns the successful result of the last rule or the first to fail."
                (sp/succeed item [item] (rest input) bindings memo))
              (sp/fail (str "Not tagged " tag) memo)))))))
 
-(declare mk-keys-constraint)
-(declare mk-map-op-constraint)
+(declare mk-old-keys-style-constraint)
+(declare mk-hash-map-constraint)
 (declare mk-set-constraint)
 (declare schema->extensions)
 
@@ -326,8 +340,8 @@ Returns the successful result of the last rule or the first to fail."
       set (mk-set-constraint (rest lexpr) extensions)
       vec (mkand (sp/mkpr vector?) (mk-subseq-constraint (rest lexpr) extensions))
       list (mkand (sp/mkpr seq?) (mk-subseq-constraint (rest lexpr) extensions))
-      map (mk-map-op-constraint (rest lexpr) extensions)
-      keys (mk-keys-constraint (second lexpr) (third lexpr) extensions)
+      map (mk-hash-map-constraint (rest lexpr) extensions)
+      keys (mk-old-keys-style-constraint (second lexpr) (third lexpr) extensions)
       :=  (mk-list-bind (second lexpr) (nnext lexpr) extensions)
       pred (mk-pred-args (second lexpr) (nnext lexpr))
       class (mk-class (second lexpr))
@@ -419,20 +433,35 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 (defn mk-map-entry [[key con] extensions]
   (mk-map-pair key con extensions))
 
-(defn mk-map-literal-constraint [mexpr extensions]
-  (mkmap (map #(mk-map-entry % extensions) mexpr)))
-
-(defn mk-map-op-constraint [kvexprs extensions]
-  (mkmap (map #(mk-map-entry % extensions) (partition 2 kvexprs))))
 
 ;; SEM FIXME: bindings don't get passed down from krule and vrule
-(defn mk-keys-constraint [key-con val-con extensions]
-  (let [krule (when key-con (mkconstraint key-con extensions))
-        vrule (when val-con (mkconstraint val-con extensions))]
+(defn mk-keys-vals-constraint [keys-con vals-con extensions]
+  (let [krule (sp/mkseq (mkconstraint keys-con extensions) sp/end)
+        vrule (sp/mkseq (mkconstraint vals-con extensions) sp/end)]
     (sp/mkpr (fn [m]
                (and (map? m)
-                    (or (not krule) (every? #(sp/success? (krule (list %) {} {} {})) (keys m)))
-                    (or (not vrule) (every? #(sp/success? (vrule (list %) {} {} {})) (vals m))))))))
+                    (sp/success? (krule (keys m) {} {} {}))
+                    (sp/success? (vrule (vals m) {} {} {})))))))
+
+(defn mk-map-literal-constraint [mexpr extensions]
+  (if (empty? mexpr)
+    (sp/mklit {})
+    (if (and (== (count mexpr) 1)
+             (many-quantified? (key (first mexpr))))
+      (mk-keys-vals-constraint (key (first mexpr)) (val (first mexpr)) extensions)
+      (mkmap (map #(mk-map-entry % extensions) mexpr)))))
+
+(defn mk-hash-map-constraint [kvexprs extensions]
+  (let [kvpairs (partition 2 kvexprs)]
+    (if (and (== (count kvpairs) 1)
+             (many-quantified? (ffirst kvpairs)))
+      (mk-keys-vals-constraint (ffirst kvpairs) (second (first kvpairs)) extensions)
+      (mkmap (map #(mk-map-entry % extensions) kvpairs)))))
+
+;; `keys` op is deprecated -- use `{key* val*}` notation instead
+(defn mk-old-keys-style-constraint [key-con val-con extensions]
+  (mk-hash-map-constraint (list (list '* (or key-con 'any)) (list '* (or val-con 'any)))
+                          extensions))
 
 (defn set-zom [rule] 
   (fn [s] (every? #(sp/success? (rule (list %) {} {} {})) s)))
