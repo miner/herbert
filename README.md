@@ -23,7 +23,7 @@ represented as **edn** values.
 
 Add the dependency to your project.clj:
 
-    [com.velisco/herbert "0.5.10"]
+    [com.velisco/herbert "0.5.11"]
 
 In case I forget to update the version number here in the README, the latest version is available on
 Clojars.org:
@@ -108,8 +108,14 @@ Quick example:
 * A literal map in {curly braces} matches any map with the given literal keys and values matching
   the corresponding schemas.  Optional keywords are written with a ? suffix such as **:kw?**.  For
   convenience, an optional keyword schema implicitly allows **nil** for the corresponding
-  value. <BR>
+  value. An empty literal map {} matches exactly the empty map.  Use `map` to match any
+  map. <BR>
 `{:a int :b sym :c? [int*]}`  -- matches {:a 10 :b foo :c [1 2 3]} and {:a 1 :b bar}
+
+* The literal map in {curly braces} may also use quantified patterns which are required to
+  match all keys and all vals in the map.  This kind of pattern is useful for matching "functional"
+  maps. <BR>
+`{kw* int*}`  -- matches {:a 10 :b 20}, but not {:a 1 :b bar}
 
 * A literal #{set} with multiple schema patterns denotes the required elements, but does
   not exclude others.  A single element might match multiple patterns.  A set with a quantified
@@ -137,13 +143,8 @@ Quick example:
 `{:a (:= n int) :b (& (:= f float) (> n f))}` -- matches {:a 4 :b 3.14}
 
 * The `map` schema predicate matches a map.  It takes the same arguments as the {curly brace}
-  literal map schema. <BR>
+  literal map schema.  With no arguments, `(map)` matches any map, same as `map`. <BR>
 `(map :a int :b sym :c? [int*])`  -- matches {:a 10 :b foo :c [1 2 3]} and {:a 1 :b bar}
-
-* The `keys` schema predicate matches a map.  It can take two optional arguments, the *key-schema*
-  and the *val-schema*.  The matching element must be a map whose `keys` all satisfy *key-schema*
-  and whose `vals` all satisfy *val-schema*. <BR>
-`(keys sym int)` -- matches {a 42 b 52}
 
 * The `list` schema predicate matches a list or cons.  It can take multiple optional arguments to
   specify the schemas for the ordered elements of the list. <BR> 
