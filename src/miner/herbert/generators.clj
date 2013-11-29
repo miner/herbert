@@ -33,8 +33,9 @@
 (def gen-num (gen/one-of [gen/int gen-float]))
 
 (defn gen-tuple-seq
-  "Like simple-check.generators/tuple but returns a seq, not a vector"
-  [& generators]
+  "Like simple-check.generators/tuple but returns a seq, not a vector and takes a collection
+of generators, not variadic"
+  [generators]
   (gen/fmap seq (apply gen/tuple generators)))
 
 
@@ -75,6 +76,17 @@
 (defn- third [lst]
   (first (nnext lst)))
 
+(defn mk-keys [key-schema val-schema extensions]
+  (let [kgen (if key-schema (mk-gen key-schema extensions) gen/any-printable)
+        vgen (if val-schema (mk-gen val-schema extensions) gen/any-printable)]
+    (gen/map kgen vgen)))
+
+(defn mk-seq [schemas extensions]
+  (gen-tuple-seq (map #(mk-gen % extensions) schemas)))
+
+(defn mk-vec [schemas extensions]
+  (apply gen/tuple (map #(mk-gen % extensions) schemas)))
+
 (defn mk-list-gen [schema extensions]
   (let [sym (first schema)]
     (case sym
@@ -84,10 +96,15 @@
       num (gen/one-of [(apply mk-int (rest schema)) (apply mk-float (rest schema))])
       seq (gen/one-of [(apply gen/tuple (map mk-gen (rest schema)))
                        (apply gen-tuple-seq (map mk-gen (rest schema)))])
-      vec (apply gen/tuple (map mk-gen (rest schema)))
-      list (apply gen-tuple-seq (map mk-gen (rest schema)))
-      keys (gen/map (or (second schema) gen/any-printable) (or (third schema) gen/any-printable))
+      vec (mk-vec (rest schema) extensions)
+      list (mk-seq (rest schema) extensions)
+      keys (mk-keys (second schema) (third schema) extensions)
       map (gen/fmap #(apply hash-map %) (apply gen/tuple (map mk-gen (rest schema))))
+
+      #_ and
+      #_ or
+      #_ not
+
       ;; SEM FIXME many more
       )))
 
@@ -101,6 +118,55 @@
 
 ;; SEM FIXME -- replace quantifiers with OR
 
+
+(declare replace-quantifiers)
+
+;; SEM FIXME -- none of this is properly tested
+;; Did the replacement of quantifiers, but not yet the expansion of OR terms
+
+;; SEM FIXME -- but doesn't handle nesting!
+(defn expand-quantifiers [canonical]
+  ;; always return a list (to be mapcat-ed)
+  ;; splice by not listifying
+  (cond (symbol? canonical) (list canonical)
+        (h/literal? canonical) (list canonical)
+        (seq? canonical)
+          (let [expanded (map replace-quantifiers (rest canonical))]
+            (case (first canonical)
+              * (list 'or (concat '(&) expanded expanded)
+                      (cons '& expanded) '(&) )
+              + (list 'or (concat '(&) expanded expanded)
+                      (cons '& expanded) )
+              ? (list 'or (cons '& expanded) '(&))
+              (cons (first canonical) expanded)))
+        :else (throw (ex-info (str "Unexpected canonical schema: " canonical)
+                              {:schema canonical}))))
+
+
+(defn red-quant [res canonical]
+  (cond (symbol? canonical) 
+          (conj res canonical)
+        (seq? canonical) 
+          (case (first canonical)
+            (* ? +) (conj res (expand-quantifiers canonical))
+            (seq list vec) (conj res (cons (first canonical)
+                                           (mapcat expand-quantifiers (rest canonical))))
+            (and or not) (conj res (cons (first canonical) (map replace-quantifiers
+                                                                (rest canonical))))
+            canonical)
+        :else (throw (ex-info (str "Unexpected canonical schema: " canonical)
+                              {:schema canonical}))))
+
+
+
+(defn replace-quantifiers [canonical]
+  ;; This is appropriate only for generators, it's not equivalent
+  (if (symbol? canonical)
+    canonical
+    (case (first canonical)
+      (* ? +) (expand-quantifiers canonical)
+      (seq (reduce red-quant [] canonical)))))
+
 (defn generator [schema]
-  (let [schema (hc/rewrite schema)]
-    (mk-gen schema nil)))
+  (let [canonical (hc/rewrite schema)]
+    (mk-gen canonical nil)))
