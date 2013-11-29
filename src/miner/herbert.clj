@@ -101,6 +101,7 @@ As with `case`, constants must be compile-time literals, and need not be quoted.
 (def literal? miner.herbert.predicates/literal?)
 
 ;; loosey-goosey get or just yourself, sort of an ersatz lexical binding
+;; This is necessary to allow `step`, `iter` and `indexed` to work with fn names (see as-fn)
 (defn lookup [sym bindings]
   (if (symbol? sym)
     (get bindings sym sym)
@@ -118,19 +119,23 @@ made in rule do not escape this rule's scope."
         r))))
 
 (defn mkprb
-  "Like mkpr but allows extra args to be added before item.  Args are either literal values or keys
-that are looked up in bindings.  If the key is not found, the value is the key itself."
-  [pr args]
-  (if-let [args (seq args)]
+  "Like mkpr but allows extra args to be added before item.  The `symbolic` arg is the symbolic name
+  of the predicate (used for error reporting). Args are either literal values or keys that are
+  looked up in bindings.  If the key is not found, the value is the key itself."  
+  ([pr] (mkprb pr pr nil))
+  ([pr symbolic] (mkprb pr symbolic nil))
+  ([pr symbolic args]
     (fn [input bindings context memo]
       (if (nil? (seq input))
         (sp/fail "End of input" memo)
         (let [i (first input)
-              pred (apply partial pr (map #(lookup % bindings) args))]
+               pred (if-let [args (seq args)] 
+                      (apply partial pr (map #(lookup % bindings) args))
+                      pr)]
           (if (pred i)
             (sp/succeed i [i] (rest input) bindings memo)
-            (sp/fail (str i " does not match predicate.") memo)))))
-    (sp/mkpr pr)))
+             (sp/fail (str i " does not match " symbolic) memo)))))))
+
 
 ;; SEM FIXME -- maybe a little shakey on merging bindings and memo stuff
 ;; returns only the bindings, etc. of the first rule
@@ -182,7 +187,7 @@ Returns the successful result of the last rule or the first to fail."
           sym (simple-sym sym)
           erule (ext-rule sym extensions)
           pred (when-not erule (tcon-pred sym extensions))
-          brule (or erule (if pred (sp/mkpr pred) (mk-lookup sym)))]
+          brule (or erule (if pred (mkprb pred sym) (mk-lookup sym)))]
       (case lch
         \+ (sp/mk1om brule)
         \* (sp/mkzom brule)
@@ -211,7 +216,7 @@ Returns the successful result of the last rule or the first to fail."
           ;; SEM FIXME erule ignores extra args
           erule (ext-rule sym extensions)
           pred (when-not erule (tcon-pred sym extensions))
-          brule (or erule (mkprb pred args))
+          brule (or erule (mkprb pred sym args))
           rule (case lch
                  \+ (sp/mk1om brule)
                  \* (sp/mkzom brule) 
@@ -221,13 +226,6 @@ Returns the successful result of the last rule or the first to fail."
         (sp/mkbind rule name)
         rule))))
 
-
-;; probably don't want this
-(defn mk-quoted-sym [sym extensions]
-  (if-let [pred (tcon-pred sym extensions)]
-    (sp/mkpr pred)
-    (throw (ex-info (str "No constraint function defined for " sym) 
-                    {:sym sym :extensions extensions}))))
 
 (defn mk-con-seq [cs extensions]
   (apply sp/mkseq (map #(mkconstraint % extensions) cs)))
@@ -279,11 +277,11 @@ Returns the successful result of the last rule or the first to fail."
 
 (defn mk-pred-args [sym args]
   (let [pred (if (fn? sym) sym (resolve sym))]
-    (mkprb pred args)))
+    (mkprb pred sym args)))
 
 (defn mk-class [sym]
   (let [clazz (if (class? sym) sym (resolve sym))]
-    (sp/mkpr (fn [x] (instance? clazz x)))))
+    (mkprb (fn [x] (instance? clazz x)) (list 'class sym))))
 
 (defn- regex-sym-match? [regex-or-str sym]
   (and (re-matches (if (string? regex-or-str) (re-pattern regex-or-str) regex-or-str) (pr-str sym))
@@ -292,8 +290,8 @@ Returns the successful result of the last rule or the first to fail."
 (defn mk-tag 
   ;; tag could be a symbol (exact match) or a string/regex to match pr-str of item's actual tag
   ([tag] (if (symbol? tag) 
-           (sp/mkpr #(= (tag/edn-tag %) tag))
-           (sp/mkpr #(regex-sym-match? tag (tag/edn-tag %)))))
+           (mkprb #(= (tag/edn-tag %) tag) (list 'tag tag))
+           (mkprb #(regex-sym-match? tag (tag/edn-tag %)) (list 'tag tag))))
 
   ([tag valpat extensions]
      (let [vrule (when valpat (mkconstraint valpat extensions))]
@@ -338,8 +336,8 @@ Returns the successful result of the last rule or the first to fail."
       & (mk-con-seq (rest lexpr) extensions)
       seq  (mk-subseq-constraint (rest lexpr) extensions)
       set (mk-set-constraint (rest lexpr) extensions)
-      vec (mkand (sp/mkpr vector?) (mk-subseq-constraint (rest lexpr) extensions))
-      list (mkand (sp/mkpr seq?) (mk-subseq-constraint (rest lexpr) extensions))
+      vec (mkand (mkprb vector? 'vec) (mk-subseq-constraint (rest lexpr) extensions))
+      list (mkand (mkprb seq? 'list) (mk-subseq-constraint (rest lexpr) extensions))
       map (mk-hash-map-constraint (rest lexpr) extensions)
       keys (mk-old-keys-style-constraint (second lexpr) (third lexpr) extensions)
       :=  (mk-list-bind (second lexpr) (nnext lexpr) extensions)
@@ -481,11 +479,11 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   (let [simple (simple-sym sym)
         rule (mkconstraint simple extensions)]
     (case (last-char sym)
-      \* (sp/mkpr (set-zom rule))
-      \+ (sp/mkpr (set-1om rule))
-      \? (sp/mkpr (set-opt rule))
+      \* (mkprb (set-zom rule) sym)
+      \+ (mkprb (set-1om rule) sym)
+      \? (mkprb (set-opt rule) sym)
       ;; else simple
-      (sp/mkpr (set-some rule)))))
+      (mkprb (set-some rule) sym))))
 
 (defn mk-set-list [lst extensions]
   (let [[op con unexpected] lst
@@ -494,11 +492,11 @@ nil value also succeeds for an optional kw.  Does not consume anything."
     (when (and quantified unexpected)
       (throw (ex-info "Unexpectedly more" {:con lst})))
     (case op
-      * (sp/mkpr (set-zom rule))
-      + (sp/mkpr (set-1om rule))
-      ? (sp/mkpr (set-opt rule))
+      * (mkprb (set-zom rule) lst)
+      + (mkprb (set-1om rule) lst)
+      ? (mkprb (set-opt rule) lst)
       ;; else quantified
-      (sp/mkpr (set-some rule)))))
+      (mkprb (set-some rule) lst))))
 
 (defn mk-set-element [con extensions]
   (cond (symbol? con) (mk-set-sym con extensions)
@@ -511,8 +509,8 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   (let [nonlits (remove literal? sexpr)
         litset (if (seq nonlits) (set (filter literal? sexpr)) sexpr)]
     (apply mkand 
-           (sp/mkpr set?)
-           (sp/mkpr #(set/subset? litset %)) 
+           (mkprb set? sexpr)
+           (mkprb #(set/subset? litset %) sexpr) 
            (map #(mk-set-element % extensions) nonlits))))
            
 ;; SEM FIXME: use a Protocol
@@ -564,7 +562,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
     schema
     (list 'grammar schema)))
 
-;; creates a fn that test for conformance to the schema with the given context
+;; creates a fn that test for conformance to the schema
 (defn conform [schema] 
   (if (fn? schema) 
     schema 
