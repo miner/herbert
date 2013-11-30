@@ -94,8 +94,8 @@ of generators, not variadic"
       int (apply mk-int (rest schema))
       float (apply mk-float (rest schema))
       num (gen/one-of [(apply mk-int (rest schema)) (apply mk-float (rest schema))])
-      seq (gen/one-of [(apply gen/tuple (map mk-gen (rest schema)))
-                       (apply gen-tuple-seq (map mk-gen (rest schema)))])
+      seq (gen/one-of [(mk-vec (rest schema) extensions)
+                       (mk-seq (rest schema) extensions)])
       vec (mk-vec (rest schema) extensions)
       list (mk-seq (rest schema) extensions)
       keys (mk-keys (second schema) (third schema) extensions)
@@ -170,3 +170,7 @@ of generators, not variadic"
 (defn generator [schema]
   (let [canonical (hc/rewrite schema)]
     (mk-gen canonical nil)))
+
+(defn sample [schema]
+  (gen/sample (generator schema)))
+
