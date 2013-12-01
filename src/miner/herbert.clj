@@ -471,7 +471,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 (defn mk-map-literal-constraint [mexpr extensions]
   (cond (empty? mexpr) (sp/mklit {})
         (and (== (count mexpr) 1) (many-quantified? (key (first mexpr))))
-      (mk-keys-vals-constraint (key (first mexpr)) (val (first mexpr)) extensions)
+          (mk-keys-vals-constraint (key (first mexpr)) (val (first mexpr)) extensions)
         :else (mkmap (map #(mk-map-entry % extensions) mexpr))))
 
 (defn mk-hash-map-constraint [kvexprs extensions]

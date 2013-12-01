@@ -87,6 +87,19 @@ of generators, not variadic"
 (defn mk-vec [schemas extensions]
   (apply gen/tuple (map #(mk-gen % extensions) schemas)))
 
+;; look for literal and gen from that and test with others
+;; make hierachies of schema types and start with most specific
+;; beware of expensive such-that with unlikely success, it will try forever
+(defn mk-and [schemas extensions]
+  (throw (ex-info "Unimplemented mk-and" {:schema schemas})))
+
+;; look for literals, invert by taking type and such-that
+;; break down hierarchies and have map of inversions, or closed-world types
+(defn mk-not [schema extensions]
+  (throw (ex-info "Unimplemented mk-not" {:schema schema})))
+
+
+
 (defn mk-list-gen [schema extensions]
   (let [sym (first schema)]
     (case sym
@@ -100,10 +113,9 @@ of generators, not variadic"
       list (mk-seq (rest schema) extensions)
       keys (mk-keys (second schema) (third schema) extensions)
       map (gen/fmap #(apply hash-map %) (apply gen/tuple (map mk-gen (rest schema))))
-
-      #_ and
-      #_ or
-      #_ not
+      or (gen/one-of (map mk-gen (rest schema)))
+      not (mk-not (second schema) extensions)
+      and (mk-and (rest schema) extensions)
 
       ;; SEM FIXME many more
       )))
@@ -124,49 +136,59 @@ of generators, not variadic"
 ;; SEM FIXME -- none of this is properly tested
 ;; Did the replacement of quantifiers, but not yet the expansion of OR terms
 
-;; SEM FIXME -- but doesn't handle nesting!
-(defn expand-quantifiers [canonical]
-  ;; always return a list (to be mapcat-ed)
-  ;; splice by not listifying
-  (cond (symbol? canonical) (list canonical)
-        (h/literal? canonical) (list canonical)
-        (seq? canonical)
-          (let [expanded (map replace-quantifiers (rest canonical))]
-            (case (first canonical)
-              * (list 'or (concat '(&) expanded expanded)
-                      (cons '& expanded) '(&) )
-              + (list 'or (concat '(&) expanded expanded)
-                      (cons '& expanded) )
-              ? (list 'or (cons '& expanded) '(&))
-              (cons (first canonical) expanded)))
-        :else (throw (ex-info (str "Unexpected canonical schema: " canonical)
-                              {:schema canonical}))))
+(defn quantified-seq? [expr]
+  (and (seq? expr)
+       (h/case-of? (first expr) seq vec list)
+       (some (fn [e] (and (seq? e) (h/case-of? (first e) & * + ?))) (rest expr))))
 
 
-(defn red-quant [res canonical]
-  (cond (symbol? canonical) 
-          (conj res canonical)
-        (seq? canonical) 
-          (case (first canonical)
-            (* ? +) (conj res (expand-quantifiers canonical))
-            (seq list vec) (conj res (cons (first canonical)
-                                           (mapcat expand-quantifiers (rest canonical))))
-            (and or not) (conj res (cons (first canonical) (map replace-quantifiers
-                                                                (rest canonical))))
-            canonical)
-        :else (throw (ex-info (str "Unexpected canonical schema: " canonical)
-                              {:schema canonical}))))
+(defn buggy-quantifier-replacements [seqex]
+  (reduce (fn [vs expr]
+            (cond (or (symbol? expr) (h/literal? expr)) (map #(conj % expr) vs)
+                  (seq? expr)
+                    (case (first expr)
+                      & (map #(apply conj % (rest expr)) vs)
+                      * (concat (map #(apply conj % (concat (rest expr) (rest expr))) vs)
+                                (map #(apply conj % (rest expr)) vs)
+                                vs)
+                      + (concat (map #(apply conj % (concat (rest expr) (rest expr))) vs)
+                                (map #(apply conj % (rest expr)) vs))
+                      ? (concat (map #(apply conj % (rest expr)) vs)
+                                vs)
+                      (map #(conj % expr) vs))
+                  :else (throw (ex-info "Unexpected element in seqex" {:seqex seqex}))))
+          (list [])
+          seqex))
 
 
+;; SEM FIXME -- should be recursive in replacing sub-exprs
+(defn quantifier-replacements [seqex]
+  (map seq
+       (reduce (fn [vs expr]
+                 (cond (or (symbol? expr) (h/literal? expr)) (map #(conj % expr) vs)
+                       (seq? expr)
+                       (case (first expr)
+                         & (map #(reduce conj % (rest expr)) vs)
+                         * (concat (map #(reduce conj % (concat (rest expr) (rest expr))) vs)
+                                   (map #(reduce conj % (rest expr)) vs)
+                                   vs)
+                         + (concat (map #(reduce conj % (concat (rest expr) (rest expr))) vs)
+                                   (map #(reduce conj % (rest expr)) vs))
+                         ? (concat (map #(reduce conj % (rest expr)) vs)
+                                   vs)
+                         (map #(conj % expr) vs))
+                       :else (throw (ex-info "Unexpected element in seqex" {:seqex seqex}))))
+               (list [])
+               seqex)))
 
-(defn replace-quantifiers [canonical]
-  ;; This is appropriate only for generators, it's not equivalent
-  (if (symbol? canonical)
-    canonical
-    (case (first canonical)
-      (* ? +) (expand-quantifiers canonical)
-      (seq (reduce red-quant [] canonical)))))
 
+(defn replace-quantifiers [seqex]
+  ;; should only be called with a seq expr, but just to be safe
+  (if-not (seq? seqex)
+    seqex
+    (cons 'or (quantifier-replacements seqex))))
+
+    
 (defn generator [schema]
   (let [canonical (hc/rewrite schema)]
     (mk-gen canonical nil)))
