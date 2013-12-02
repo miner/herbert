@@ -231,13 +231,16 @@ Returns the successful result of the last rule or the first to fail."
   (apply sp/mkseq (map #(mkconstraint % extensions) cs)))
 
 ;; modified version of sp/mksub, allows specialized testfn for exact container test
+;; testfn should sequential?, seq? (handles list, cons, etc), or vector?
 (defn mk-sub
   [testfn rule]
   (fn [input bindings context memo]
     (if (and (seq input) (testfn (first input)))
       (let [r (rule (first input) bindings context memo)]
         (if (sp/success? r)
-          (sp/succeed (:r r) (:s r) (rest input) (:b r) (:m r))
+          ;; try to match the collection type of the input, :s value is vector
+          (let [res (if (seq? (first input)) (seq (:s r)) (:s r))]
+            (sp/succeed res [res] (rest input) (:b r) (:m r)))
           r))
       (sp/fail "Input not a seq." memo))))
 
