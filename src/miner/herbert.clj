@@ -134,7 +134,7 @@ made in rule do not escape this rule's scope."
                       pr)]
           (if (pred i)
             (sp/succeed i [i] (rest input) bindings memo)
-             (sp/fail (str i " does not match " symbolic) memo)))))))
+            (sp/fail (str i " does not match " symbolic) memo)))))))
 
 
 ;; SEM FIXME -- maybe a little shakey on merging bindings and memo stuff
@@ -230,8 +230,24 @@ Returns the successful result of the last rule or the first to fail."
 (defn mk-con-seq [cs extensions]
   (apply sp/mkseq (map #(mkconstraint % extensions) cs)))
 
-(defn mk-subseq-constraint [vexpr extensions]
-  (sp/mksub (apply sp/mkseq (conj (mapv #(mkconstraint % extensions) vexpr) sp/end))))
+;; modified version of sp/mksub, allows specialized testfn for exact container test
+(defn mk-sub
+  [testfn rule]
+  (fn [input bindings context memo]
+    (if (and (seq input) (testfn (first input)))
+      (let [r (rule (first input) bindings context memo)]
+        (if (sp/success? r)
+          (sp/succeed (:r r) (:s r) (rest input) (:b r) (:m r))
+          r))
+      (sp/fail "Input not a seq." memo))))
+
+(defn mk-subseq-constraint 
+  ([vexprs extensions] (mk-subseq-constraint sequential? vexprs extensions))
+  ([testfn vexprs extensions]
+     (if (seq vexprs)
+       (mk-sub testfn (apply sp/mkseq (conj (mapv #(mkconstraint % extensions) vexprs) sp/end)))
+       (mk-sub testfn sp/end))))
+
 
 ;; SEM FIXME: strictly speaking, anonymous fns might have some free symbols mixed in so really you
 ;; should disjoin the fn args within that scope but take the other symbols.
@@ -334,10 +350,10 @@ Returns the successful result of the last rule or the first to fail."
       + (sp/mk1om (mk-con-seq (rest lexpr) extensions)) 
       ? (sp/mkopt (mk-con-seq (rest lexpr) extensions))
       & (mk-con-seq (rest lexpr) extensions)
-      seq  (mk-subseq-constraint (rest lexpr) extensions)
+      seq  (mk-subseq-constraint sequential? (rest lexpr) extensions)
       set (mk-set-constraint (rest lexpr) extensions)
-      vec (mkand (mkprb vector? 'vec) (mk-subseq-constraint (rest lexpr) extensions))
-      list (mkand (mkprb seq? 'list) (mk-subseq-constraint (rest lexpr) extensions))
+      vec (mk-subseq-constraint vector? (rest lexpr) extensions)
+      list (mk-subseq-constraint seq? (rest lexpr) extensions)
       map (mk-hash-map-constraint (rest lexpr) extensions)
       keys (mk-old-keys-style-constraint (second lexpr) (third lexpr) extensions)
       :=  (mk-list-bind (second lexpr) (nnext lexpr) extensions)
@@ -521,7 +537,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
      (cond (symbol? expr) (mk-symbol-constraint expr extensions)
            ;; don't use list?, seq? covers Cons as well
            (seq? expr) (mk-list-constraint expr extensions)
-           (vector? expr) (mk-subseq-constraint expr extensions)
+           (vector? expr) (mk-subseq-constraint sequential? expr extensions)
            (set? expr) (mk-set-constraint expr extensions)
            (map? expr) (mk-map-literal-constraint expr extensions) 
            (literal? expr) (sp/mklit expr)
