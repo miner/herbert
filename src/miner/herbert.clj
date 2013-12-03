@@ -230,26 +230,29 @@ Returns the successful result of the last rule or the first to fail."
 (defn mk-con-seq [cs extensions]
   (apply sp/mkseq (map #(mkconstraint % extensions) cs)))
 
-;; modified version of sp/mksub, allows specialized testfn for exact container test
-;; testfn should sequential?, seq? (handles list, cons, etc), or vector?
-(defn mk-sub
-  [testfn rule]
-  (fn [input bindings context memo]
-    (if (and (seq input) (testfn (first input)))
-      (let [r (rule (first input) bindings context memo)]
-        (if (sp/success? r)
-          ;; try to match the collection type of the input, :s value is vector
-          (let [res (if (seq? (first input)) (seq (:s r)) (:s r))]
-            (sp/succeed res [res] (rest input) (:b r) (:m r)))
-          r))
-      (sp/fail "Input not a seq." memo))))
+;; modified version of sp/mksub, allows specialized test `pred` for exact container test
+;; default sequential?, but seq? and vector? are also appropriate.
+;; rule automatically gets sp/end attached at end (forces complete match of collection)
+(defn mk-coll
+  ([rule] (mk-coll sequential? rule))
+  ([pred rule]
+     (let [coll-rule (if rule (sp/mkseq rule sp/end) sp/end)]
+       (fn [input bindings context memo]
+         (if (and (seq input) (pred (first input)))
+           (let [r (coll-rule (first input) bindings context memo)]
+             (if (sp/success? r)
+               ;; try to maintain seq/vector distinction of input, :s value is vector
+               (let [res (if (seq? (first input)) (seq (:s r)) (:s r))]
+                 (sp/succeed res [res] (rest input) (:b r) (:m r)))
+               r))
+           (sp/fail "Input not a seq." memo))))))
 
 (defn mk-subseq-constraint 
   ([vexprs extensions] (mk-subseq-constraint sequential? vexprs extensions))
-  ([testfn vexprs extensions]
+  ([pred vexprs extensions]
      (if (seq vexprs)
-       (mk-sub testfn (apply sp/mkseq (conj (mapv #(mkconstraint % extensions) vexprs) sp/end)))
-       (mk-sub testfn sp/end))))
+       (mk-coll pred (apply sp/mkseq (map #(mkconstraint % extensions) vexprs)))
+       (mk-coll pred nil))))
 
 
 ;; SEM FIXME: strictly speaking, anonymous fns might have some free symbols mixed in so really you
