@@ -23,7 +23,7 @@ represented as **edn** values.
 
 Add the dependency to your project.clj:
 
-    [com.velisco/herbert "0.5.11"]
+    [com.velisco/herbert "0.5.12"]
 
 In case I forget to update the version number here in the README, the latest version is available on
 Clojars.org:
