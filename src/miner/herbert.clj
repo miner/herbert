@@ -462,19 +462,17 @@ nil value also succeeds for an optional kw.  Does not consume anything."
                     (sp/success? (vrule (vals m) {} {} {})))))))
 
 (defn mk-map-literal-constraint [mexpr extensions]
-  (if (empty? mexpr)
-    (sp/mklit {})
-    (if (and (== (count mexpr) 1)
-             (many-quantified? (key (first mexpr))))
+  (cond (empty? mexpr) (sp/mklit {})
+        (and (== (count mexpr) 1) (many-quantified? (key (first mexpr))))
       (mk-keys-vals-constraint (key (first mexpr)) (val (first mexpr)) extensions)
-      (mkmap (map #(mk-map-entry % extensions) mexpr)))))
+        :else (mkmap (map #(mk-map-entry % extensions) mexpr))))
 
 (defn mk-hash-map-constraint [kvexprs extensions]
   (let [kvpairs (partition 2 kvexprs)]
-    (if (and (== (count kvpairs) 1)
-             (many-quantified? (ffirst kvpairs)))
+    (cond (empty? kvpairs) (sp/mklit {})
+          (and (== (count kvpairs) 1) (many-quantified? (ffirst kvpairs)))
       (mk-keys-vals-constraint (ffirst kvpairs) (second (first kvpairs)) extensions)
-      (mkmap (map #(mk-map-entry % extensions) kvpairs)))))
+          :else (mkmap (map #(mk-map-entry % extensions) kvpairs)))))
 
 ;; `keys` op is deprecated -- use `{key* val*}` notation instead
 (defn mk-old-keys-style-constraint [key-con val-con extensions]

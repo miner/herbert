@@ -24,7 +24,7 @@
   (cons 'seq (map rewrite v)))
 
 (defn seq-rewrite [s]
-  (cond (= (count s) 1) (rewrite (first s))
+  (cond (and (= (count s) 1) (not (case-of? (first s) map list vec seq set))) (rewrite (first s))
         (= (first s) 'when) s
         (and (= (first s) 'grammar) (= (count s) 2)) (rewrite (second s))
         (case (first s) (= == not= < > <= >=) true false) (list 'when s)
