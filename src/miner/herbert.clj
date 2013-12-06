@@ -232,20 +232,20 @@ Returns the successful result of the last rule or the first to fail."
 
 ;; modified version of sp/mksub, allows specialized test `pred` for exact container test
 ;; default sequential?, but seq? and vector? are also appropriate.
-;; rule automatically gets sp/end attached at end (forces complete match of collection)
+;; rule automatically gets sp/end attached at end (forces complete match of sequence)
 (defn mk-sequential
   ([rule] (mk-sequential sequential? rule))
   ([pred rule]
-     (let [coll-rule (if rule (sp/mkseq rule sp/end) sp/end)]
+     (let [subrule (if rule (sp/mkseq rule sp/end) sp/end)]
        (fn [input bindings context memo]
          (if (and (seq input) (pred (first input)))
-           (let [r (coll-rule (first input) bindings context memo)]
+           (let [r (subrule (first input) bindings context memo)]
              (if (sp/success? r)
                ;; try to maintain seq/vector distinction of input, :s value is vector
                (let [res (if (seq? (first input)) (seq (:s r)) (:s r))]
                  (sp/succeed res [res] (rest input) (:b r) (:m r)))
                r))
-           (sp/fail "Input not a seq." memo))))))
+           (sp/fail "Input not expected sequence type." memo))))))
 
 (defn mk-subseq-constraint 
   [pred vexprs extensions]
