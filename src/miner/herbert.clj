@@ -233,8 +233,8 @@ Returns the successful result of the last rule or the first to fail."
 ;; modified version of sp/mksub, allows specialized test `pred` for exact container test
 ;; default sequential?, but seq? and vector? are also appropriate.
 ;; rule automatically gets sp/end attached at end (forces complete match of collection)
-(defn mk-coll
-  ([rule] (mk-coll sequential? rule))
+(defn mk-sequential
+  ([rule] (mk-sequential sequential? rule))
   ([pred rule]
      (let [coll-rule (if rule (sp/mkseq rule sp/end) sp/end)]
        (fn [input bindings context memo]
@@ -248,11 +248,9 @@ Returns the successful result of the last rule or the first to fail."
            (sp/fail "Input not a seq." memo))))))
 
 (defn mk-subseq-constraint 
-  ([vexprs extensions] (mk-subseq-constraint sequential? vexprs extensions))
-  ([pred vexprs extensions]
-     (if (seq vexprs)
-       (mk-coll pred (apply sp/mkseq (map #(mkconstraint % extensions) vexprs)))
-       (mk-coll pred nil))))
+  [pred vexprs extensions]
+  (mk-sequential pred (when-let [vs (seq vexprs)]
+                        (apply sp/mkseq (map #(mkconstraint % extensions) vs)))))
 
 
 ;; SEM FIXME: strictly speaking, anonymous fns might have some free symbols mixed in so really you
