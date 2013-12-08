@@ -83,6 +83,25 @@ of generators, not variadic"
         vgen (if val-schema (mk-gen val-schema extensions) gen/any-printable)]
     (gen/map kgen vgen)))
 
+;; assumes only canonical
+(defn quantified-many? [expr]
+  (and (seq? expr) (h/case-of? (first expr) * +)))
+
+(defn dequantify [expr]
+  (cond (symbol? expr) expr
+        (and (seq? expr) (= (count expr) 2)) (second expr)))
+
+;; SEM BUG -- dequant needs to distinguish * from +
+;; * allows empty, + doesn't
+(defn mk-map [schemas extensions]
+  (condp == (count schemas)
+    0 (gen/elements [{}])
+    2 (if (quantified-many? (first schemas))
+        (mk-keys (dequantify (first schemas)) (dequantify (second schemas)) extensions)
+        (gen/fmap #(apply hash-map %) 
+                  (gen/tuple (mk-gen (first schemas)) (mk-gen (second schemas)))))
+    (gen/fmap #(apply hash-map %) (apply gen/tuple (map mk-gen schemas)))))
+
 (defn mk-seq [schemas extensions]
   (gen-tuple-seq (map #(mk-gen % extensions) schemas)))
 
@@ -114,11 +133,10 @@ of generators, not variadic"
       vec (mk-vec (rest schema) extensions)
       list (mk-seq (rest schema) extensions)
       keys (mk-keys (second schema) (third schema) extensions)
-      map (gen/fmap #(apply hash-map %) (apply gen/tuple (map mk-gen (rest schema))))
+      map (mk-map (rest schema) extensions)
       or (gen/one-of (map mk-gen (rest schema)))
       not (mk-not (second schema) extensions)
       and (mk-and (rest schema) extensions)
-
       ;; SEM FIXME many more
       )))
 
@@ -130,7 +148,6 @@ of generators, not variadic"
              (seq? schema) (mk-list-gen schema extensions)
              :else (throw (ex-info "Unhandled schema" {:schema schema})))))
 
-;; SEM FIXME -- replace quantifiers with OR
 
 
 (declare replace-quantifiers)
@@ -144,6 +161,12 @@ of generators, not variadic"
 (defn quantified? [expr]
   (and (seq? expr)
        (h/case-of? (first expr) & * + ?)))
+
+(defn quantified-within-map? [expr]
+  (and (seq? expr)
+       (= (first expr) 'map)
+       (== (count expr) 3)
+       (h/case-of? (first (second expr)) * +)))
 
 (defn quantified-within-seq? [expr]
   (and (seq? expr)
@@ -175,6 +198,7 @@ of generators, not variadic"
 ;; expr is canonical
 (defn replace-quantifiers [expr]
   (cond (or (symbol? expr) (h/literal? expr)) expr
+        (quantified-within-map? expr) (cons 'keys (map dequantify (rest expr)))
         (quantified-within-seq? expr) (cons 'or (quantifier-replacements expr))
         (quantified? expr) (if (== (count expr) 2)
                              (recur (second expr))
