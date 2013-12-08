@@ -36,7 +36,9 @@
   "Like simple-check.generators/tuple but returns a seq, not a vector and takes a collection
 of generators, not variadic"
   [generators]
-  (gen/fmap seq (apply gen/tuple generators)))
+  (if (empty? generators)
+    (gen/elements [()])
+    (gen/fmap seq (apply gen/tuple generators))))
 
 
 (def symbol-gens {'int gen/int 
@@ -170,7 +172,6 @@ of generators, not variadic"
                (list [])
                seqex)))
 
-
 ;; expr is canonical
 (defn replace-quantifiers [expr]
   (cond (or (symbol? expr) (h/literal? expr)) expr
@@ -183,9 +184,16 @@ of generators, not variadic"
         :else expr))
     
 (defn generator [schema]
-  (let [canonical (hc/rewrite schema)]
-    (mk-gen canonical nil)))
+  (let [canonical (hc/rewrite schema)
+        dequantified (replace-quantifiers canonical)]
+    (mk-gen dequantified nil)))
 
 (defn sample [schema]
-  (gen/sample (generator schema)))
+  (gen/sample (generator schema) 20))
+
+(comment
+(hg/sample '{kw* int*})
+
+;NullPointerException   simple-check.generators/gen-bind/fn--621 (generators.clj:155)
+)
 
