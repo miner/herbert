@@ -123,10 +123,10 @@ of generators, not variadic"
 (defn mk-gen 
   ([schema] (mk-gen schema nil))
   ([schema extensions]
-  (cond (symbol? schema) (mk-symbol-gen schema extensions)
-        (h/literal? schema) (gen/return schema)
-        (seq? schema) (mk-list-gen schema extensions)
-        :else (throw (ex-info "Unhandled schema" {:schema schema})))))
+       (cond (symbol? schema) (mk-symbol-gen schema extensions)
+             (h/literal? schema) (gen/return schema)
+             (seq? schema) (mk-list-gen schema extensions)
+             :else (throw (ex-info "Unhandled schema" {:schema schema})))))
 
 ;; SEM FIXME -- replace quantifiers with OR
 
@@ -136,58 +136,51 @@ of generators, not variadic"
 ;; SEM FIXME -- none of this is properly tested
 ;; Did the replacement of quantifiers, but not yet the expansion of OR terms
 
-(defn quantified-seq? [expr]
+
+(declare replace-quantifiers)
+
+(defn quantified? [expr]
+  (and (seq? expr)
+       (h/case-of? (first expr) & * + ?)))
+
+(defn quantified-within-seq? [expr]
   (and (seq? expr)
        (h/case-of? (first expr) seq vec list)
-       (some (fn [e] (and (seq? e) (h/case-of? (first e) & * + ?))) (rest expr))))
+       (some quantified? (rest expr))))
 
-
-(defn buggy-quantifier-replacements [seqex]
-  (reduce (fn [vs expr]
-            (cond (or (symbol? expr) (h/literal? expr)) (map #(conj % expr) vs)
-                  (seq? expr)
-                    (case (first expr)
-                      & (map #(apply conj % (rest expr)) vs)
-                      * (concat (map #(apply conj % (concat (rest expr) (rest expr))) vs)
-                                (map #(apply conj % (rest expr)) vs)
-                                vs)
-                      + (concat (map #(apply conj % (concat (rest expr) (rest expr))) vs)
-                                (map #(apply conj % (rest expr)) vs))
-                      ? (concat (map #(apply conj % (rest expr)) vs)
-                                vs)
-                      (map #(conj % expr) vs))
-                  :else (throw (ex-info "Unexpected element in seqex" {:seqex seqex}))))
-          (list [])
-          seqex))
-
+(defn quant-replacements [vs expr]
+  (case (first expr)
+    & (map #(reduce conj % (rest expr)) vs)
+    * (concat (map #(reduce conj % (concat (rest expr) (rest expr))) vs)
+              (map #(reduce conj % (rest expr)) vs)
+              vs)
+    + (concat (map #(reduce conj % (concat (rest expr) (rest expr))) vs)
+              (map #(reduce conj % (rest expr)) vs))
+    ? (concat (map #(reduce conj % (rest expr)) vs)
+              vs)
+    (map #(conj % (replace-quantifiers expr)) vs)))
 
 ;; SEM FIXME -- should be recursive in replacing sub-exprs
 (defn quantifier-replacements [seqex]
   (map seq
        (reduce (fn [vs expr]
-                 (cond (or (symbol? expr) (h/literal? expr)) (map #(conj % expr) vs)
-                       (seq? expr)
-                       (case (first expr)
-                         & (map #(reduce conj % (rest expr)) vs)
-                         * (concat (map #(reduce conj % (concat (rest expr) (rest expr))) vs)
-                                   (map #(reduce conj % (rest expr)) vs)
-                                   vs)
-                         + (concat (map #(reduce conj % (concat (rest expr) (rest expr))) vs)
-                                   (map #(reduce conj % (rest expr)) vs))
-                         ? (concat (map #(reduce conj % (rest expr)) vs)
-                                   vs)
-                         (map #(conj % expr) vs))
-                       :else (throw (ex-info "Unexpected element in seqex" {:seqex seqex}))))
+                   (cond (or (symbol? expr) (h/literal? expr)) (map #(conj % expr) vs)
+                         (seq? expr) (quant-replacements vs expr)
+                         :else (throw (ex-info "Unexpected element in seqex" {:seqex seqex}))))
                (list [])
                seqex)))
 
 
-(defn replace-quantifiers [seqex]
-  ;; should only be called with a seq expr, but just to be safe
-  (if-not (seq? seqex)
-    seqex
-    (cons 'or (quantifier-replacements seqex))))
-
+;; expr is canonical
+(defn replace-quantifiers [expr]
+  (cond (or (symbol? expr) (h/literal? expr)) expr
+        (quantified-within-seq? expr) (cons 'or (quantifier-replacements expr))
+        (quantified? expr) (if (== (count expr) 2)
+                             (recur (second expr))
+                             (throw (ex-info "Unsupported quantified schema" {:schema
+                                                                              expr})))
+        (seq? expr) (map replace-quantifiers expr)
+        :else expr))
     
 (defn generator [schema]
   (let [canonical (hc/rewrite schema)]
