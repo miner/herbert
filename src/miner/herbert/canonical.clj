@@ -24,6 +24,16 @@
 (defn vec-rewrite [v]
   (cons 'seq (map rewrite v)))
 
+;; not the best thing to use on known vectors
+(defn first= [xs y]
+  (and (sequential? xs) (= (first xs) y)))
+
+(defn reduce-amp [exprs]
+  (seq (reduce (fn [res x] (if (first= x '&) (reduce conj res (next x)) (conj res x)))
+               []
+               exprs)))
+
+
 (defn seq-rewrite [s]
   (cond (empty? s) s
         (= (count s) 1) (rewrite (first s))
@@ -50,6 +60,7 @@
                      (if quant
                        (list quant (cons (simple-sym pred) (rest s)))
                   (cons (rewrite pred) (rest s)))))))))
+
 
 (defn set-rewrite [st]
   (cons 'set (map rewrite st)))

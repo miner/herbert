@@ -37,7 +37,16 @@
 of generators, not variadic"
   [generators]
   (if (empty? generators)
-    (gen/elements [()])
+    (gen/return ())
+    (gen/fmap seq (apply gen/tuple generators))))
+
+
+(defn gen-tuple-seq2
+  "Like simple-check.generators/tuple but returns a seq, not a vector and takes a collection
+of generators, not variadic"
+  [generators]
+  (if (empty? generators)
+    (gen/return ())
     (gen/fmap seq (apply gen/tuple generators))))
 
 
@@ -87,15 +96,30 @@ of generators, not variadic"
 (defn quantified-many? [expr]
   (and (seq? expr) (h/case-of? (first expr) * +)))
 
-(defn dequantify [expr]
-  (cond (symbol? expr) expr
-        (and (seq? expr) (= (count expr) 2)) (second expr)))
+(defn dequantify 
+  ([expr] (if (and (seq? expr) (h/case-of? (first expr) * + ?)) (second expr) expr))
+  ([quant expr] (if (and (seq? expr) (= (first expr) quant)) (second expr) expr)))
+
+
+;; UNFINISHED  -- question whether quantifier canonical form can have multiple elements like
+;; (* x y) or must use (* (& x y))
+
+#_
+(defn mk-quantified-map [key-schema val-schema extensions]
+  ;; key and val are assumed to be the same quantifier
+  (case (first key-schema)
+    * (gen/one-of (mk-keys (dequantify key-schema) (dequantify val-schemas) extensions)
+                  (gen/return {}))
+    + (gen/one-of (mk-keys (dequantify key-schema) (dequantify val-schemas) extensions))
+    ? (gen/one-of                  (gen/return {}))))
+
+
 
 ;; SEM BUG -- dequant needs to distinguish * from +
 ;; * allows empty, + doesn't
 (defn mk-map [schemas extensions]
   (condp == (count schemas)
-    0 (gen/elements [{}])
+    0 (gen/return {})
     2 (if (quantified-many? (first schemas))
         (mk-keys (dequantify (first schemas)) (dequantify (second schemas)) extensions)
         (gen/fmap #(apply hash-map %) 
