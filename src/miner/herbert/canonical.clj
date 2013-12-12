@@ -61,7 +61,6 @@
                        (list quant (cons (simple-sym pred) (rest s)))
                   (cons (rewrite pred) (rest s)))))))))
 
-
 (defn set-rewrite [st]
   (cons 'set (map rewrite st)))
 
