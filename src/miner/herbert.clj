@@ -544,14 +544,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   ([expr extensions]
      #_ (println "mkconstraint " expr)
      (cond (symbol? expr) (mk-symbol-constraint expr extensions)
-<<<<<<< HEAD
-<<<<<<< HEAD
            (and (coll? expr) (empty? expr)) (sp/mklit expr)
-=======
->>>>>>> respect optional kw :k?, and support quoting ':k? for literal outside of maps; other work in progress
-=======
-           (and (coll? expr) (empty? expr)) (sp/mklit expr)
->>>>>>> revised handling of empty collections to match literally; reverted singleton list forms like (map), (vec) etc. to match any map, vec, etc
            ;; don't use list? -- seq? covers Cons as well
            (seq? expr) (mk-list-constraint expr extensions)
            (vector? expr) (mk-subseq-constraint sequential? 'seq expr extensions)
