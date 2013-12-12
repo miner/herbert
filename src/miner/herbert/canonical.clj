@@ -10,9 +10,10 @@
       sym)))
 
 (defn key-rewrite [k]
-  (if (optional-key? k)
-    (list '? (simple-key k))
-    k))
+  (cond (optional-key? k) (list '? (simple-key k))
+        (keyword? k) k
+        (and (seq? k) (= (first k) 'quote)) k
+        :else (rewrite k)))
 
 ;; SEM FIXME: use mapmap variant
 (defn kmap-rewrite [mp]
@@ -24,11 +25,23 @@
   (cons 'seq (map rewrite v)))
 
 (defn seq-rewrite [s]
-  (cond (and (= (count s) 1) (not (case-of? (first s) map list vec seq set))) (rewrite (first s))
-        (= (first s) 'when) s
-        (and (= (first s) 'grammar) (= (count s) 2)) (rewrite (second s))
-        (case (first s) (= == not= < > <= >=) true false) (list 'when s)
-        :else  (let [op (get reserved-ops (first s))]
+  (cond (empty? s) s
+        (= (count s) 1) (rewrite (first s))
+        :else
+        (case (first s)
+          quote s
+          when s
+          grammar (if (= (count s) 2) 
+                    (rewrite (second s)) 
+                    (list* 'grammar (rewrite (second s))
+                           (interleave (take-nth 2 (nnext s))
+                                       (map rewrite (take-nth 2 (next (nnext s)))))))
+          (= == not= < > <= >=) (list 'when s)
+          := (if (== (count s) 3)
+               (list := (second s) (rewrite (first (nnext s))))
+               (list := (second s) (rewrite (nnext s))))
+          ;; else
+          (let [op (get reserved-ops (first s))]
                  (if op
                    (cons op (map rewrite (rest s)))
                    ;; pred and args
@@ -36,13 +49,14 @@
                          quant (symbol-quantifier pred)]
                      (if quant
                        (list quant (cons (simple-sym pred) (rest s)))
-                       (cons (rewrite pred) (rest s))))))))
+                  (cons (rewrite pred) (rest s)))))))))
 
 (defn set-rewrite [st]
   (cons 'set (map rewrite st)))
 
 (defn rewrite [schema]
-  (cond (keyword? schema) (key-rewrite schema)
+  (cond (and (coll? schema) (empty? schema)) schema
+        (keyword? schema) (key-rewrite schema)
         (literal? schema) schema
         (symbol? schema) (sym-rewrite schema)
         (vector? schema) (vec-rewrite schema)
@@ -51,11 +65,10 @@
         (seq? schema) (seq-rewrite schema)
         :else (list 'unimplemented schema)))
 
-
+#_
 (defn vc? [schema val]
   (let [direct ((conform schema) val)
         rewr ((conform (rewrite schema)) val)]
     (println "direct" direct "; rewr" rewr)
     (= direct rewr)))
-
 

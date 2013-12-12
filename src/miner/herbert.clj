@@ -136,7 +136,6 @@ made in rule do not escape this rule's scope."
             (sp/succeed i [i] (rest input) bindings memo)
             (sp/fail (str i " does not match " symbolic) memo)))))))
 
-
 ;; SEM FIXME -- maybe a little shakey on merging bindings and memo stuff
 ;; returns only the bindings, etc. of the first rule
 
@@ -248,9 +247,11 @@ Returns the successful result of the last rule or the first to fail."
            (sp/fail "Input not expected sequence type." memo))))))
 
 (defn mk-subseq-constraint 
-  [pred vexprs extensions]
-  (mk-sequential pred (when-let [vs (seq vexprs)]
-                        (apply sp/mkseq (map #(mkconstraint % extensions) vs)))))
+  ([vexprs extensions] (mk-subseq-constraint sequential? 'seq vexprs extensions))
+  ([pred symbolic vexprs extensions]
+     (if-let [vs (seq vexprs)]
+       (mk-sequential pred (apply sp/mkseq (map #(mkconstraint % extensions) vs)))
+       (mkprb pred symbolic))))
 
 
 ;; SEM FIXME: strictly speaking, anonymous fns might have some free symbols mixed in so really you
@@ -336,6 +337,13 @@ Returns the successful result of the last rule or the first to fail."
 (defn third [s]
   (first (nnext s)))
 
+;; symbols can be used as literals if quoted,
+;; quote also defeats "optional" :k? so it's a literal,
+;; also empty collections match themselves literally
+(defn quotable-literal-expr? [expr]
+  (or (symbol? expr) (keyword? expr)
+      (and (coll? expr) (empty? expr))))
+
 (defn mk-list-constraint [lexpr extensions]
   (let [op (first lexpr)
         mkconstr #(mkconstraint % extensions)]
@@ -343,8 +351,7 @@ Returns the successful result of the last rule or the first to fail."
       or (apply sp/mkalt (map mkconstr (rest lexpr)))
       and (apply mkand (map mkconstr (rest lexpr)))
       not (sp/mkseq (sp/mknot (mkconstr (second lexpr))) sp/anything)
-      quote (if (symbol? (second lexpr))
-                ;; symbols can be used as literals if quoted
+      quote (if (quotable-literal-expr? (second lexpr))
               (sp/mklit (second lexpr))
                 ;; dequoting here is convenient for macros
               (mkconstr (second lexpr)))
@@ -354,10 +361,10 @@ Returns the successful result of the last rule or the first to fail."
       + (sp/mk1om (mk-con-seq (rest lexpr) extensions)) 
       ? (sp/mkopt (mk-con-seq (rest lexpr) extensions))
       & (mk-con-seq (rest lexpr) extensions)
-      seq  (mk-subseq-constraint sequential? (rest lexpr) extensions)
+      seq  (mk-subseq-constraint sequential? 'seq (rest lexpr) extensions)
       set (mk-set-constraint (rest lexpr) extensions)
-      vec (mk-subseq-constraint vector? (rest lexpr) extensions)
-      list (mk-subseq-constraint seq? (rest lexpr) extensions)
+      vec (mk-subseq-constraint vector? 'vec (rest lexpr) extensions)
+      list (mk-subseq-constraint seq? 'list (rest lexpr) extensions)
       map (mk-hash-map-constraint (rest lexpr) extensions)
       keys (mk-old-keys-style-constraint (second lexpr) (third lexpr) extensions)
       :=  (mk-list-bind (second lexpr) (nnext lexpr) extensions)
@@ -469,7 +476,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 
 (defn mk-hash-map-constraint [kvexprs extensions]
   (let [kvpairs (partition 2 kvexprs)]
-    (cond (empty? kvpairs) (sp/mklit {})
+    (cond (empty? kvpairs) (mkprb map? 'map)
           (and (== (count kvpairs) 1) (many-quantified? (ffirst kvpairs)))
       (mk-keys-vals-constraint (ffirst kvpairs) (second (first kvpairs)) extensions)
           :else (mkmap (map #(mk-map-entry % extensions) kvpairs)))))
@@ -537,11 +544,13 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   ([expr extensions]
      #_ (println "mkconstraint " expr)
      (cond (symbol? expr) (mk-symbol-constraint expr extensions)
-           ;; don't use list?, seq? covers Cons as well
+           (and (coll? expr) (empty? expr)) (sp/mklit expr)
+           ;; don't use list? -- seq? covers Cons as well
            (seq? expr) (mk-list-constraint expr extensions)
-           (vector? expr) (mk-subseq-constraint sequential? expr extensions)
+           (vector? expr) (mk-subseq-constraint sequential? 'seq expr extensions)
            (set? expr) (mk-set-constraint expr extensions)
            (map? expr) (mk-map-literal-constraint expr extensions) 
+           (optional-key? expr) (sp/mkopt (sp/mklit (simple-key expr)))
            (literal? expr) (sp/mklit expr)
            :else (throw (ex-info "Unknown constraint form" {:con expr :extensions extensions})))))
 
@@ -591,6 +600,19 @@ nil value also succeeds for an optional kw.  Does not consume anything."
          ([x] (let [res (con-fn x)]
                 (when (sp/success? res)
                   (with-meta (:b res) {::schema grammar}))))))))
+
+
+(defn blame-fn [schema] 
+  (let [grammar (schema->grammar schema)
+        con-fn (constraint-fn schema)]
+    (fn 
+      ([] grammar)
+      ([x] (let [res (con-fn x)]
+                (when (sp/failure? res)
+                  (:fail res)))))))
+
+(defn blame [schema x]
+  ((blame-fn schema) x))
 
 (defn conforms? [schema x] 
   (boolean ((conform schema) x)))

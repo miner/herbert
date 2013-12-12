@@ -3,6 +3,7 @@
   (:require miner.herbert.predicates
             [miner.herbert :as h :exclude [conforms? conform]]
             [miner.herbert.canonical :as c]
+            [miner.tagged :as tag]
             clojure.string))
 
 
@@ -14,13 +15,13 @@
       (println))    
     (h/conforms? rewr val)))
 
-(defn conform [schema val]
+(defn conform [schema]
   (let [rewr (c/rewrite schema)]
     #_ (when-not (= schema rewr)
       (println "Schema: " (pr-str schema))
       (println "Rewrite:" (pr-str rewr))
       (println))    
-    (h/conform rewr val)))
+    (h/conform rewr)))
 
 (deftest basics []
   (is (conforms? 'int 10))
@@ -87,7 +88,16 @@
   (are [val result] (= (conforms? '#{:a :b :c} val) result)
        #{:a :b :c}   true
        #{:d :c :a :b}   true
+       [:a :b :c] false
+       '(:a :b :c) false
        #{:d :c :a}   false)
+  (are [val result] (= (conforms? '#{0 1 2} val) result)
+       #{0 1 2}   true
+       #{1 2} false
+       #{1 2 3 0} true
+       [0 1 2] false
+       '(0 1 2) false
+       {0 :a 1 :b 2 :c} false)
   (are [val result] (= (conforms? '#{int :a :b :c} val) result)
        #{:a 10 :b :c}   true
        #{:d :c :a :b}   false
@@ -269,3 +279,191 @@
   (is (conforms? 'keys {'b 52}))
   (is (not (conforms? '(keys (or sym kw) (or sym int)) {:a :b52}))))
   
+(deftest quantifed-keys-vals
+  (is (conforms? '{kw* int*} {:a 42}))
+  (is (conforms? '{kw* int*} {}))
+  (is (conforms? '{kw+ int+} {:a 42}))
+  (is (not (conforms? '{kw+ int+} {})))
+  (is (not (conforms? '{kw* int*} {'a 42})))
+  (is (not (conforms? '{kw* int*} {:a 'b52})))
+  (is (conforms? '{(* (or sym kw)) (* (or sym int))} {:a 'b52}))
+  (is (conforms? '(map (+ (or sym kw)) (+ (or sym int))) {'b 'b52}))
+  (is (conforms? '(map (* (or sym kw)) (* (or sym int))) {'b 52}))
+  (is (conforms? '(map sym* any*) {'b 52}))
+  (is (conforms? '(map any* any*) {'b 52}))
+  (is (conforms? 'map {'b 52}))
+  (is (not (conforms? '(map (* (or sym kw)) (* (or sym int))) {:a :b52}))))
+  
+(defrecord Foo [a])
+
+(deftest on-records
+  (is (conforms? '{:a int} (->Foo 42)))
+  (is (conforms? '(& (:= rec {:a int}) (when (instance? miner.test_rewrite.Foo rec)))
+                 (->Foo 42)))
+  (is (not (conforms? '(& (:= rec {:a int}) (when (instance? miner.test_rewrite.Foo rec)))
+                 {:a 42})))
+  (is (not (conforms? '(& (:= rec {:a int}) (when (instance? miner.test_rewrite.Foo rec)))
+                 {->Foo "bar"}))))
+
+(deftest on-records-by-class
+  (is (conforms? '{:a int} (->Foo 42)))
+  (is (conforms? '(and {:a int} (class miner.test_rewrite.Foo))
+                 (->Foo 42)))
+  (is (not (conforms? '(and {:a int} (class miner.test_rewrite.Foo))
+                 {:a 42})))
+  (is (not (conforms? '(and {:a int} (class miner.test_rewrite.Foo))
+                 {->Foo "bar"}))))
+
+(deftest records-by-tag
+  (is (conforms? '(tag miner.test-rewrite/Foo) (->Foo 42)))
+  (is (conforms? '(tag "miner[.]test-.*/Foo") (->Foo 42)))
+  (is (not (conforms? '(tag "miner/test-.*Foo") (->Foo 42))))
+  (is (conforms? '(tag foo.bar/Baz) (tag/read-string "#foo.bar/Baz {:a 42}")))
+  (is (not (conforms? '(tag miner.test-rewrite/Bad) (->Foo 42))))
+  (is (not (conforms? '(tag foo.wrong/Bar) (tag/read-string "#foo.bar/Baz {:a 42}"))))
+  (is (conforms? '(tag miner.test-rewrite/Foo {:a int}) (->Foo 42)))
+  (is (conforms? '(tag "miner[.]test-rewrite/F.*" {:a int}) (->Foo 42)))
+  (is (not (conforms? '(tag "miner[.]test-rewrite/F.*" {:a sym}) (->Foo 42))))
+  (is (conforms? '(tag foo.bar/Baz {:a int}) (tag/read-string "#foo.bar/Baz {:a 42}")))
+  (is (not (conforms? '(tag miner.test-rewrite/Foo {:b any}) (->Foo 42))))
+  (is (not (conforms? '(tag foo.wrong/Bar {:a int}) (tag/read-string "#foo.bar/Baz {:a 42}")))))
+
+(deftest dates-and-uuid
+  (is (conforms? '(tag inst) (java.util.Date.)))
+  (is (conforms? '(tag inst) (java.sql.Timestamp. 0)))
+  (is (conforms? '(tag inst) (java.util.Calendar/getInstance))))
+
+
+(deftest readme-examples
+  (is (= ((conform '[(:= a int) (:= b int) (:= c int+ a b)]) [3 7 4 5 6])
+         '{c [4 5 6], b 7, a 3}))
+  (is (= ((conform '[(:= max int) (:= xs int+ max)]) [7 3 5 6 4])
+         '{xs [3 5 6 4], max 7}))
+  (is (conforms? '{:a int :b [sym+] :c str} '{:a 42 :b [foo bar baz] :c "foo"}))
+  (is (conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo}))
+  (is (conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo :c ["foo" "bar" "baz"]}))
+  (is (not (conforms? '{:a int :b sym :c? [str*]} '{:a foo :b bar})))
+  (is (conforms? '{:a (:= a int) :b sym :c? [a+]} '{:a 1 :b foo :c [1 1 1]})))
+
+(deftest grammar-with-regex
+  (is (conforms? '(grammar [person+] 
+                          phone (str #"\d{3}+-\d{3}+-\d{4}+") 
+                          person {:name str :phone phone}) 
+                 [{:name "Steve" :phone "408-555-1212"}
+                  {:name "Jenny" :phone "415-867-5309"}]))
+  ;; only difference is a regex above and a string with escape notation below
+  (is (conforms? '(grammar [person+] 
+                          phone (str "\\d{3}+-\\d{3}+-\\d{4}+") 
+                          person {:name str :phone phone}) 
+                 [{:name "Steve" :phone "408-555-1212"}
+                  {:name "Jenny" :phone "415-867-5309"}])))
+
+(deftest nested-grammar
+  (is (not (conforms? '(grammar [short+] short (grammar sh sh (int 255))) '[2 3000 2 4])))
+  (is (conforms? '(grammar [short+] short (grammar sh sh (int 255))) '[2 3 2 4])))
+
+(deftest merging-grammar
+  (let [s1 '(grammar [iii+] iii (int 3))
+        s2 '(grammar [sss+] sss (sym "..."))
+        s3 '(grammar [kkk+] kkk (kw ":..."))]
+    (is (= (h/schema-merge '[iii sss kkk] s1 s2 s3)
+           '(grammar [iii sss kkk]
+                    iii (int 3)
+                    sss (sym "...")
+                    kkk (kw ":..."))))
+    (is (= (h/schema-merge '(grammar [jjj sss kkk] jjj {:a iii}) s1 s2 s3)
+           '(grammar [jjj sss kkk]
+                    iii (int 3)
+                    sss (sym "...")
+                    kkk (kw ":...")
+                    jjj {:a iii})))))
+
+(deftest char-lits
+  (is (conforms? \k \k))
+  (is (conforms? [\f \o \o] (seq "foo")))
+  (is (conforms? \f (first "foo")))
+  (is (conforms? \o (last "foo")))
+  (is (conforms? '[char+] (vec (seq "bar")))))
+
+(deftest char-regex
+  (is (conforms? '(char "x") \x))
+  (is (conforms? '(char "[a-z]") \x))
+  (is (not (conforms? '(char "[a-z]") \X)))
+  (is (not (conforms? '(char "[a-z]") 42)))
+  (is (not (conforms? '(char "[a-z]x") \x))))
+
+(deftest top-kw
+  ;; top-level :k? is still optional; use ':k? if the qmark is part of the literal
+  (is (conforms? [:k?] [:k]))
+  (is (conforms? [:k?] []))
+  (is (conforms? [':k] [:k]))
+  (is (conforms? '[(? :k)] [:k]))
+  (is (conforms? '[(? :k)] []))
+  ;; tricky needs both quotes below to work as literal
+  (is (conforms? '[':k?] [:k?]))
+  (is (not (conforms? '[':k?] [:k])))
+  (is (conforms? '[(? ':k?)] [:k?]))
+  (is (not (conforms? '[(? ':k?)] [:k])))
+  (is (conforms? '[(? :k)] [:k]))
+  (is (not (conforms? '[(? :k)] [:k?])))
+  (is (not (conforms? [:k?] [42])))
+  (is (not (conforms? [:k?] [:a]))))
+
+(deftest singleton-containers
+  (is (conforms? '[int] [1]))
+  (is (conforms? '(seq int) [1]))
+  (is (conforms? '(vec int) [1]))
+  (is (conforms? '(list int) '(1)))
+  (is (not (conforms? '[int] [])))
+  (is (not (conforms? '(seq int) [])))
+  (is (not (conforms? '(list int) ())))
+  (is (not (conforms? '(vec int) [])))
+  (is (not (conforms? '[int] [1 2])))
+  (is (not (conforms? '(seq int) [1 2])))
+  (is (not (conforms? '(list int) '(1 2))))
+  (is (not (conforms? '(vec int) [1 2]))))
+
+(deftest pair-containers
+  (is (conforms? '[int int] [1 2]))
+  (is (conforms? '(seq int int) [1 2]))
+  (is (conforms? '(vec int int) [1 2]))
+  (is (conforms? '(list int int) '(1 2)))
+  (is (not (conforms? '[int int] [])))
+  (is (not (conforms? '(seq int int) [])))
+  (is (not (conforms? '(list int int) ())))
+  (is (not (conforms? '(vec int int) [])))
+  (is (not (conforms? '[int int] [1 2 3])))
+  (is (not (conforms? '(seq int int) [1 2 3])))
+  (is (not (conforms? '(list int int) '(1 2 3))))
+  (is (not (conforms? '(vec int int) [1 2 3]))))
+
+(deftest empty-containers
+  (is (not (conforms? '[] [1])))
+  (is (not (conforms? '() '(1))))
+  (is (conforms? '[] []))
+  (is (conforms? '[] ()))
+  (is (conforms? '(seq) [1]))
+  (is (conforms? '(seq) '(1)))
+  (is (conforms? '(list) '(1)))
+  (is (conforms? '(vec) [1]))
+  (is (not (conforms? {} {:a 1})))
+  (is (conforms? '(map) {:a 1}))
+  (is (conforms? 'map {:a 1}))
+  (is (conforms? 'map {}))
+  (is (conforms? '(map) {}))
+  (is (conforms? 'list '(1)))
+  (is (conforms? 'seq '(1)))
+  (is (conforms? 'seq [1]))
+  (is (conforms? 'vec [1]))
+  (is (conforms? 'list ()))
+  (is (conforms? 'seq ()))
+  (is (conforms? 'seq []))
+  (is (conforms? 'vec []))
+  (is (not (conforms? '() [1])))
+  (is (not (conforms? '() '(1))))
+  (is (not (conforms? '[] [1])))
+  (is (not (conforms? '() '(1))))
+  (is (conforms? '[] []))
+  (is (conforms? '(seq) []))
+  (is (conforms? '(list) ()))
+  (is (conforms? '(vec) [])))

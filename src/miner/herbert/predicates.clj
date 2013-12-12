@@ -72,7 +72,6 @@
   ([x] (keyword? x))
   ([regex x] (and (keyword? x) (regex-match? regex (pr-str x)))))
 
-;; originally in herbert.clj
 (defn iter= [iterfn coll]
   (= (seq coll) (when-first [fst coll] 
                   (take (count coll) (iterate iterfn fst)))))
@@ -89,7 +88,6 @@
 (defn iter? [f coll] 
   (and (clojure.core/coll? coll) (iter= (as-fn f) coll)))
 
-;; originally in herbert.clj
 (defn indexed= [indexfn coll]
   (= coll (map indexfn (range (count coll)))))
 
