@@ -23,7 +23,7 @@ represented as **edn** values.
 
 Add the dependency to your project.clj:
 
-    [com.velisco/herbert "0.5.12"]
+    [com.velisco/herbert "0.5.13"]
 
 In case I forget to update the version number here in the README, the latest version is available on
 Clojars.org:
@@ -56,6 +56,9 @@ Quick example:
 
 * Literal constants match themselves: <BR>
 **nil**, **true**, **false**, *numbers*, *"strings"*, *:keywords*
+
+* Empty literal collections match themselves: <BR>
+**[]**, **()**, **{}**
 
 * A simple schema pattern is named by a symbol: <BR>
   - **int** - integer
@@ -143,8 +146,8 @@ Quick example:
 `{:a (:= n int) :b (& (:= f float) (> n f))}` -- matches {:a 4 :b 3.14}
 
 * The `map` schema predicate matches a map.  It takes the same arguments as the {curly brace}
-  literal map schema.  With no arguments, `(map)` matches the empty map.  Use `map` (no
-  parens) to match any map. <BR>
+  literal map schema.  With no arguments, `(map)` matches any map, same as `map`.  Use `{}` to
+  match the empty map. <BR>
 `(map :a int :b sym :c? [int*])`  -- matches {:a 10 :b foo :c [1 2 3]} and {:a 1 :b bar}
 
 * The `list` schema predicate matches a list or cons.  It can take multiple optional arguments to
