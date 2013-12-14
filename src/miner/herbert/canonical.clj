@@ -64,6 +64,8 @@
 (defn set-rewrite [st]
   (cons 'set (map rewrite st)))
 
+
+;; SEM FIXME -- should use clojure.walk/postwalk
 (defn rewrite [schema]
   (cond (and (coll? schema) (empty? schema)) schema
         (keyword? schema) (key-rewrite schema)

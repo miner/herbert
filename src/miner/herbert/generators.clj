@@ -3,6 +3,7 @@
             [miner.herbert.canonical :as hc]
             ;; [simple-check.core :as sc]
             ;; [simple-check.properties :as prop]
+            [clojure.walk :as w]
             [simple-check.generators :as gen]))
 
 (declare mk-gen)
@@ -87,7 +88,7 @@ of generators, not variadic"
 (defn- third [lst]
   (first (nnext lst)))
 
-(defn mk-keys [key-schema val-schema extensions]
+(defn mk-kvs [key-schema val-schema extensions]
   (let [kgen (if key-schema (mk-gen key-schema extensions) gen/any-printable)
         vgen (if val-schema (mk-gen val-schema extensions) gen/any-printable)]
     (gen/map kgen vgen)))
@@ -108,9 +109,9 @@ of generators, not variadic"
 (defn mk-quantified-map [key-schema val-schema extensions]
   ;; key and val are assumed to be the same quantifier
   (case (first key-schema)
-    * (gen/one-of (mk-keys (dequantify key-schema) (dequantify val-schemas) extensions)
+    * (gen/one-of (mk-kvs (dequantify key-schema) (dequantify val-schemas) extensions)
                   (gen/return {}))
-    + (gen/one-of (mk-keys (dequantify key-schema) (dequantify val-schemas) extensions))
+    + (gen/one-of (mk-kvs (dequantify key-schema) (dequantify val-schemas) extensions))
     ? (gen/one-of                  (gen/return {}))))
 
 
@@ -121,7 +122,7 @@ of generators, not variadic"
   (condp == (count schemas)
     0 (gen/return {})
     2 (if (quantified-many? (first schemas))
-        (mk-keys (dequantify (first schemas)) (dequantify (second schemas)) extensions)
+        (mk-kvs (dequantify (first schemas)) (dequantify (second schemas)) extensions)
         (gen/fmap #(apply hash-map %) 
                   (gen/tuple (mk-gen (first schemas)) (mk-gen (second schemas)))))
     (gen/fmap #(apply hash-map %) (apply gen/tuple (map mk-gen schemas)))))
@@ -156,7 +157,7 @@ of generators, not variadic"
                        (mk-seq (rest schema) extensions)])
       vec (mk-vec (rest schema) extensions)
       list (mk-seq (rest schema) extensions)
-      keys (mk-keys (second schema) (third schema) extensions)
+      kvs (mk-kvs (second schema) (third schema) extensions)
       map (mk-map (rest schema) extensions)
       or (gen/one-of (map mk-gen (rest schema)))
       not (mk-not (second schema) extensions)
@@ -169,6 +170,7 @@ of generators, not variadic"
   ([schema extensions]
        (cond (symbol? schema) (mk-symbol-gen schema extensions)
              (h/literal? schema) (gen/return schema)
+             (and (sequential? schema) (empty? schema)) (gen/return schema)
              (seq? schema) (mk-list-gen schema extensions)
              :else (throw (ex-info "Unhandled schema" {:schema schema})))))
 
@@ -186,16 +188,32 @@ of generators, not variadic"
   (and (seq? expr)
        (h/case-of? (first expr) & * + ?)))
 
-(defn quantified-within-map? [expr]
+(defn quantified-within-functional-map? [expr]
   (and (seq? expr)
        (= (first expr) 'map)
        (== (count expr) 3)
        (h/case-of? (first (second expr)) * +)))
 
+;; SEM not used
+(defn quantified-within-hash-map? [expr]
+  (and (seq? expr)
+       (= (first expr) 'map)
+       (some #(h/case-of? (first %) * +) (rest expr))))
+
 (defn quantified-within-seq? [expr]
   (and (seq? expr)
        (h/case-of? (first expr) seq vec list)
        (some quantified? (rest expr))))
+
+(defn convert-empty [expr]
+  (if (and (seq? expr) (== (count expr) 1))
+    (case (first expr)
+      seq '(or [] ())
+      list ()
+      vec []
+      map {}
+      (first expr))
+    expr))
 
 (defn quant-replacements [vs expr]
   (case (first expr)
@@ -206,34 +224,48 @@ of generators, not variadic"
     + (concat (map #(reduce conj % (concat (rest expr) (rest expr))) vs)
               (map #(reduce conj % (rest expr)) vs))
     ? (concat (map #(reduce conj % (rest expr)) vs)
-              vs)
-    (map #(conj % (replace-quantifiers expr)) vs)))
+               vs)
+    (map #(conj % expr) vs)))
 
-;; SEM FIXME -- should be recursive in replacing sub-exprs
+(defn vseq [xs]
+  (if (empty? xs)
+    ;; preserve the empty coll
+    xs
+    (seq xs)))
+
+(defn patch-up-singleton [exprs]
+  ;; SEM FIXME -- we know it can only occur in the last element so we don't have to map
+  ;; across all of them
+  (map convert-empty exprs))
+
 (defn quantifier-replacements [seqex]
-  (map seq
+  (patch-up-singleton
+  (map vseq
        (reduce (fn [vs expr]
-                   (cond (or (symbol? expr) (h/literal? expr)) (map #(conj % expr) vs)
+                   (cond (or (symbol? expr) (h/literal? expr)
+                             (and (seq? expr) (hc/first= expr 'quote))) (map #(conj % expr) vs)
                          (seq? expr) (quant-replacements vs expr)
                          :else (throw (ex-info "Unexpected element in seqex" {:seqex seqex}))))
                (list [])
-               seqex)))
+               seqex))))
 
 ;; expr is canonical
-(defn replace-quantifiers [expr]
+(defn step-replace-quantifiers [expr]
   (cond (or (symbol? expr) (h/literal? expr)) expr
-        (quantified-within-map? expr) (cons 'keys (map dequantify (rest expr)))
+        (quantified-within-functional-map? expr) (cons 'kvs (map dequantify (rest expr)))
         (quantified-within-seq? expr) (cons 'or (quantifier-replacements expr))
-        (quantified? expr) (if (== (count expr) 2)
-                             (recur (second expr))
-                             (throw (ex-info "Unsupported quantified schema" {:schema
-                                                                              expr})))
-        (seq? expr) (map replace-quantifiers expr)
         :else expr))
-    
+
+(defn replace-all-quantifiers [expr]
+  (if (quantified? expr) 
+    (if (== (count expr) 2)
+      (recur (second expr))
+      (throw (ex-info "Unsupported quantified schema at top level" {:schema expr})))
+    (w/postwalk step-replace-quantifiers expr)))
+
 (defn generator [schema]
   (let [canonical (hc/rewrite schema)
-        dequantified (replace-quantifiers canonical)]
+        dequantified (replace-all-quantifiers canonical)]
     (mk-gen dequantified nil)))
 
 (defn sample [schema]
@@ -242,6 +274,9 @@ of generators, not variadic"
 (comment
 (hg/sample '{kw* int*})
 
+
 ;NullPointerException   simple-check.generators/gen-bind/fn--621 (generators.clj:155)
+
+(defn rep [expr] (hg/replace-all-quantifiers (hc/rewrite expr)))
 )
 
