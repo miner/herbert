@@ -3,6 +3,7 @@
             [miner.herbert.canonical :as hc]
             ;; [simple-check.core :as sc]
             ;; [simple-check.properties :as prop]
+            [clojure.math.combinatorics :as mc]
             [clojure.walk :as w]
             [simple-check.generators :as gen]))
 
@@ -107,15 +108,34 @@ of generators, not variadic"
   ([expr] (if (and (seq? expr) (h/case-of? (first expr) * + ?)) (second expr) expr))
   ([quant expr] (if (and (seq? expr) (= (first expr) quant)) (second expr) expr)))
 
+
+(defn opt-pair? [[k v]]
+  (hc/first= k '?))
+
+(defn mk-opt-pair-seq [opts]
+  ;; opts are [(* [(? kw) any])]
+  ;; need to gen with opt or not in a flat seq [(* kw any)]
+  ;; basically a combo of all ordered subsets
+  (map #(apply concat %) (mc/subsets (map (fn [[quant val]] [(dequantify quant) val]) opts))))
+
+(defn mk-hash-map [schemas extensions]
+  (let [pairs (partition 2 schemas)
+        opts (filter opt-pair? pairs)
+        reqs (remove opt-pair? pairs)]
+    (gen/one-of
+     (map (fn [qopts]
+            (gen/fmap #(apply hash-map %) 
+                      (apply gen/tuple (map mk-gen (concat qopts (mapcat identity reqs))))))
+          (mk-opt-pair-seq opts)))))
+
 (defn mk-map [schemas extensions]
   (condp == (count schemas)
     0 (gen/return {})
     2 (if (quantified-many? (first schemas))
         (mk-kvs (= (ffirst schemas) *) (dequantify (first schemas)) 
                 (dequantify (second schemas)) extensions)
-        (gen/fmap #(apply hash-map %) 
-                  (gen/tuple (mk-gen (first schemas)) (mk-gen (second schemas)))))
-    (gen/fmap #(apply hash-map %) (apply gen/tuple (map mk-gen schemas)))))
+        (mk-hash-map schemas extensions))
+    (mk-hash-map schemas extensions)))
 
 (defn mk-seq [schemas extensions]
   (gen-tuple-seq (map #(mk-gen % extensions) schemas)))
