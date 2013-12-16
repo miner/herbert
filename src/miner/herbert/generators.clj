@@ -88,10 +88,16 @@ of generators, not variadic"
 (defn- third [lst]
   (first (nnext lst)))
 
-(defn mk-kvs [key-schema val-schema extensions]
+(defn- fourth [lst]
+  (first (next (nnext lst))))
+
+(defn mk-kvs [allow-empty? key-schema val-schema extensions]
   (let [kgen (if key-schema (mk-gen key-schema extensions) gen/any-printable)
-        vgen (if val-schema (mk-gen val-schema extensions) gen/any-printable)]
-    (gen/map kgen vgen)))
+        vgen (if val-schema (mk-gen val-schema extensions) gen/any-printable)
+        kvgen (gen/map kgen vgen)]
+    (if allow-empty?
+      kvgen
+      (gen/such-that not-empty kvgen))))
 
 ;; assumes only canonical
 (defn quantified-many? [expr]
@@ -101,28 +107,12 @@ of generators, not variadic"
   ([expr] (if (and (seq? expr) (h/case-of? (first expr) * + ?)) (second expr) expr))
   ([quant expr] (if (and (seq? expr) (= (first expr) quant)) (second expr) expr)))
 
-
-;; UNFINISHED  -- question whether quantifier canonical form can have multiple elements like
-;; (* x y) or must use (* (& x y))
-
-#_
-(defn mk-quantified-map [key-schema val-schema extensions]
-  ;; key and val are assumed to be the same quantifier
-  (case (first key-schema)
-    * (gen/one-of (mk-kvs (dequantify key-schema) (dequantify val-schemas) extensions)
-                  (gen/return {}))
-    + (gen/one-of (mk-kvs (dequantify key-schema) (dequantify val-schemas) extensions))
-    ? (gen/one-of                  (gen/return {}))))
-
-
-
-;; SEM BUG -- dequant needs to distinguish * from +
-;; * allows empty, + doesn't
 (defn mk-map [schemas extensions]
   (condp == (count schemas)
     0 (gen/return {})
     2 (if (quantified-many? (first schemas))
-        (mk-kvs (dequantify (first schemas)) (dequantify (second schemas)) extensions)
+        (mk-kvs (= (ffirst schemas) *) (dequantify (first schemas)) 
+                (dequantify (second schemas)) extensions)
         (gen/fmap #(apply hash-map %) 
                   (gen/tuple (mk-gen (first schemas)) (mk-gen (second schemas)))))
     (gen/fmap #(apply hash-map %) (apply gen/tuple (map mk-gen schemas)))))
@@ -157,7 +147,7 @@ of generators, not variadic"
                        (mk-seq (rest schema) extensions)])
       vec (mk-vec (rest schema) extensions)
       list (mk-seq (rest schema) extensions)
-      kvs (mk-kvs (second schema) (third schema) extensions)
+      kvs (mk-kvs (second schema) (third schema) (fourth schema) extensions)
       map (mk-map (rest schema) extensions)
       or (gen/one-of (map mk-gen (rest schema)))
       not (mk-not (second schema) extensions)
@@ -205,7 +195,8 @@ of generators, not variadic"
        (h/case-of? (first expr) seq vec list)
        (some quantified? (rest expr))))
 
-(defn convert-empty [expr]
+;; SEM: are you sure it's not a vector? YES, because vseq already ran
+(defn convert-singleton [expr]
   (if (and (seq? expr) (== (count expr) 1))
     (case (first expr)
       seq '(or [] ())
@@ -236,7 +227,7 @@ of generators, not variadic"
 (defn patch-up-singleton [exprs]
   ;; SEM FIXME -- we know it can only occur in the last element so we don't have to map
   ;; across all of them
-  (map convert-empty exprs))
+  (map convert-singleton exprs))
 
 (defn quantifier-replacements [seqex]
   (patch-up-singleton
@@ -252,7 +243,8 @@ of generators, not variadic"
 ;; expr is canonical
 (defn step-replace-quantifiers [expr]
   (cond (or (symbol? expr) (h/literal? expr)) expr
-        (quantified-within-functional-map? expr) (cons 'kvs (map dequantify (rest expr)))
+        (quantified-within-functional-map? expr) 
+          (list* 'kvs (= (ffirst (rest expr)) *) (map dequantify (rest expr)))
         (quantified-within-seq? expr) (cons 'or (quantifier-replacements expr))
         :else expr))
 
