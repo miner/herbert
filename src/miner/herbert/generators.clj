@@ -280,8 +280,9 @@ of generators, not variadic"
         dequantified (replace-all-quantifiers canonical)]
     (mk-gen dequantified nil)))
 
-(defn sample [schema]
-  (gen/sample (generator schema) 20))
+(defn sample 
+  ([schema] (sample schema 20))
+  ([schema num] (gen/sample (generator schema) num)))
 
 (comment
 (hg/sample '{kw* int*})
