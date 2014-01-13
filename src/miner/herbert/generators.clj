@@ -11,8 +11,6 @@
 
 (def gen-symbol (gen/elements '[foo foo.bar/baz foo/bar]))
 
-(def gen-float (gen/fmap float gen/ratio))
-
 (def gen-even (gen/fmap (fn [n] (if (even? n) n (unchecked-add n 1))) gen/int))
 
 (def gen-odd (gen/fmap (fn [n] (if (odd? n) n (unchecked-subtract n 1))) gen/int))
@@ -25,10 +23,11 @@
 
 (def gen-float (gen/one-of [gen-epsilon
                             (gen/fmap - gen-epsilon)
+                            (gen/fmap float gen/ratio)
                             (gen/elements [Double/MAX_VALUE (- Double/MAX_VALUE)
                                            Double/MIN_VALUE (- Double/MIN_VALUE)
                                            (double Float/MAX_VALUE) (- (double Float/MAX_VALUE))
-                                           (double Float/MIN_VALUE) (- (double Float/MIN_VALUE))
+                                           ;; Float/MIN_VALUE is in gen-epsilon
                                            1.0 -1.0])]))
 
 ;; EDN doesn't have ratios or bignums
