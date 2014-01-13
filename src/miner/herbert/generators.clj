@@ -50,6 +50,7 @@ of generators, not variadic"
     (gen/return ())
     (gen/fmap seq (apply gen/tuple generators))))
 
+(def gen-error (gen/return '<ERROR>))
 
 (def symbol-gens {'int gen/int 
                   'even gen-even
@@ -65,7 +66,30 @@ of generators, not variadic"
                   'list (gen/list gen/any-printable)
                   'seq gen-seq
                   'map (gen/hash-map :a gen/any-printable :b gen/any-printable)
+                  'any gen/any-printable
+                  'and gen/any-printable  ;; degenerate AND
+                  'or gen-error  ;; degenerate OR
+                  'not gen-error ;; degenerat NOT
                   })
+
+;; sufficient complements for testing, not logically complete
+(def symbol-complements '{even odd
+                          odd even
+                          float int
+                          int float
+                          vec (or list sym kw int)
+                          seq (or sym kw int)
+                          map (or vec kw sym int)
+                          sym (or vec kw int)
+                          or any
+                          str (or kw int sym)
+                          kw (or int sym vec)
+                          any or
+                          char (or str int sym)
+                          bool (or str kw int sym)
+                          and or
+                          num (or str sym kw)
+                          list (or vec sym kw int)})
 
 (defn mk-int 
   ([] gen/int)
@@ -83,7 +107,8 @@ of generators, not variadic"
 
 
 (defn mk-symbol-gen [schema extensions]
-  (or (get extensions schema) (get symbol-gens schema)))
+  (or (get extensions schema) (get symbol-gens schema)
+      (throw (ex-info "Unknown schema" {:schema schema}))))
 
 (defn- third [lst]
   (first (nnext lst)))
@@ -146,14 +171,61 @@ of generators, not variadic"
 ;; make hierachies of schema types and start with most specific
 ;; beware of expensive such-that with unlikely success, it will try forever
 (defn mk-and [schemas extensions]
-  (throw (ex-info "Unimplemented mk-and" {:schema schemas})))
+  (condp = (count schemas)
+    0 (mk-gen 'any)
+    1 (mk-gen (first schemas))
+    (let [literals (filter h/literal? schemas)]
+      (if (seq literals)
+        (if (and (apply = literals)
+                 (h/conforms? (cons 'and (remove #{(first literals)} schemas)) (first literals)))
+          (mk-gen (first literals))
+          (throw (ex-info "mk-and given inconsistent literals" {:schema (cons 'and schemas)})))
+        (let [symbols (filter symbol? schemas)]
+          (if (seq symbols) 
+            (gen/such-that (h/conform (cons 'and (remove #{(first symbols)} schemas)))
+                           (mk-gen (first symbols)))
+            (throw (ex-info "Unimplemented mk-and" {:schema (cons 'and schemas)}))))))))
+
+
+                  'vec (gen/vector gen/any-printable)
+                  'list (gen/list gen/any-printable)
+                  'seq gen-seq
+                  'map (gen/hash-map :a gen/any-printable :b gen/any-printable)
+
+
+(defn mk-type-of-literal [lit]
+  (cond (string? lit) (mk-gen 'str)
+        (integer? lit) (mk-gen 'int)
+        (float? lit) (mk-gen 'float)
+        (keyword? lit) (mk-gen 'kw)
+        (symbol? lit) (mk-gen 'sym)
+        (vector? lit) (mk-gen 'vec)
+        (list? lit) (mk-gen 'list)
+        (seq? lit) (mk-gen 'seq)
+        (char? lit) (mk-gen 'char)
+        (true? lit) (mk-gen 'bool)
+        (false? lit) (mk-gen 'bool)
+        (map? lit) (mk-gen 'map)
+        (set? lit) (mk-gen 'set)
+        (nil? lit) (mk-gen nil)
+          :else (throw (ex-info "Unimplemented mk-type-of-literal" {:schema lit}))))
+
+
+;; sufficient complements for testing, not logically complete
+    
+#_ (defn complementable? [schema]
+  (symbol? schema))
+
+#_ (defn complemental-schema [schema]
+  (get symbol-complements schema))
+
 
 ;; look for literals, invert by taking type and such-that
 ;; break down hierarchies and have map of inversions, or closed-world types
 (defn mk-not [schema extensions]
-  (throw (ex-info "Unimplemented mk-not" {:schema schema})))
-
-
+  (cond (h/literal? schema) (gen/such-that #(not= schema %) (mk-type-of-literal schema))
+        (symbol? schema) (mk-gen (get symbol-complements schema))
+        :else   (throw (ex-info "Unimplemented mk-not" {:schema schema}))))
 
 (defn mk-list-gen [schema extensions]
   (let [sym (first schema)]

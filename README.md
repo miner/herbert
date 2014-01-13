@@ -293,7 +293,10 @@ a hack:
 * Clojure: http://clojure.org
 * Square Peg parser:  https://github.com/ericnormand/squarepeg
 * tagged:  https://github.com/miner/tagged
-* "The Way to EDN" lightning talk at Clojure/Conj 2013, slides: https://github.com/miner/way-to-edn
+* "The Way to Eden" lightning talk at Clojure/Conj 2013 
+    * slides:  https://github.com/miner/way-to-edn
+    * video:  http://www.youtube.com/watch?v=bmHTFo2Rf2w&t=19m55s
+
 
 ## Related Projects
 If Herbert isn't exactly what you're looking for, here are some other projects that take
