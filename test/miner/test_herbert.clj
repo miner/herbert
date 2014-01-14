@@ -295,7 +295,7 @@
   (and (string? s)
        (= s (clojure.string/reverse s))))
 
-(deftest grammar []
+(deftest grammar
   (is (conforms? '(grammar {:a over3 :b long}
                           over3 (pred miner.test-herbert/over3?)
                           long int)
