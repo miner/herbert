@@ -52,6 +52,28 @@ Quick example:
 ;=> true
 ```
 
+## Simple-Check integration
+
+The `property` function takes a predicate and a schema as arguments and returns a
+Simple-Check property suitable for generative testing.
+
+```clojure
+(require '[miner.herbert.generators :as hg])
+(require '[simple-check.core :as sc])
+
+;; trivial example
+(sc/quick-check 100 (property integer? 'int))
+
+(sc/quick-check 100 (fn [m] (and (integer? (:int m)) (string? (:str m)))) 
+  '{:int int :str str :kw kw})
+  
+(sc/quick-check 100 (fn [m] (== (get-in m [:v 2 :int]) 42))
+  '{:v (vec any any {:int 42} any) :str str})
+
+  
+  
+```
+
 ## Notation for Schema Patterns
 
 * Literal constants match themselves: <BR>
