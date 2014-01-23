@@ -27,7 +27,6 @@
     (prop/for-all [v (gen/vector gen/int)]
                   (is (vint? v)))))
 
-#_ (def gsymbol-slow (gen/fmap symbol gen/string-ascii))
 (def gsymbol (gen/elements '[foo.bar/baz foo bar/foo]))
 
 (defspec herbert-nested 100
