@@ -44,6 +44,12 @@
                '{:int int :str str :kw kw}))
 
 
+(defspec confirm-nested-types 100
+  (hg/property (fn [m] (and (== (get-in m [:v 2 :int]) 42)
+                            (string? (:str m))))
+               '{:v (vec kw kw {:int 42} kw) :str str}))
+
+
 (comment
 ;; some properties that should fail
 (def my-bad-prop (hg/property (fn [[a b]] (> a b)) '[int int]))

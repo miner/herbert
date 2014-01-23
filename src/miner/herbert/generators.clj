@@ -282,13 +282,8 @@ of generators, not variadic"
   (and (seq? expr)
        (= (first expr) 'map)
        (== (count expr) 3)
+       (seq? (second expr))
        (h/case-of? (first (second expr)) * +)))
-
-;; SEM not used
-(defn quantified-within-hash-map? [expr]
-  (and (seq? expr)
-       (= (first expr) 'map)
-       (some #(h/case-of? (first %) * +) (rest expr))))
 
 (defn quantified-within-seq? [expr]
   (and (seq? expr)
