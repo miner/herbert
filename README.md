@@ -55,7 +55,10 @@ Quick example:
 ## Simple-Check integration
 
 The `property` function takes a predicate and a schema as arguments and returns a
-Simple-Check property suitable for generative testing.
+[Simple-Check][sc] property suitable for generative testing.  (Simple-Check also has a `defspec`
+macro for use with *clojure.test*.)
+
+[sc]: https://github.com/reiddraper/simple-check "simple-check"
 
 ```clojure
 (require '[miner.herbert.generators :as hg])
@@ -64,14 +67,18 @@ Simple-Check property suitable for generative testing.
 ;; trivial example
 (sc/quick-check 100 (property integer? 'int))
 
+;; confirm the types of the values
 (sc/quick-check 100 (fn [m] (and (integer? (:int m)) (string? (:str m)))) 
   '{:int int :str str :kw kw})
-  
-(sc/quick-check 100 (fn [m] (== (get-in m [:v 2 :int]) 42))
-  '{:v (vec any any {:int 42} any) :str str})
 
-  
-  
+;; only care about the 42 in the right place
+(sc/quick-check 100 (fn [m] (== (get-in m [:v 2 :int]) 42))
+  '{:v (vec kw kw {:int 42} kw) :str str})
+
+;; generate samples from a schema
+(hg/sample '[int*])
+;=> (() [-1 0] () (9223372036854775807) [9223372036854775807] [] () () [0 -5] [9223372036854775807] (7 9223372036854775807) [] (12 -11) (-9223372036854775808) [-12 9223372036854775807] [-10 9223372036854775807] (-11) [2] (-11) [-7])
+
 ```
 
 ## Notation for Schema Patterns
@@ -315,6 +322,7 @@ a hack:
 * Clojure: http://clojure.org
 * Square Peg parser:  https://github.com/ericnormand/squarepeg
 * tagged:  https://github.com/miner/tagged
+* simple-check:  https://github.com/reiddraper/simple-check
 * "The Way to Eden" lightning talk at Clojure/Conj 2013 
     * slides:  https://github.com/miner/way-to-edn
     * video:  http://www.youtube.com/watch?v=bmHTFo2Rf2w&t=19m55s

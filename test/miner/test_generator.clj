@@ -47,7 +47,7 @@
 (defspec confirm-nested-types 100
   (hg/property (fn [m] (and (== (get-in m [:v 2 :int]) 42)
                             (string? (:str m))))
-               '{:v (vec any any {:int 42} any) :str str}))
+               '{:v (vec kw sym {:int 42} float) :str str}))
 
 
 (comment
