@@ -359,16 +359,6 @@ of generators, not variadic"
   ([schema] (sample schema 20))
   ([schema num] (gen/sample (generator schema) num)))
 
-(comment
-(hg/sample '{kw* int*})
-
-
-;NullPointerException   simple-check.generators/gen-bind/fn--621 (generators.clj:155)
-
-(defn rep [expr] (hg/replace-all-quantifiers (hc/rewrite expr)))
-)
-
-
 (defn gen-prop [pred generator]
   (prop/for-all* [generator] pred))
 
