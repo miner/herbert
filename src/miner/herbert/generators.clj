@@ -1,37 +1,45 @@
 (ns miner.herbert.generators
   (:require [miner.herbert :as h]
             [miner.herbert.canonical :as hc]
-            ;; [simple-check.core :as sc]
-            ;; [simple-check.properties :as prop]
+            [simple-check.core :as sc]
+            [simple-check.properties :as prop]
             [clojure.math.combinatorics :as mc]
             [clojure.walk :as w]
             [simple-check.generators :as gen]))
 
 (declare mk-gen)
 
-(def gen-symbol (gen/elements '[foo foo.bar/baz foo/bar]))
+(defn gen-one-of [& gens]
+  (gen/one-of gens))
 
-(def gen-even (gen/fmap (fn [n] (if (even? n) n (unchecked-add n 1))) gen/int))
+;; I wanted to make sure that we get a few extreme values for int (Java long)
+(def gen-int (gen/frequency [[10 gen/int] 
+                             [1 (gen/return Long/MIN_VALUE)] 
+                             [1 (gen/return Long/MAX_VALUE)]]))
 
-(def gen-odd (gen/fmap (fn [n] (if (odd? n) n (unchecked-subtract n 1))) gen/int))
+(def gen-symbol (gen/elements '[foo foo.bar/baz foo/bar foo-bar foo.bar/foo-bar x G__42]))
 
-(def gen-seq (gen/one-of [(gen/list gen/any-printable) (gen/vector gen/any-printable)]))
+(def gen-even (gen/fmap (fn [n] (if (even? n) n (unchecked-add n (if (neg? n) 1 -1)))) gen-int))
+
+(def gen-odd (gen/fmap (fn [n] (if (odd? n) n (unchecked-add n (if (neg? n) 1 -1)))) gen-int))
+
+(def gen-seq (gen-one-of (gen/list gen/any-printable) (gen/vector gen/any-printable)))
 
 ;; Herbert float is Java double
 
 (def gen-epsilon (gen/elements [0.0 (double Float/MIN_VALUE) 1.1E-10 1.5E-5]))
 
-(def gen-float (gen/one-of [gen-epsilon
+(def gen-float (gen-one-of gen-epsilon
                             (gen/fmap - gen-epsilon)
                             (gen/fmap float gen/ratio)
                             (gen/elements [Double/MAX_VALUE (- Double/MAX_VALUE)
                                            Double/MIN_VALUE (- Double/MIN_VALUE)
                                            (double Float/MAX_VALUE) (- (double Float/MAX_VALUE))
                                            ;; Float/MIN_VALUE is in gen-epsilon
-                                           1.0 -1.0])]))
+                                           1.0 -1.0])))
 
 ;; EDN doesn't have ratios or bignums
-(def gen-num (gen/one-of [gen/int gen-float]))
+(def gen-num (gen-one-of gen-int gen-float))
 
 (defn gen-tuple-seq
   "Like simple-check.generators/tuple but returns a seq, not a vector and takes a collection
@@ -52,7 +60,7 @@ of generators, not variadic"
 
 (def gen-error (gen/return '<ERROR>))
 
-(def symbol-gens {'int gen/int 
+(def symbol-gens {'int gen-int 
                   'even gen-even
                   'odd gen-odd
                   'float gen-float
@@ -91,18 +99,19 @@ of generators, not variadic"
                           num (or str sym kw)
                           list (or vec sym kw int)})
 
+;; int is a Java long
+;; a bit of extra bias for the extreme values helps test edge cases
 (defn mk-int 
-  ([] gen/int)
-  ([hi] (gen/choose 0 hi))
-  ([lo hi] (gen/choose lo hi)))
+  ([] gen-int)
+  ([hi] (gen-one-of (gen/choose 0 hi) (gen/return 0) (gen/return hi)))
+  ([lo hi] (gen-one-of (gen/choose lo hi) (gen/return lo) (gen/return hi))))
 
 ;; Herbert float is Java double
 (defn mk-float
   ([] gen-float)
-  ([hi] (gen/one-of [gen-epsilon
-                    (gen/fmap #(- hi %) gen-epsilon)]))
-  ([lo hi] (gen/one-of [(gen/fmap #(+ lo %) gen-epsilon)
-                        (gen/fmap #(- hi %) gen-epsilon)])))
+  ([hi] (gen-one-of gen-epsilon (gen/fmap #(- hi %) gen-epsilon)))
+  ([lo hi] (gen-one-of (gen/fmap #(+ lo %) gen-epsilon)
+                       (gen/fmap #(- hi %) gen-epsilon))))
 
 
 
@@ -363,4 +372,18 @@ of generators, not variadic"
 
 (defn rep [expr] (hg/replace-all-quantifiers (hc/rewrite expr)))
 )
+
+
+(defn gen-prop [pred generator]
+  (prop/for-all* [generator] pred))
+
+(defn property 
+  ([pred schema] (prop/for-all* [(generator schema)] pred))
+  ([pred schema1 schema2] (prop/for-all* [(generator schema1) (generator schema2)] pred))
+  ([pred schema1 schema2 & more] 
+     (prop/for-all* (list* (generator schema1) (generator schema2) (map generator more)) pred)))
+
+(defn check
+  ([pred schema] (check 100 pred schema))
+  ([trials pred schema] (sc/quick-check trials (property pred schema))))
 
