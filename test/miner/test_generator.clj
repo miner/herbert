@@ -1,10 +1,10 @@
 (ns miner.test-generator
   (:use miner.herbert clojure.test)
   (:require [miner.herbert.generators :as hg]
-            [simple-check.core :as sc]
-            [simple-check.generators :as gen]
-            [simple-check.properties :as prop]
-            [simple-check.clojure-test :as ct :refer (defspec)] ))
+            [clojure.test.check :as sc]
+            [clojure.test.check.generators :as gen]
+            [clojure.test.check.properties :as prop]
+            [clojure.test.check.clojure-test :as ct :refer (defspec)] ))
 
 (defn gen-test 
   ([schema] (gen-test schema 100))

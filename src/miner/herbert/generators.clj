@@ -1,11 +1,11 @@
 (ns miner.herbert.generators
   (:require [miner.herbert :as h]
             [miner.herbert.canonical :as hc]
-            [simple-check.core :as sc]
-            [simple-check.properties :as prop]
+            [clojure.test.check :as sc]
+            [clojure.test.check.properties :as prop]
             [clojure.math.combinatorics :as mc]
             [clojure.walk :as w]
-            [simple-check.generators :as gen]))
+            [clojure.test.check.generators :as gen]))
 
 (declare mk-gen)
 

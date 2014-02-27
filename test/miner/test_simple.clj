@@ -1,9 +1,9 @@
 (ns miner.test-simple
   (:use miner.herbert clojure.test)
-  (:require [simple-check.core :as sc]
-            [simple-check.generators :as gen]
-            [simple-check.properties :as prop]
-            [simple-check.clojure-test :as ct :refer (defspec)] ))
+  (:require [clojure.test.check :as sc]
+            [clojure.test.check.generators :as gen]
+            [clojure.test.check.properties :as prop]
+            [clojure.test.check.clojure-test :as ct :refer (defspec)] ))
 
 (def sort-idempotent-prop
   (prop/for-all [v (gen/vector gen/int)]
