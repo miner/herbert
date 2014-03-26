@@ -189,13 +189,6 @@ of generators, not variadic"
                            (mk-gen (first symbols)))
             (throw (ex-info "Unimplemented mk-and" {:schema (cons 'and schemas)}))))))))
 
-
-                  'vec (gen/vector gen/any-printable)
-                  'list (gen/list gen/any-printable)
-                  'seq gen-seq
-                  'map (gen/hash-map :a gen/any-printable :b gen/any-printable)
-
-
 (defn mk-type-of-literal [lit]
   (cond (string? lit) (mk-gen 'str)
         (integer? lit) (mk-gen 'int)
