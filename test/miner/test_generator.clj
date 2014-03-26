@@ -49,6 +49,14 @@
                             (string? (:str m))))
                '{:v (vec kw sym {:int 42} float) :str str}))
 
+(defspec basic-regexs 100
+  (hg/property (fn [s] (re-matches #"f.o" s))
+               '(str "f.o")))
+
+(defspec more-regexs 100
+  (hg/property (fn [s] (re-matches #"f.*o+" s))
+               '(str "f.*o+")))
+
 
 (comment
 ;; some properties that should fail

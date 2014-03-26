@@ -1,6 +1,8 @@
 (ns miner.herbert.generators
   (:require [miner.herbert :as h]
             [miner.herbert.canonical :as hc]
+            [four.stateful :as four]
+            [re-rand :as re]
             [clojure.test.check :as sc]
             [clojure.test.check.properties :as prop]
             [clojure.math.combinatorics :as mc]
@@ -49,14 +51,6 @@ of generators, not variadic"
     (gen/return ())
     (gen/fmap seq (apply gen/tuple generators))))
 
-
-(defn gen-tuple-seq2
-  "Like simple-check.generators/tuple but returns a seq, not a vector and takes a collection
-of generators, not variadic"
-  [generators]
-  (if (empty? generators)
-    (gen/return ())
-    (gen/fmap seq (apply gen/tuple generators))))
 
 (def gen-error (gen/return '<ERROR>))
 
@@ -236,6 +230,27 @@ of generators, not variadic"
         (symbol? schema) (mk-gen (get symbol-complements schema))
         :else   (throw (ex-info "Unimplemented mk-not" {:schema schema}))))
 
+;; maybe useful
+(defn regex? [r]
+ (instance? java.util.regex.Pattern r))
+
+;; from fredericksgary
+(defn gen-regex-with-possible-newlines [regex]
+  {:gen (fn [r _size]
+          (binding [four/*rand* r]
+            (gen/rose-pure (re/re-rand regex))))})
+
+;; SEM FIXME -- temporary hack until we fix re-rand not to generate newlines for "."
+(defn gen-regex [regex]
+  (gen/such-that (fn [s] (not (.contains ^String s "\n"))) (gen-regex-with-possible-newlines regex)))
+
+(defn mk-str [regex extensions]
+  ;; accepts regex or string (for EDN compatibility) or nil for any string (I like ascii)
+  (cond (nil? regex) gen/string-ascii
+        (string? regex) (gen-regex (re-pattern regex))
+        :else (gen-regex regex)))
+
+
 (defn mk-list-gen [schema extensions]
   (let [sym (first schema)]
     (case sym
@@ -252,6 +267,7 @@ of generators, not variadic"
       or (gen/one-of (map mk-gen (rest schema)))
       not (mk-not (second schema) extensions)
       and (mk-and (rest schema) extensions)
+      str (mk-str (second schema) extensions)
       ;; SEM FIXME many more
       )))
 
