@@ -227,15 +227,11 @@ of generators, not variadic"
 (defn regex? [r]
  (instance? java.util.regex.Pattern r))
 
-;; from fredericksgary
-(defn gen-regex-with-possible-newlines [regex]
+;; originally from fredericksgary
+(defn gen-regex [regex]
   {:gen (fn [r _size]
           (binding [four/*rand* r]
             (gen/rose-pure (re/re-rand regex))))})
-
-;; SEM FIXME -- temporary hack until we fix re-rand not to generate newlines for "."
-(defn gen-regex [regex]
-  (gen/such-that (fn [s] (not (.contains ^String s "\n"))) (gen-regex-with-possible-newlines regex)))
 
 (defn mk-str [regex extensions]
   ;; accepts regex or string (for EDN compatibility) or nil for any string (I like ascii)
