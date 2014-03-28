@@ -54,13 +54,16 @@ of generators, not variadic"
 
 (def gen-error (gen/return '<ERROR>))
 
+(def gen-kw (gen/frequency [[4 gen/keyword]
+                            [1 (gen/fmap keyword gen-symbol)]]))
+
 (def symbol-gens {'int gen-int 
                   'even gen-even
                   'odd gen-odd
                   'float gen-float
                   'num gen-num
                   'sym gen-symbol
-                  'kw gen/keyword
+                  'kw gen-kw
                   'bool gen/boolean
                   'char gen/char
                   'str gen/string
@@ -106,7 +109,6 @@ of generators, not variadic"
   ([hi] (gen-one-of gen-epsilon (gen/fmap #(- hi %) gen-epsilon)))
   ([lo hi] (gen-one-of (gen/fmap #(+ lo %) gen-epsilon)
                        (gen/fmap #(- hi %) gen-epsilon))))
-
 
 
 (defn mk-symbol-gen [schema extensions]
@@ -240,6 +242,20 @@ of generators, not variadic"
         :else (gen-regex regex)))
 
 
+
+(defn mk-kw [regex extensions]
+  (let [decolonize (fn [s] (if (.startsWith ^String s ":") (subs s 1) s))
+        kwize (comp keyword decolonize)]
+    (cond (nil? regex) gen-kw
+          (string? regex) (gen/fmap kwize (gen-regex (re-pattern regex)))
+          :else (gen/fmap kwize (gen-regex regex)))))
+
+(defn mk-sym [regex extensions]
+    (cond (nil? regex) gen-symbol
+          (string? regex) (gen/fmap symbol (gen-regex (re-pattern regex)))
+          :else (gen/fmap symbol (gen-regex regex))))
+
+
 (defn mk-list-gen [schema extensions]
   (let [sym (first schema)]
     (case sym
@@ -257,6 +273,8 @@ of generators, not variadic"
       not (mk-not (second schema) extensions)
       and (mk-and (rest schema) extensions)
       str (mk-str (second schema) extensions)
+      kw (mk-kw (second schema) extensions)
+      sym (mk-sym (second schema) extensions)
       ;; SEM FIXME many more
       )))
 

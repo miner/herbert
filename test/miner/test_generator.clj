@@ -57,6 +57,22 @@
   (hg/property (fn [s] (re-matches #"f.*o+" s))
                '(str "f.*o+")))
 
+(defspec basic-kws 100
+  (hg/property (fn [k] (and (keyword? k) (re-matches #":k[a-z]o" (str k))))
+               '(kw ":k[a-z]o")))
+
+(defspec more-kws 100
+  (hg/property (fn [k] (and (keyword? k) (re-matches #":k[a-z]/f\d*o+" (str k))))
+               '(kw #":k[a-z]/f\d*o+")))
+
+(defspec basic-syms 100
+  (hg/property (fn [s] (and (symbol? s) (re-matches #"s[a-z]o" (str s))))
+               '(sym "s[a-z]o")))
+
+(defspec more-syms 100
+  (hg/property (fn [s] (and (symbol? s) (re-matches #"s[a-z]/f\d*o+" (str s))))
+               '(sym #"s[a-z]/f\d*o+")))
+
 
 (comment
 ;; some properties that should fail
