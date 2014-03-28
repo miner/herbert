@@ -23,10 +23,9 @@ represented as **edn** values.
 
 Add the dependency to your project.clj:
 
-    [com.velisco/herbert "0.5.13"]
+    [com.velisco/herbert "a.b.c"]
 
-In case I forget to update the version number here in the README, the latest version is available on
-Clojars.org:
+where "a.b.c" is the version number from Clojars.
 
 [![Herbert on clojars.org][latest]][clojar]
 
@@ -35,8 +34,9 @@ Clojars.org:
 
 ## Usage
 
-The `conforms?` predicate takes a schema pattern and a value to test.  It returns `true` if the
-value conforms to the schema pattern, `false` otherwise.
+The main namespace is `miner.herbert`.  The `conforms?` predicate takes a schema pattern and
+a value to test.  It returns `true` if the value conforms to the schema pattern, `false`
+otherwise.
 
 The `conform` function is used to build a test function.  Given a *schema*, it returns a function of
 one argument that will execute a match against the schema pattern and return a map of bindings if
@@ -52,30 +52,35 @@ Quick example:
 ;=> true
 ```
 
-## Simple-Check integration
+## Test.Check integration
 
 The `property` function takes a predicate and a schema as arguments and returns a
-[Simple-Check][sc] property suitable for generative testing.  (Simple-Check also has a `defspec`
-macro for use with *clojure.test*.)
+[test.check][sc] property suitable for generative testing.  (*test.check* also has a `defspec`
+macro for use with *clojure.test*.)  If you just want the generator for a schema, call
+`generator`.  The `sample` function is similar to test.check version but takes a schema.
 
-[sc]: https://github.com/reiddraper/simple-check "simple-check"
+[sc]: https://github.com/clojure/test.check "test.check"
 
 ```clojure
 (require '[miner.herbert.generators :as hg])
-(require '[simple-check.core :as sc])
+(require '[clojure.test.check :as tc])
 
 ;; trivial example
-(sc/quick-check 100 (property integer? 'int))
+(tc/quick-check 100 (hg/property integer? 'int))
 
 ;; confirm the types of the values
-(sc/quick-check 100 (fn [m] (and (integer? (:int m)) (string? (:str m)))) 
-  '{:int int :str str :kw kw})
+(tc/quick-check 100 (hg/property (fn [m] (and (integer? (:int m)) (string? (:str m)))) 
+	                             '{:int int :str str :kw kw}))
 
 ;; only care about the 42 in the right place
-(sc/quick-check 100 (fn [m] (== (get-in m [:v 2 :int]) 42))
-  '{:v (vec kw kw {:int 42} kw) :str str})
+(tc/quick-check 100 (hg/property (fn [m] (== (get-in m [:v 2 :int]) 42))
+                                '{:v (vec kw kw {:int 42} kw) :str str}))
 
-;; generate samples from a schema
+;; samples from a schema generator
+(clojure.test.check.generators/sample (hg/generator '[int*]))
+;=> (() (9223372036854775807) [9223372036854775807] () [] (1 1) () [-7] (4) [-5])
+
+;; generate samples directly from a schema (notice the "hg" namespace)
 (hg/sample '[int*])
 ;=> (() [-1 0] () (9223372036854775807) [9223372036854775807] [] () () [0 -5] [9223372036854775807] (7 9223372036854775807) [] (12 -11) (-9223372036854775808) [-12 9223372036854775807] [-10 9223372036854775807] (-11) [2] (-11) [-7])
 
