@@ -19,7 +19,7 @@ As with `case`, constants must be compile-time literals, and need not be quoted.
 
 (def reserved-ops '#{+ * ? & = == < > not= >= <= 
                      quote and or not when class pred
-                     vec seq list set map keys mod tag
+                     vec seq list set map mod tag
                      := grammar})
 
 (declare default-predicates)
@@ -329,7 +329,6 @@ Returns the successful result of the last rule or the first to fail."
                (sp/succeed item [item] (rest input) bindings memo))
              (sp/fail (str "Not tagged " tag) memo)))))))
 
-(declare mk-old-keys-style-constraint)
 (declare mk-hash-map-constraint)
 (declare mk-set-constraint)
 (declare schema->extensions)
@@ -366,7 +365,6 @@ Returns the successful result of the last rule or the first to fail."
       vec (mk-subseq-constraint vector? 'vec (rest lexpr) extensions)
       list (mk-subseq-constraint seq? 'list (rest lexpr) extensions)
       map (mk-hash-map-constraint (rest lexpr) extensions)
-      keys (mk-old-keys-style-constraint (second lexpr) (third lexpr) extensions)
       :=  (mk-list-bind (second lexpr) (nnext lexpr) extensions)
       pred (mk-pred-args (second lexpr) (nnext lexpr))
       class (mk-class (second lexpr))
@@ -478,13 +476,8 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   (let [kvpairs (partition 2 kvexprs)]
     (cond (empty? kvpairs) (mkprb map? 'map)
           (and (== (count kvpairs) 1) (many-quantified? (ffirst kvpairs)))
-      (mk-keys-vals-constraint (ffirst kvpairs) (second (first kvpairs)) extensions)
+            (mk-keys-vals-constraint (ffirst kvpairs) (second (first kvpairs)) extensions)
           :else (mkmap (map #(mk-map-entry % extensions) kvpairs)))))
-
-;; `keys` op is deprecated -- use `{key* val*}` notation instead
-(defn mk-old-keys-style-constraint [key-con val-con extensions]
-  (mk-hash-map-constraint (list (list '* (or key-con 'any)) (list '* (or val-con 'any)))
-                          extensions))
 
 (defn set-zom [rule] 
   (fn [s] (every? #(sp/success? (rule (list %) {} {} {})) s)))
