@@ -47,6 +47,7 @@
                                  form (or basic quoted (list basic (* form)))))]
     (is (testfn 'int))
     (is (testfn '(int)))
+    (is (not (testfn '(int Object))))
     (is (testfn '(vec sym (map kw int))))))
 
 
