@@ -37,9 +37,6 @@
     (is (testfn '(int)))
     (is (testfn '(vec sym (map kw int))))))
 
-
-;; SEM can't handle recursive rules
-;; but should throw an error (with useful message) instead of failing silently
 (deftest recursive-form
   (let [testfn (conform '(grammar form
                                  basic (or literal sym map vec set)
@@ -48,8 +45,6 @@
     (is (testfn 'int))
     (is (testfn '(int)))
     (is (testfn '(vec sym (map kw int))))))
-
-
 
 (deftest non-recursive-form
   (let [testfn (conform '(grammar form
