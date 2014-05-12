@@ -130,9 +130,10 @@ macro for use with *clojure.test*.)  If you just want the generator for a schema
 * A named schema expression is written as a list with the first element being the `:=` operator,
   followed by a (non-reserved) symbol as the binding name, and the rest of the list being a schema
   pattern.  The names of predicates and special operators (like **and**, **or**, etc.) are not
-  allowed as binding names.  (As a special case, a binding name of underbar `_` means "don't care"
-  and is ignored.)  The name may be used as a parameter to other schema patterns.<BR>
-`(:= n int 1 10)`
+  allowed as binding names.  The name may be used as a parameter to other schema patterns.
+  Also, the name may be used in the pattern expression to create a recursive pattern.<BR>
+`(:= n int 1 10)` -- matches 1 to 10 (inclusive)<BR>
+`(:= a (or :a [:b a]))` -- matches [:b [:b [:b :a]]]
 
 * A bound symbol matches an element equal to the value that the name was bound to
   previously. <BR>
@@ -234,13 +235,14 @@ macro for use with *clojure.test*.)  If you just want the generator for a schema
   `miner.herbert/default-predicates`. <BR>
 `(pred clojure.string/blank?)` -- matches nil or "" or "  "  
 
-* The `grammar` pattern defines a grammar for more complex schema patterns.  The first argument
-  is the *start-pattern* which is the actual pattern to match.  It is followed by zero or more
-  rules, declared as an inline pair of a symbol, the `term`, and its pattern definition.  A rule can
-  refer to previously defined terms.  The *start-pattern* can refer to any of the terms in the
-  `(schema ...)` form.  If you want to go crazy, you can nest another `grammar` pattern as the
-  definition of a term, but the nested `grammar` expression is in an isolated scope so its rules are
-  not available to the outer scope. <BR> 
+* The `grammar` pattern defines a grammar for more complex schema patterns.  The first
+  argument is the *start-pattern* which is the actual pattern to match.  It is followed by
+  zero or more rules, declared as an inline pair of a symbol, the `term`, and its pattern
+  definition.  A rule can refer to previously defined terms or use its own term symbol in a
+  recursive pattern.  The *start-pattern* can refer to any of the terms in the `(schema ...)`
+  form.  If you want to go crazy, you can nest another `grammar` pattern as the definition
+  of a term, but the nested `grammar` expression is in an isolated scope so its rules are
+  not available to the outer scope. <BR>
 `(grammar [person+] phone (str "\\d{3}+-\\d{3}+-\\d{4}+") person {:name str :phone phone})` --
   matches [{:name "Herbert" :phone "408-555-1212"} {:name "Jenny" :phone "415-867-5309"}]
   
