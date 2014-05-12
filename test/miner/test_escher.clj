@@ -39,21 +39,10 @@
 
 (deftest recursive-form
   (let [testfn (conform '(grammar form
-                                 basic (or literal sym map vec set)
-                                 quoted (list 'quote any)
-                                 form (or basic quoted (list basic (* form)))))]
+                             basic (or sym map vec set)
+                             quoted (list 'quote any)
+                             form (or literal basic quoted (list basic (* form)))))]
     (is (testfn 'int))
     (is (testfn '(int)))
-    (is (testfn '(vec sym (map kw int))))))
-
-(deftest non-recursive-form
-  (let [testfn (conform '(grammar form
-                                 basic (or literal sym map vec set list)
-                                 quoted (list 'quote any)
-                                 simple (or basic quoted)
-                                 listed (list basic simple*)
-                                 complex (list basic (* (or simple listed)))
-                                 form (or simple listed complex)))]
-    (is (testfn 'int))
-    (is (testfn '(int)))
-    (is (testfn '(vec sym (map kw int))))))
+    (is (not (testfn '(42))))
+    (is (testfn '(vec sym (map kw int) (int 42))))))
