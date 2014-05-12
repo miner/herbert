@@ -20,7 +20,7 @@ As with `case`, constants must be compile-time literals, and need not be quoted.
 (def reserved-ops '#{+ * ? & = == < > not= >= <= 
                      quote and or not when class pred
                      vec seq list set map mod tag
-                     := grammar})
+                     := grammar recur})
 
 (declare default-predicates)
 ;; default-predicates defined a bit later so it can use some fns
@@ -536,13 +536,15 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   ([expr] (mkconstraint expr {}))
   ([expr extensions]
      #_ (println "mkconstraint " expr)
-     (cond (symbol? expr) (mk-symbol-constraint expr extensions)
+     (cond (= expr 'recur) (:recursive extensions)
+           (symbol? expr) (mk-symbol-constraint expr extensions)
            (and (coll? expr) (empty? expr)) (sp/mklit expr)
            ;; don't use list? -- seq? covers Cons as well
            (seq? expr) (mk-list-constraint expr extensions)
            (vector? expr) (mk-subseq-constraint sequential? 'seq expr extensions)
            (set? expr) (mk-set-constraint expr extensions)
-           (map? expr) (mk-map-literal-constraint expr extensions) 
+           (map? expr) (mk-map-literal-constraint expr extensions)
+           ;; keep optional-key? before literal? test
            (optional-key? expr) (sp/mkopt (sp/mklit (simple-key expr)))
            (literal? expr) (sp/mklit expr)
            :else (throw (ex-info "Unknown constraint form" {:con expr :extensions extensions})))))
@@ -553,7 +555,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 (defn grammar? [schema]
   (and (seq? schema) (= (first schema) 'grammar)))
 
-;; exts is map of {:terms? (keys sym rule)} with provision for future expansion
+;; exts is map of {:terms? {sym* rule*}} with provision for future expansion
 (defn schema->extensions [schema]
   (let [default-exts {:terms {}}]
     (if-not (grammar? schema)
@@ -567,10 +569,34 @@ nil value also succeeds for an optional kw.  Does not consume anything."
     (second schema)
     schema))
 
+(defn recursive? [simple-schema]
+  (if (coll? simple-schema)
+    (some recursive? simple-schema)
+    (= simple-schema 'recur)))
+
+(defn mkrecursive [start exts]
+  (if (recursive? start)
+    (letfn [(cfn [item context bindings memo]
+              (let [mkcon (mkconstraint start (assoc exts :recursive cfn))]
+                (mkcon item context bindings memo)))]
+      cfn)
+    (mkconstraint start exts)))
+
+;; SEM FIXME: how does it work with multiple recursive rules in a grammar.  NEEDS TEST.
+
+(defn WORKS-mkrecursive [start exts]
+  (if (recursive? start)
+    (letfn [(cfn [item context bindings memo]
+              ((mkconstraint start (assoc exts :recursive cfn)) item context bindings memo))]
+      (println "  letfn created" cfn)
+      cfn)
+    (mkconstraint start exts)))
+
 (defn constraint-fn [schema]
   (let [exts (schema->extensions schema)
         start (schema->start schema)
-        cfn (mkconstraint start exts)]
+        ;;sp/mkmemo should be faster, need benchmarks
+        cfn (sp/mkmemo (mkrecursive start exts))]
        (fn ff
          ([item] (ff item {} {} {}))
          ([item context] (ff item context {} {}))

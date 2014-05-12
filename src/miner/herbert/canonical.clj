@@ -75,7 +75,9 @@
         (map? schema) (kmap-rewrite schema)
         (set? schema) (set-rewrite schema)
         (seq? schema) (seq-rewrite schema)
-        :else (list 'unimplemented schema)))
+        ;; strange case of providing a predicate, maybe not a good idea
+        (fn? schema) schema
+        :else (list 'UNIMPLEMENTED schema)))
 
 #_
 (defn vc? [schema val]

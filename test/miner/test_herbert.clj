@@ -309,6 +309,28 @@
                   {:palindrome "ere" :len 3}
                   {:palindrome "racecar" :len 7}])))
 
+(deftest recursive
+  (let [r? (conform '(or :a [:b (+ recur)]))]
+    (is (r? ':a))
+    (is (r? [:b :a]))
+    (is (r? [:b [:b :a :a] :a]))))
+
+(deftest recursive-grammar
+  (let [r? (conform '(grammar [a b]
+                         a (or :a [:av a])
+                         b (or :b [:bv b])) )]
+    (is (r? [:a :b]))
+    (is (r? [[:av :a] :b]))
+    (is (r? [[:av :a] [:bv :b :b]]))
+    (is (r? [[:av [:av :a] :a] [:bv :b [:bv :b :b]]]))))
+
+(deftest recursive-doubly
+  (let [r? (conform '[(:= a (or :a [:av a])) (:= b (or :b [:bv b]))] )]
+    (is (r? [:a :b]))
+    (is (r? [[:av :a] :b]))
+    (is (r? [[:av :a] [:bv :b :b]]))
+    (is (r? [[:av [:av :a] :a] [:bv :b [:bv :b :b]]]))))
+
 
 (deftest quantifed-keys-vals
   (is (conforms? '{kw* int*} {:a 42}))
