@@ -40,14 +40,13 @@
 
 ;; SEM can't handle recursive rules
 ;; but should throw an error (with useful message) instead of failing silently
-#_ (deftest recursive-form
+(deftest recursive-form
   (let [testfn (conform '(grammar form
                                  basic (or literal sym map vec set)
                                  quoted (list 'quote any)
                                  form (or basic quoted (list basic (* form)))))]
     (is (testfn 'int))
     (is (testfn '(int)))
-    (is (not (testfn '(int Object))))
     (is (testfn '(vec sym (map kw int))))))
 
 
