@@ -170,6 +170,7 @@ Returns the successful result of the last rule or the first to fail."
   (get default-predicates tcon))
 
 (declare mkconstraint)
+(declare mkrecursive)
 
 (defn mk-lookup [bname]
   ;; simple name should match item equal to that binding
@@ -202,28 +203,30 @@ Returns the successful result of the last rule or the first to fail."
        (nil? (namespace expr))
        (not (.contains (name expr) ".")))) 
 
+;; maybe a bit overly generic in handling nil name -- could yank guts for better refactoring
 (defn mk-list-bind [name lexpr extensions]
   (assert (or (nil? name) (bind-symbol? name)))
-  (if (empty? (rest lexpr))
-    (let [rule (mkconstraint (first lexpr) extensions)]
-      (if (and name (not= name '_))
+  (let [name (and (not (nil? name)) (not= name '_) name)]
+    (if (empty? (rest lexpr))
+      (let [rule (mkrecursive (first lexpr) extensions name)]
+        (if name
+          (sp/mkbind rule name)
+          rule))
+      (let [[tcon & args] lexpr
+            lch (last-char tcon)
+            sym (simple-sym tcon)
+            ;; SEM FIXME erule ignores extra args
+            erule (ext-rule sym extensions)
+            pred (when-not erule (tcon-pred sym extensions))
+            brule (or erule (mkprb pred sym args))
+            rule (case lch
+                   \+ (sp/mk1om brule)
+                   \* (sp/mkzom brule) 
+                   \? (sp/mkopt brule)
+                   brule)]
+      (if name
         (sp/mkbind rule name)
-        rule))
-    (let [[tcon & args] lexpr
-          lch (last-char tcon)
-          sym (simple-sym tcon)
-          ;; SEM FIXME erule ignores extra args
-          erule (ext-rule sym extensions)
-          pred (when-not erule (tcon-pred sym extensions))
-          brule (or erule (mkprb pred sym args))
-          rule (case lch
-                 \+ (sp/mk1om brule)
-                 \* (sp/mkzom brule) 
-                 \? (sp/mkopt brule)
-                 brule)]
-      (if (and name (not= name '_))
-        (sp/mkbind rule name)
-        rule))))
+        rule)))))
 
 
 (defn mk-con-seq [cs extensions]
@@ -536,8 +539,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   ([expr] (mkconstraint expr {}))
   ([expr extensions]
      #_ (println "mkconstraint " expr)
-     (cond (= expr 'recur) (:recursive extensions)
-           (symbol? expr) (mk-symbol-constraint expr extensions)
+     (cond (symbol? expr) (mk-symbol-constraint expr extensions)
            (and (coll? expr) (empty? expr)) (sp/mklit expr)
            ;; don't use list? -- seq? covers Cons as well
            (seq? expr) (mk-list-constraint expr extensions)
@@ -555,12 +557,21 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 (defn grammar? [schema]
   (and (seq? schema) (= (first schema) 'grammar)))
 
+(defn mkrecursive [start exts rsym]
+  ;; rsym is the symbol used for a recursive rule, in a := binding or grammar rule
+  (if rsym
+    (letfn [(cfn [item context bindings memo]
+              (let [mkcon (mkconstraint start (assoc-in exts [:terms rsym] cfn))]
+                (mkcon item context bindings memo)))]
+      (sp/mkmemo cfn))
+    (sp/mkmemo (mkconstraint start exts))))
+
 ;; exts is map of {:terms? {sym* rule*}} with provision for future expansion
 (defn schema->extensions [schema]
   (let [default-exts {:terms {}}]
     (if-not (grammar? schema)
       default-exts
-      (reduce (fn [es [k v]] (assoc-in es [:terms k] (mkconstraint v es)))
+      (reduce (fn [es [k v]] (assoc-in es [:terms k] (mkrecursive v es k)))
               default-exts
               (partition 2 (nnext schema))))))
 
@@ -569,34 +580,11 @@ nil value also succeeds for an optional kw.  Does not consume anything."
     (second schema)
     schema))
 
-(defn recursive? [simple-schema]
-  (if (coll? simple-schema)
-    (some recursive? simple-schema)
-    (= simple-schema 'recur)))
-
-(defn mkrecursive [start exts]
-  (if (recursive? start)
-    (letfn [(cfn [item context bindings memo]
-              (let [mkcon (mkconstraint start (assoc exts :recursive cfn))]
-                (mkcon item context bindings memo)))]
-      cfn)
-    (mkconstraint start exts)))
-
-;; SEM FIXME: how does it work with multiple recursive rules in a grammar.  NEEDS TEST.
-
-(defn WORKS-mkrecursive [start exts]
-  (if (recursive? start)
-    (letfn [(cfn [item context bindings memo]
-              ((mkconstraint start (assoc exts :recursive cfn)) item context bindings memo))]
-      (println "  letfn created" cfn)
-      cfn)
-    (mkconstraint start exts)))
-
 (defn constraint-fn [schema]
   (let [exts (schema->extensions schema)
         start (schema->start schema)
         ;;sp/mkmemo should be faster, need benchmarks
-        cfn (sp/mkmemo (mkrecursive start exts))]
+        cfn (sp/mkmemo (mkconstraint start exts))]
        (fn ff
          ([item] (ff item {} {} {}))
          ([item context] (ff item context {} {}))

@@ -310,7 +310,7 @@
                   {:palindrome "racecar" :len 7}])))
 
 (deftest recursive
-  (let [r? (conform '(or :a [:b (+ recur)]))]
+  (let [r? (conform '(:= a (or :a [:b (+ a)])))]
     (is (r? ':a))
     (is (r? [:b :a]))
     (is (r? [:b [:b :a :a] :a]))))
@@ -321,15 +321,22 @@
                          b (or :b [:bv b])) )]
     (is (r? [:a :b]))
     (is (r? [[:av :a] :b]))
-    (is (r? [[:av :a] [:bv :b :b]]))
-    (is (r? [[:av [:av :a] :a] [:bv :b [:bv :b :b]]]))))
+    (is (r? [[:av :a] [:bv :b]]))
+    (is (r? [[:av [:av :a]] [:bv [:bv :b]]]))))
 
 (deftest recursive-doubly
   (let [r? (conform '[(:= a (or :a [:av a])) (:= b (or :b [:bv b]))] )]
     (is (r? [:a :b]))
     (is (r? [[:av :a] :b]))
-    (is (r? [[:av :a] [:bv :b :b]]))
-    (is (r? [[:av [:av :a] :a] [:bv :b [:bv :b :b]]]))))
+    (is (r? [[:av :a] [:bv :b]]))
+    (is (r? [[:av [:av :a]] [:bv [:bv :b]]]))))
+
+(deftest recursive-plus
+  (let [r? (conform '[(:= a (or :a [:av a+])) (:= b (or :b [:bv b]))] )]
+    (is (r? [:a :b]))
+    (is (r? [[:av :a :a] :b]))
+    (is (r? [[:av :a [:av :a [:av :a]]] [:bv :b]]))
+    (is (r? [[:av [:av :a :a :a] :a] [:bv [:bv :b]]]))))
 
 
 (deftest quantifed-keys-vals
