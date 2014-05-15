@@ -24,6 +24,8 @@
     {kw+ even+}
     [int {:a sym :b? [int*] :c? {:x? sym :y float}} kw]
     (and int pos (not neg) (not odd) (not zero))
+    ;; good to try different symbols in first place (for such-that)
+    (and pos int (not neg) (not odd) (not zero))
     (and float (not 0.0))
     ))
 

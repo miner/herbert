@@ -7,6 +7,7 @@
             [clojure.test.check.properties :as prop]
             [clojure.math.combinatorics :as mc]
             [clojure.walk :as w]
+            [clojure.test.check.rose-tree :as rose]
             [clojure.test.check.generators :as gen]))
 
 (declare mk-gen)
@@ -38,7 +39,16 @@
                                            Double/MIN_VALUE (- Double/MIN_VALUE)
                                            (double Float/MAX_VALUE) (- (double Float/MAX_VALUE))
                                            ;; Float/MIN_VALUE is in gen-epsilon
-                                           1.0 -1.0])))
+                                           1.0 -1.0 2.0 -2.0])))
+
+(def gen-pos-float (gen/elements [1.0
+                                  2.0
+                                  1.1E-10
+                                  1.5E-5
+                                  Double/MAX_VALUE 
+                                  Double/MIN_VALUE 
+                                  (double Float/MAX_VALUE)
+                                  (double Float/MIN_VALUE)]))
 
 ;; EDN doesn't have ratios or bignums
 (def gen-num (gen-one-of gen-int gen-float))
@@ -60,6 +70,8 @@ of generators, not variadic"
 (def symbol-gens {'int gen-int 
                   'even gen-even
                   'odd gen-odd
+                  'pos (gen-one-of gen/s-pos-int gen-pos-float)
+                  'neg (gen-one-of gen/s-neg-int (gen/fmap - gen-pos-float))
                   'float gen-float
                   'num gen-num
                   'sym gen-symbol
@@ -80,6 +92,8 @@ of generators, not variadic"
 ;; sufficient complements for testing, not logically complete
 (def symbol-complements '{even odd
                           odd even
+                          neg pos
+                          pos neg
                           float int
                           int float
                           vec (or list sym kw int)
@@ -186,9 +200,12 @@ of generators, not variadic"
           (mk-gen (first literals))
           (throw (ex-info "mk-and given inconsistent literals" {:schema (cons 'and schemas)})))
         (let [symbols (filter symbol? schemas)]
-          (if (seq symbols) 
+          (if (seq symbols)
+            ;; SEM FIXME -- need to consider the "best" symbol for the such-that
+            ;; some cases might be subsume others
             (gen/such-that (h/conform (cons 'and (remove #{(first symbols)} schemas)))
-                           (mk-gen (first symbols)))
+                           (mk-gen (first symbols))
+                           100)
             (throw (ex-info "Unimplemented mk-and" {:schema (cons 'and schemas)}))))))))
 
 (defn mk-type-of-literal [lit]
@@ -233,7 +250,7 @@ of generators, not variadic"
 (defn gen-regex [regex]
   {:gen (fn [r _size]
           (binding [four/*rand* r]
-            (gen/rose-pure (re/re-rand regex))))})
+            (rose/pure (re/re-rand regex))))})
 
 (defn mk-str [regex extensions]
   ;; accepts regex or string (for EDN compatibility) or nil for any string (I like ascii)
