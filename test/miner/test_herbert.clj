@@ -1,7 +1,7 @@
 (ns miner.test-herbert
-  (:use clojure.test
-        miner.herbert)
-  (:require miner.herbert.predicates
+  (:require [miner.herbert :refer :all]
+            [clojure.test :refer :all]
+            miner.herbert.predicates
             [miner.tagged :as tag]
             clojure.string))
 

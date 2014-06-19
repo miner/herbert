@@ -1,6 +1,7 @@
 (ns miner.test-generator
-  (:use miner.herbert clojure.test)
-  (:require [miner.herbert.generators :as hg]
+  (:require [miner.herbert :refer :all]
+            [miner.herbert.generators :as hg]
+            [clojure.test :refer :all]
             [clojure.test.check :as sc]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]

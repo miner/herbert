@@ -1,6 +1,6 @@
 (ns miner.test-escher
-  (:use miner.herbert
-        clojure.test))
+  (:require [miner.herbert :refer :all]
+            [clojure.test :refer :all]))
 
 
 (deftest schema-conformation

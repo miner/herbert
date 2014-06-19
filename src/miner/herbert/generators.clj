@@ -92,8 +92,8 @@ of generators, not variadic"
 ;; sufficient complements for testing, not logically complete
 (def symbol-complements '{even odd
                           odd even
-                          neg pos
-                          pos neg
+                          neg (or pos 0 0.0)
+                          pos (or neg 0 0.0)
                           float int
                           int float
                           vec (or list sym kw int)

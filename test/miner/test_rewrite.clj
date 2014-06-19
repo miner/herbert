@@ -1,6 +1,6 @@
 (ns miner.test-rewrite
-  (:use clojure.test)
-  (:require miner.herbert.predicates
+  (:require [clojure.test :refer :all]
+            miner.herbert.predicates
             [miner.herbert :as h :exclude [conforms? conform]]
             [miner.herbert.canonical :as c]
             [miner.tagged :as tag]
