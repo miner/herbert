@@ -329,7 +329,7 @@ a hack:
 * Clojure: http://clojure.org
 * Square Peg parser:  https://github.com/ericnormand/squarepeg
 * tagged:  https://github.com/miner/tagged
-* simple-check:  https://github.com/reiddraper/simple-check
+* test.check: https://github.com/clojure/test.check
 * "The Way to Eden" lightning talk at Clojure/Conj 2013 
     * slides:  https://github.com/miner/way-to-edn
     * video:  http://www.youtube.com/watch?v=bmHTFo2Rf2w&t=19m55s
@@ -343,6 +343,7 @@ different approaches to similar problems:
 * Prismatic Schema:  https://github.com/prismatic/schema
 * Strucjure: https://github.com/jamii/strucjure
 * Sequence Expressions (seqex): https://github.com/jclaggett/seqex
+* Regexp for Sequences (seqexp): https://github.com/cgrand/seqexp
 
 ## Star Trek: _The Way to Eden_  
 
