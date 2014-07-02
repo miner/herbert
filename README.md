@@ -150,10 +150,10 @@ macro for use with *clojure.test*.)  If you just want the generator for a schema
   map. <BR>
 `{:a int :b sym :c? [int*]}`  -- matches {:a 10 :b foo :c [1 2 3]} and {:a 1 :b bar}
 
-* The literal map in {curly braces} may also use quantified patterns which are required to
-  match all keys and all vals in the map.  This kind of pattern is useful for matching "functional"
-  maps. <BR>
-`{kw* int*}`  -- matches {:a 10 :b 20}, but not {:a 1 :b bar}
+* The literal map in {curly braces} may also contains a single pair of patterns with a
+  non-literal key pattern.  All keys and and values are required to match in the map value.
+  This kind of pattern is useful for matching "functional" maps. <BR> 
+`{kw int}` -- matches {:a 10 :b 20}, but not {:a 1 :b "bar"}
 
 * A literal #{set} with multiple schema patterns denotes the required elements, but does
   not exclude others.  A single element might match multiple patterns.  A set with a quantified

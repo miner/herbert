@@ -255,11 +255,11 @@
                       {:a 11 :b {:bb 10}}))))
 
 (deftest solo-constraints-for-equality
-  (is (conforms? '(& {:a (:= a int) :b {:bb (a)}}) {:a 10 :b {:bb 10}}))
-  (is (conforms? '(& {:a (:= a int) :b {:bb a}}) {:a 10 :b {:bb 10}}))
-  (is (conforms? '(& {:a (:= a int) :b {:bb [a+]}}) {:a 10 :b {:bb [10 10 10]}}))
-  (is (not (conforms? '(& {:a (:= a int) :b {:bb [a+]}}) {:a 10 :b {:bb 10}})))
-  (is (not (conforms? '(& {:a (:= a int) :b {:bb a}}) {:a 10 :b {:bb 11}}))))
+  (is (conforms? '{:a (:= a int) :b {:bb (a)}} {:a 10 :b {:bb 10}}))
+  (is (conforms? '{:a (:= a int) :b {:bb a}} {:a 10 :b {:bb 10}}))
+  (is (conforms? '{:a (:= a int) :b {:bb [a+]}} {:a 10 :b {:bb [10 10 10]}}))
+  (is (not (conforms? '{:a (:= a int) :b {:bb [a+]}} {:a 10 :b {:bb 10}})))
+  (is (not (conforms? '{:a (:= a int) :b {:bb a}} {:a 10 :b {:bb 11}}))))
 
 (deftest solo-count
   (is (conforms? '(& {:a (:= a int) :b (:= b sym) :c? (:= c [b+])} (when (= (count c) a))) 
@@ -527,3 +527,47 @@
   (is (conforms? '(seq) []))
   (is (conforms? '(list) ()))
   (is (conforms? '(vec) [])))
+
+
+(deftest disallowed-keys
+  (are [schema val] (not (conforms? schema val))
+       ;; note: not
+       '{:a int :b str} {:a 10}
+       '{:a int :b str} {:b "foo"}
+       '{(* (or :a :b)) (* any)} {:a 10 :b 20 :c 30}
+       '{(or :a :b) int} {:a 10 :b 20 :c 30}))
+
+(deftest single-maps
+  (is (conforms? '[(* {:a int})] [{:a 1}]))
+  (is (conforms? '[(* (map :a int))] [{:a 1}]))
+  (is (conforms? '[(* {:a int})] [{:a 1 :b 2}]))
+  (is (conforms? '[(* (map :a int))] [{:a 1 :b 2}]))
+  (is (not (conforms? '[(* {:a int})] {:a 1})))
+  (is (not (conforms? '[(* (map :a int))] {:a 1})))
+  (is (not (conforms? '[(* {:a int})] {:a 1 :b 2})))
+  (is (not (conforms? '[(* (map :a int))] {:a 1 :b 2}))))
+
+(deftest many-quantified-maps
+  (is (conforms? '{kw int} {:a 1 :b 2}))
+  (is (conforms? '{kw* int*} {:a 1 :b 2}))
+  (is (conforms? '{(* kw) (* int)} {:a 1 :b 2}))
+  (is (conforms? '(map kw int) {:a 1 :b 2}))
+  (is (conforms? '(map kw* int*) {:a 1 :b 2}))
+  (is (conforms? '(map (* kw) (* int)) {:a 1 :b 2}))
+  (is (not (conforms? '{kw int} {:a 1 :b 2 :c :xxx})))
+  (is (not (conforms? '{kw* int*} {:a 1 'xxx 2})))
+  (is (not (conforms? '{(* kw) (* int)} {:a 1 :b "foo"})))
+  (is (not (conforms? '(map kw int) [:a 1 :b 2])))
+  (is (not (conforms? '(map kw* int*) [{:a 1 :b 2}])))
+  (is (not (conforms? '(map (* kw) (* int)) {:a :b})))
+  (is (conforms? '{int* kw*} {1 :a 2 :b}))
+  (is (conforms? '{(int* 10) kw*} {1 :a 2 :b}))
+  (is (conforms? '{(int 10) kw} {1 :a 2 :b}))
+  (is (not (conforms? '{(int* 10) kw*} {11 :a 2 :b})))
+  (is (conforms? '(map int* kw*) {1 :a 2 :b}))
+  (is (conforms? '(map (int* 10) kw*) {1 :a 2 :b}))
+  (is (not (conforms? '(map (int 10) kw) {11 :a 2 :b})))
+  (is (not (conforms? '(map (int* 10) kw*) {11 :a 2 :b}))))
+
+
+

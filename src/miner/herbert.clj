@@ -95,7 +95,8 @@ As with `case`, constants must be compile-time literals, and need not be quoted.
 
 (defn many-quantified? [expr]
   (cond (symbol? expr) (case-of? (symbol-quantifier expr) * +)
-        (seq? expr) (case-of? (first expr) * +)
+        (seq? expr) (or (case-of? (first expr) * +)
+                        (case-of? (symbol-quantifier (first expr)) * +))
         :else false))
 
 (def literal? miner.herbert.predicates/literal?)
@@ -469,18 +470,32 @@ nil value also succeeds for an optional kw.  Does not consume anything."
                     (sp/success? (krule (keys m) {} {} {}))
                     (sp/success? (vrule (vals m) {} {} {})))))))
 
+(defn as-many-quantified [expr]
+  (if (many-quantified? expr)
+    expr
+    (list '* expr)))
+
 (defn mk-map-literal-constraint [mexpr extensions]
-  (cond (empty? mexpr) (sp/mklit {})
-        (and (== (count mexpr) 1) (many-quantified? (key (first mexpr))))
-          (mk-keys-vals-constraint (key (first mexpr)) (val (first mexpr)) extensions)
-        :else (mkmap (map #(mk-map-entry % extensions) mexpr))))
+  (if (empty? mexpr)
+    (sp/mklit {})
+    (let [kvs (seq mexpr)
+          single (nil? (next kvs))]
+      (if (and single (not (literal? (key (first kvs)))))
+        (mk-keys-vals-constraint (as-many-quantified (key (first kvs)))
+                                 (as-many-quantified (val (first kvs)))
+                                 extensions)
+        (mkmap (map #(mk-map-entry % extensions) kvs))))))
 
 (defn mk-hash-map-constraint [kvexprs extensions]
-  (let [kvpairs (partition 2 kvexprs)]
-    (cond (empty? kvpairs) (mkprb map? 'map)
-          (and (== (count kvpairs) 1) (many-quantified? (ffirst kvpairs)))
-            (mk-keys-vals-constraint (ffirst kvpairs) (second (first kvpairs)) extensions)
-          :else (mkmap (map #(mk-map-entry % extensions) kvpairs)))))
+  (if (empty? kvexprs)
+    (mkprb map? 'map)
+    (let [kvs (partition 2 kvexprs)
+          single (nil? (next kvs))]
+      (if (and single (not (literal? (first kvexprs))))
+        (mk-keys-vals-constraint (as-many-quantified (first kvexprs))
+                                 (as-many-quantified (second kvexprs))
+                                 extensions)
+        (mkmap (map #(mk-map-entry % extensions) kvs))))))
 
 (defn set-zom [rule] 
   (fn [s] (every? #(sp/success? (rule (list %) {} {} {})) s)))
