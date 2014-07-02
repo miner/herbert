@@ -3,6 +3,12 @@
 
 (declare rewrite)
 
+(defn many-quantified [expr]
+  ;; expr is already canonical
+  (if (and (seq? expr) (case-of? (first expr) * +))
+    expr
+    (list '* expr)))
+
 (defn sym-rewrite [sym]
   (let [quant (symbol-quantifier sym)]
     (if quant
@@ -20,7 +26,17 @@
   (cons 'map (interleave
               (map key-rewrite (keys mp))
               (map rewrite (vals mp)))))
-  
+
+(defn hash-map-rewrite [mp]
+  ;; empty map should have been checked before
+  (let [kvs (seq mp)
+        single (and kvs (nil? (next kvs)))]
+    (if (and single (not (literal-or-quoted? (key (first kvs)))))
+      (list 'map
+            (many-quantified (rewrite (key (first kvs))))
+            (many-quantified (rewrite (val (first kvs)))))
+      (kmap-rewrite mp))))
+
 (defn vec-rewrite [v]
   (cons 'seq (map rewrite v)))
 
@@ -72,7 +88,7 @@
         (literal? schema) schema
         (symbol? schema) (sym-rewrite schema)
         (vector? schema) (vec-rewrite schema)
-        (map? schema) (kmap-rewrite schema)
+        (map? schema) (hash-map-rewrite schema)
         (set? schema) (set-rewrite schema)
         (seq? schema) (seq-rewrite schema)
         ;; strange case of providing a predicate, maybe not a good idea

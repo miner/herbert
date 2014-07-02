@@ -549,7 +549,9 @@
 
 (deftest many-quantified-maps
   (is (conforms? '{kw int} {:a 1 :b 2}))
+  (is (conforms? '{kw int} {}))
   (is (conforms? '{kw* int*} {:a 1 :b 2}))
+  (is (conforms? '{kw* int*} {}))
   (is (conforms? '{(* kw) (* int)} {:a 1 :b 2}))
   (is (conforms? '(map kw int) {:a 1 :b 2}))
   (is (conforms? '(map kw* int*) {:a 1 :b 2}))
@@ -560,6 +562,8 @@
   (is (not (conforms? '(map kw int) [:a 1 :b 2])))
   (is (not (conforms? '(map kw* int*) [{:a 1 :b 2}])))
   (is (not (conforms? '(map (* kw) (* int)) {:a :b})))
+  (is (not (conforms? '{kw+ int+} {})))
+  (is (not (conforms? '(map kw+ int+) {})))
   (is (conforms? '{int* kw*} {1 :a 2 :b}))
   (is (conforms? '{(int* 10) kw*} {1 :a 2 :b}))
   (is (conforms? '{(int 10) kw} {1 :a 2 :b}))

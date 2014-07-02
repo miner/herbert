@@ -12,7 +12,7 @@
   ([schema num]
      (let [confn (conform schema)]
        (doseq [v (hg/sample schema num)]
-         (is (confn v))))))
+         (is (confn v) (str "Schema: " schema))))))
 
 (def test-schemas
   '(int
@@ -23,6 +23,8 @@
     {:a [int*] :b? [sym*] :c? kw}
     {kw* odd*}
     {kw+ even+}
+    {kw odd}
+    {int sym}
     [int {:a sym :b? [int*] :c? {:x? sym :y float}} kw]
     (and int pos (not neg) (not odd) (not zero))
     ;; good to try different symbols in first place (for such-that)

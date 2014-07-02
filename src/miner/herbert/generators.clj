@@ -82,7 +82,7 @@ of generators, not variadic"
                   'vec (gen/vector gen/any-printable)
                   'list (gen/list gen/any-printable)
                   'seq gen-seq
-                  'map (gen/hash-map :a gen/any-printable :b gen/any-printable)
+                  'map (gen/map gen/keyword gen/any-printable)
                   'any gen/any-printable
                   'and gen/any-printable  ;; degenerate AND
                   'or gen-error  ;; degenerate OR
@@ -161,7 +161,7 @@ of generators, not variadic"
   ;; basically a combo of all ordered subsets
   (map #(apply concat %) (mc/subsets (map (fn [[quant val]] [(dequantify quant) val]) opts))))
 
-(defn mk-hash-map [schemas extensions]
+(defn mk-literal-hash-map [schemas extensions]
   (let [pairs (partition 2 schemas)
         opts (filter opt-pair? pairs)
         reqs (remove opt-pair? pairs)]
@@ -174,11 +174,11 @@ of generators, not variadic"
 (defn mk-map [schemas extensions]
   (condp == (count schemas)
     0 (gen/return {})
-    2 (if (quantified-many? (first schemas))
-        (mk-kvs (= (ffirst schemas) *) (dequantify (first schemas)) 
-                (dequantify (second schemas)) extensions)
-        (mk-hash-map schemas extensions))
-    (mk-hash-map schemas extensions)))
+    2 (if (h/literal? (first schemas))
+        (mk-literal-hash-map schemas extensions)
+        (mk-kvs (not= (ffirst schemas) +) (dequantify (first schemas))
+                (dequantify (second schemas)) extensions))
+    (mk-literal-hash-map schemas extensions)))
 
 (defn mk-seq [schemas extensions]
   (gen-tuple-seq (map #(mk-gen % extensions) schemas)))
@@ -284,6 +284,7 @@ of generators, not variadic"
                        (mk-seq (rest schema) extensions)])
       vec (mk-vec (rest schema) extensions)
       list (mk-seq (rest schema) extensions)
+      ;; kvs is used internally within the generators
       kvs (mk-kvs (second schema) (third schema) (fourth schema) extensions)
       map (mk-map (rest schema) extensions)
       or (gen/one-of (map mk-gen (rest schema)))
@@ -300,7 +301,7 @@ of generators, not variadic"
   ([schema extensions]
        (cond (symbol? schema) (mk-symbol-gen schema extensions)
              (h/literal? schema) (gen/return schema)
-             (and (sequential? schema) (empty? schema)) (gen/return schema)
+             (and (coll? schema) (empty? schema)) (gen/return schema)
              (seq? schema) (mk-list-gen schema extensions)
              :else (throw (ex-info "Unhandled schema" {:schema schema})))))
 
@@ -379,7 +380,7 @@ of generators, not variadic"
 (defn step-replace-quantifiers [expr]
   (cond (or (symbol? expr) (h/literal? expr)) expr
         (quantified-within-functional-map? expr) 
-          (list* 'kvs (= (ffirst (rest expr)) *) (map dequantify (rest expr)))
+          (list* 'kvs (not= (ffirst (rest expr)) '+) (map dequantify (rest expr)))
         (quantified-within-seq? expr) (cons 'or (quantifier-replacements expr))
         :else expr))
 

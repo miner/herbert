@@ -101,6 +101,15 @@ As with `case`, constants must be compile-time literals, and need not be quoted.
 
 (def literal? miner.herbert.predicates/literal?)
 
+(defn literal-or-quoted? [expr]
+  (or (literal? expr)
+      (and (seq? expr) (= (first expr) 'quote))))
+
+(defn dequote [expr]
+  (if (and (seq? expr) (= (first expr) 'quote))
+    (second expr)
+    expr))
+  
 ;; loosey-goosey get or just yourself, sort of an ersatz lexical binding
 ;; This is necessary to allow `step`, `iter` and `indexed` to work with fn names (see as-fn)
 (defn lookup [sym bindings]
@@ -480,7 +489,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
     (sp/mklit {})
     (let [kvs (seq mexpr)
           single (nil? (next kvs))]
-      (if (and single (not (literal? (key (first kvs)))))
+      (if (and single (not (literal-or-quoted? (key (first kvs)))))
         (mk-keys-vals-constraint (as-many-quantified (key (first kvs)))
                                  (as-many-quantified (val (first kvs)))
                                  extensions)
@@ -491,7 +500,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
     (mkprb map? 'map)
     (let [kvs (partition 2 kvexprs)
           single (nil? (next kvs))]
-      (if (and single (not (literal? (first kvexprs))))
+      (if (and single (not (literal-or-quoted? (first kvexprs))))
         (mk-keys-vals-constraint (as-many-quantified (first kvexprs))
                                  (as-many-quantified (second kvexprs))
                                  extensions)
@@ -536,14 +545,14 @@ nil value also succeeds for an optional kw.  Does not consume anything."
 
 (defn mk-set-element [con extensions]
   (cond (symbol? con) (mk-set-sym con extensions)
-        (seq? con) (mk-set-list con extensions)
-        (literal? con) (throw (ex-info "Literals should be handled separately" 
+        (literal-or-quoted? con) (throw (ex-info "Literals should be handled separately" 
                                        {:con con :extensions extensions}))
+        (seq? con) (mk-set-list con extensions)
         :else (throw (ex-info "I didn't think of that" {:con con :extensions extensions}))))
 
 (defn mk-set-constraint [sexpr extensions]
-  (let [nonlits (remove literal? sexpr)
-        litset (if (seq nonlits) (set (filter literal? sexpr)) sexpr)]
+  (let [nonlits (remove literal-or-quoted? sexpr)
+        litset (map dequote (if (seq nonlits) (set (filter literal-or-quoted? sexpr)) sexpr))]
     (apply mkand 
            (mkprb set? sexpr)
            (mkprb #(set/subset? litset %) sexpr) 
