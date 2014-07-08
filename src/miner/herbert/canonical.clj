@@ -64,13 +64,15 @@
 (defn set-rewrite [st]
   (cons 'set (map rewrite st)))
 
+;; checks to see if the type of a found value is one returned by Prismatic Schema
 (defn prismatic? [input]
   (or (= input (Class/forName "java.lang.String"))
       (= input (Class/forName "java.lang.Boolean"))
       (= input (Class/forName "java.lang.Number"))
       (= (str (type input)) "class schema.core.Predicate")))
 
-(defn fudge [input]
+;; Rewrite schema elements in the expected format, unfortunately handled as Strings here as in Prismatic Schema/Int and Schema/Keyword do not return a useful type to check for.
+(defn prismatic-rewrite [input]
   (condp = (print-str input)
     "java.lang.String" 'str
     "java.lang.Boolean" 'bool
@@ -84,7 +86,7 @@
   (cond (and (coll? schema) (empty? schema)) schema
         (keyword? schema) (key-rewrite schema)
         (literal? schema) schema
-        (prismatic? schema) (fudge schema) ;get prismatic schema elements to conform
+        (prismatic? schema) (prismatic-rewrite schema) ;get prismatic schema elements to match the expected types
         (symbol? schema) (sym-rewrite schema)
         (vector? schema) (vec-rewrite schema)
         (map? schema) (kmap-rewrite schema)
