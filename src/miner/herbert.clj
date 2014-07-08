@@ -93,10 +93,10 @@ As with `case`, constants must be compile-time literals, and need not be quoted.
 (defn quantified-sym? [sym]
   (not= sym (simple-sym sym)))
 
-(defn many-quantified? [expr]
-  (cond (symbol? expr) (case-of? (symbol-quantifier expr) * +)
-        (seq? expr) (or (case-of? (first expr) * +)
-                        (case-of? (symbol-quantifier (first expr)) * +))
+(defn quantified? [expr]
+  (cond (symbol? expr) (case-of? (symbol-quantifier expr) * + ?)
+        (seq? expr) (or (case-of? (first expr) * + ?)
+                        (case-of? (symbol-quantifier (first expr)) * + ?))
         :else false))
 
 (def literal? miner.herbert.predicates/literal?)
@@ -433,18 +433,19 @@ Returns the successful result of the last rule or the first to fail."
   "Takes kw and rule for associated val.  If kw is found, val must match rule.  As a special case, a
 nil value also succeeds for an optional kw.  Does not consume anything."
   [kw rule]
-    (fn [input bindings context memo]
-      (if (nil? (seq input))
-        (sp/fail "End of input" memo)
-        (let [m (first input)]
-          (if (and (map? m) (get m kw))
-            ;; used get above instead of contains? because "optional" interpretation
-            ;; treats nil value like having no kw, turns out to be convenient
-            (let [r (rule (list (get m kw)) bindings context memo)]
-              (if (sp/failure? r)
-                r
-                (sp/succeed nil [] input (:b r) (:m r))))
-            (sp/succeed nil [] input bindings memo))))))
+  ;; (assert (keyword? kw)) -- might be other keys
+  (fn [input bindings context memo]
+    (if (nil? (seq input))
+      (sp/fail "End of input" memo)
+      (let [m (first input)]
+        (if (and (map? m) (get m kw))
+          ;; used get above instead of contains? because "optional" interpretation
+          ;; treats nil value like having no kw, turns out to be convenient
+          (let [r (rule (list (get m kw)) bindings context memo)]
+            (if (sp/failure? r)
+              r
+              (sp/succeed nil [] input (:b r) (:m r))))
+          (sp/succeed nil [] input bindings memo))))))
 
 ;; helper for making an exception
 (defn- bad-key-exception [k c] 
@@ -479,8 +480,8 @@ nil value also succeeds for an optional kw.  Does not consume anything."
                     (sp/success? (krule (keys m) {} {} {}))
                     (sp/success? (vrule (vals m) {} {} {})))))))
 
-(defn as-many-quantified [expr]
-  (if (many-quantified? expr)
+(defn as-quantified [expr]
+  (if (quantified? expr)
     expr
     (list '* expr)))
 
@@ -490,8 +491,8 @@ nil value also succeeds for an optional kw.  Does not consume anything."
     (let [kvs (seq mexpr)
           single (nil? (next kvs))]
       (if (and single (not (literal-or-quoted? (key (first kvs)))))
-        (mk-keys-vals-constraint (as-many-quantified (key (first kvs)))
-                                 (as-many-quantified (val (first kvs)))
+        (mk-keys-vals-constraint (as-quantified (key (first kvs)))
+                                 (as-quantified (val (first kvs)))
                                  extensions)
         (mkmap (map #(mk-map-entry % extensions) kvs))))))
 
@@ -501,8 +502,8 @@ nil value also succeeds for an optional kw.  Does not consume anything."
     (let [kvs (partition 2 kvexprs)
           single (nil? (next kvs))]
       (if (and single (not (literal-or-quoted? (first kvexprs))))
-        (mk-keys-vals-constraint (as-many-quantified (first kvexprs))
-                                 (as-many-quantified (second kvexprs))
+        (mk-keys-vals-constraint (as-quantified (first kvexprs))
+                                 (as-quantified (second kvexprs))
                                  extensions)
         (mkmap (map #(mk-map-entry % extensions) kvs))))))
 
