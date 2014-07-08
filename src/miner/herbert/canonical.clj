@@ -64,12 +64,27 @@
 (defn set-rewrite [st]
   (cons 'set (map rewrite st)))
 
+(defn prismatic? [input]
+  (or (= input (Class/forName "java.lang.String"))
+      (= input (Class/forName "java.lang.Boolean"))
+      (= input (Class/forName "java.lang.Number"))
+      (= (str (type input)) "class schema.core.Predicate")))
+
+(defn fudge [input]
+  (condp = (print-str input)
+    "java.lang.String" 'str
+    "java.lang.Boolean" 'bool
+    "java.lang.Number" 'num
+    "Int" 'int
+    "Keyword" 'kw))
+
 
 ;; SEM FIXME -- should use clojure.walk/postwalk
 (defn rewrite [schema]
   (cond (and (coll? schema) (empty? schema)) schema
         (keyword? schema) (key-rewrite schema)
         (literal? schema) schema
+        (prismatic? schema) (fudge schema) ;get prismatic schema elements to conform
         (symbol? schema) (sym-rewrite schema)
         (vector? schema) (vec-rewrite schema)
         (map? schema) (kmap-rewrite schema)
