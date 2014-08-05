@@ -6,8 +6,8 @@
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [com.velisco/tagged "0.3.4"]
                  [com.velicso/re-rand "0.1.2"]
-                 [org.clojure/math.combinatorics "0.0.7"]
-                 [org.clojure/test.check "0.5.8"]
+                 [org.clojure/math.combinatorics "0.0.8"]
+                 [org.clojure/test.check "0.5.9"]
                  [squarepeg "0.6.1"]] )
 
   
