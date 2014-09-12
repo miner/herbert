@@ -10,6 +10,27 @@
             [clojure.test.check.rose-tree :as rose]
             [clojure.test.check.generators :as gen]))
 
+
+;;; SEM messed up but maybe salvageable
+(defmacro gen-let1 [arg gen gexpr]
+  `(gen/bind ~gen (fn [~arg] (let [~arg (gen/return ~arg)] ~gexpr))))
+
+(defmacro gen-let [gbindings gexpr]
+  (assert (even? (count gbindings)))
+  (if (seq gbindings)
+    `(gen-let1 ~(first gbindings) ~(second gbindings) (gen-let [~@(nnext gbindings)] ~gexpr))
+    `~gexpr))
+
+(defmacro with-generators [gbindings gexpr]
+  (assert (even? (count gbindings)))
+  (if (seq gbindings)
+    `(gen-let1 ~(first gbindings) ~(second gbindings) (gen-let [~@(nnext gbindings)] ~gexpr))
+    `~gexpr))
+
+;; maybe intern a helper to make it work
+   
+
+
 (declare mk-gen)
 
 (defn gen-one-of [& gens]
@@ -20,7 +41,7 @@
                              [1 (gen/return Long/MIN_VALUE)] 
                              [1 (gen/return Long/MAX_VALUE)]]))
 
-(def gen-symbol (gen/elements '[foo foo.bar/baz foo/bar foo-bar foo.bar/foo-bar x G__42]))
+(def gen-symbol (gen-one-of gen/symbol gen/symbol-ns))
 
 (def gen-even (gen/fmap (fn [n] (if (even? n) n (unchecked-add n (if (neg? n) 1 -1)))) gen-int))
 
@@ -65,6 +86,7 @@ of generators, not variadic"
 (def gen-error (gen/return '<ERROR>))
 
 (def gen-kw (gen/frequency [[4 gen/keyword]
+                            [1 gen/keyword-ns]
                             [1 (gen/fmap keyword gen-symbol)]]))
 
 (def symbol-gens {'int gen-int 
@@ -273,6 +295,19 @@ of generators, not variadic"
           :else (gen/fmap symbol (gen-regex regex))))
 
 
+;;(defn mk-assignment [schema extensions]
+
+;; SEM still struggling with getting the parameter name translated for the assignment
+;; need a context object or a big macro to fake it.
+
+;; SEM BUG NOT IMPLEMENTED
+(defn lookup [name]
+  (println "lookup Not implemented for generators.clj")
+  name)
+
+(defn mk-return [name extensions]
+  (gen/return (lookup name)))
+
 (defn mk-list-gen [schema extensions]
   (let [sym (first schema)]
     (case sym
@@ -294,6 +329,7 @@ of generators, not variadic"
       kw (mk-kw (second schema) extensions)
       sym (mk-sym (second schema) extensions)
       ;; SEM FIXME many more
+      := (mk-return (second schema) extensions)
       )))
 
 (defn mk-gen 
@@ -311,7 +347,6 @@ of generators, not variadic"
 
 ;; SEM FIXME -- none of this is properly tested
 ;; Did the replacement of quantifiers, but not yet the expansion of OR terms
-
 
 (declare replace-quantifiers)
 
@@ -391,9 +426,83 @@ of generators, not variadic"
       (throw (ex-info "Unsupported quantified schema at top level" {:schema expr})))
     (w/postwalk step-replace-quantifiers expr)))
 
+
+(defn check-assignment [form]
+  (cond (and (seq? form) (= (first form) :=)) form
+        (seq? form) form
+        :else nil))
+
+(defn WORK-swap-when! [results-atom test-fn f]
+  (fn [form]
+    (when (test-fn form)
+      (swap! results-atom f form))
+    form))
+
+(defn swap-when! [results-atom test-fn swap-fn]
+  (fn [form]
+    (if-let [x (test-fn form)]
+      ;; ugly side effect
+      (do (swap! results-atom swap-fn form)
+          x)
+      form)))
+
+(defn step-assignment [form]
+  ;; replaces assignment with just the binding name
+  (when (and (seq? form) (= (first form) :=))
+    (list (second form))))
+
+(defn ATOM-assignments [form]
+  (let [results (atom [])]
+    (dorun (w/postwalk (swap-when! results step-assignment conj) form))
+    @results))
+
+
+;; could be generally useful?
+;; hacked from tree-seq to get post-order
+(defn subforms [root]
+   (let [walk (fn walk [node]
+                (lazy-seq
+                  (if (coll? node)
+                    (concat (mapcat walk (seq node)) (list node))
+                    (list node))))]
+     (walk root)))
+
+;; O(n) but not bad
+(defn mapcatv [f & colls]
+  (reduce into [] (apply map f colls)))
+
+;; inspired by tree-seq
+(defn assignments [root]
+  (let [walk (fn walk [node]
+               (cond (and (seq? node) (= (first node) :=))
+                       (conj (mapcatv walk (seq node)) node)
+                     (coll? node)
+                       (mapcatv walk (seq node))
+                     :else nil))]
+    (walk root)))
+
+;; O(n)
+(defn add-last [xs item]
+  (concat xs (list item)))
+
+(defn GOOD-assignments [root]
+  (let [walk (fn walk [node]
+               (cond (and (seq? node) (= (first node) :=))
+                       (concat (mapcat walk (seq node)) (list node))
+                     (coll? node)
+                       (mapcat walk (seq node))
+                     :else nil))]
+     (walk root)))
+
+
+
+
+
 (defn generator [schema]
   (let [canonical (hc/rewrite schema)
-        dequantified (replace-all-quantifiers canonical)]
+        dequantified (replace-all-quantifiers canonical)
+        ;;bindins (assignments dequantified)
+        ]
     (mk-gen dequantified nil)))
 
 (defn sample 
@@ -412,4 +521,3 @@ of generators, not variadic"
 (defn check
   ([pred schema] (check 100 pred schema))
   ([trials pred schema] (sc/quick-check trials (property pred schema))))
-
