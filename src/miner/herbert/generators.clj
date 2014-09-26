@@ -1,6 +1,7 @@
 (ns miner.herbert.generators
   (:require [miner.herbert :as h]
             [miner.herbert.internal :as internal]
+            [miner.herbert.util :refer :all]
             [miner.herbert.canonical :as hc]
             [four.stateful :as four]
             [re-rand :as re]
@@ -168,10 +169,10 @@ of generators, not variadic"
 
 ;; assumes only canonical
 (defn quantified-many? [expr]
-  (and (seq? expr) (internal/case-of? (first expr) * +)))
+  (and (seq? expr) (case-of? (first expr) * +)))
 
 (defn dequantify 
-  ([expr] (if (and (seq? expr) (internal/case-of? (first expr) * + ?)) (second expr) expr))
+  ([expr] (if (and (seq? expr) (case-of? (first expr) * + ?)) (second expr) expr))
   ([quant expr] (if (and (seq? expr) (= (first expr) quant)) (second expr) expr)))
 
 
@@ -353,18 +354,18 @@ of generators, not variadic"
 
 (defn quantified? [expr]
   (and (seq? expr)
-       (internal/case-of? (first expr) & * + ?)))
+       (case-of? (first expr) & * + ?)))
 
 (defn quantified-within-functional-map? [expr]
   (and (seq? expr)
        (= (first expr) 'map)
        (== (count expr) 3)
        (seq? (second expr))
-       (internal/case-of? (first (second expr)) * +)))
+       (case-of? (first (second expr)) * +)))
 
 (defn quantified-within-seq? [expr]
   (and (seq? expr)
-       (internal/case-of? (first expr) seq vec list)
+       (case-of? (first expr) seq vec list)
        (some quantified? (rest expr))))
 
 ;; SEM: are you sure it's not a vector? YES, because vseq already ran

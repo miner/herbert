@@ -1,5 +1,6 @@
 (ns miner.herbert.canonical
   (:require [miner.herbert :refer :all]
+            [miner.herbert.util :refer :all]
             [miner.herbert.internal :refer :all]))
 
 ;; canonical form eliminates convenience syntax such as the optional keys (:kw?)

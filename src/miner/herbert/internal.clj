@@ -3,17 +3,11 @@
             [clojure.set :as set]
             [miner.tagged :as tag]
             [squarepeg.core :as sp]
+            [miner.herbert.util :refer :all]
             [miner.herbert.predicates])
   (:import miner.tagged.TaggedValue))
 
 
-(defmacro case-of? 
-  "Returns true if `expr` evaluates to any of the `constants`, otherwise false.
-As with `case`, constants must be compile-time literals, and need not be quoted."
-  [expr & constants]
-  `(case ~expr
-     ~constants true
-     false))
 
 (def internal-predicates-ns (the-ns 'miner.herbert.predicates))
 
