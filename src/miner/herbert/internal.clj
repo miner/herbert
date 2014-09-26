@@ -340,9 +340,6 @@ Returns the successful result of the last rule or the first to fail."
 (declare mk-set-constraint)
 (declare schema->extensions)
 
-(defn third [s]
-  (first (nnext s)))
-
 ;; symbols can be used as literals if quoted,
 ;; quote also defeats "optional" :k? so it's a literal,
 ;; also empty collections match themselves literally

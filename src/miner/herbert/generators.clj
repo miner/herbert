@@ -153,12 +153,6 @@ of generators, not variadic"
   (or (get extensions schema) (get symbol-gens schema)
       (throw (ex-info "Unknown schema" {:schema schema}))))
 
-(defn- third [lst]
-  (first (nnext lst)))
-
-(defn- fourth [lst]
-  (first (next (nnext lst))))
-
 (defn mk-kvs [allow-empty? key-schema val-schema extensions]
   (let [kgen (if key-schema (mk-gen key-schema extensions) gen/any-printable)
         vgen (if val-schema (mk-gen val-schema extensions) gen/any-printable)
@@ -174,7 +168,6 @@ of generators, not variadic"
 (defn dequantify 
   ([expr] (if (and (seq? expr) (case-of? (first expr) * + ?)) (second expr) expr))
   ([quant expr] (if (and (seq? expr) (= (first expr) quant)) (second expr) expr)))
-
 
 (defn opt-pair? [[k v]]
   (hc/first= k '?))

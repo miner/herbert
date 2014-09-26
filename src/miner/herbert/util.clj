@@ -7,3 +7,10 @@ As with `case`, constants must be compile-time literals, and need not be quoted.
   `(case ~expr
      ~constants true
      false))
+
+(defn third [s]
+  (first (nnext s)))
+
+(defn fourth [s]
+  (first (next (nnext s))))
+
