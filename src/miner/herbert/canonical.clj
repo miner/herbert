@@ -1,5 +1,14 @@
 (ns miner.herbert.canonical
-  (:require [miner.herbert :refer :all]))
+  (:require [miner.herbert :refer :all]
+            [miner.herbert.internal :refer :all]))
+
+;; canonical form eliminates convenience syntax such as the optional keys (:kw?)
+;; and quantifier suffixes (str? int+ sym*)
+;; :kw? ==> (? :kw)
+;; int+ ==> (+ int)
+
+;; Only empty collections use the literal forms [] () {}.
+;; Everything else is written in the list form.   [1 2] ==> (seq 1 2)
 
 (declare rewrite)
 

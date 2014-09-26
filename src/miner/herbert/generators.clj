@@ -1,11 +1,12 @@
 (ns miner.herbert.generators
   (:require [miner.herbert :as h]
+            [miner.herbert.internal :as internal]
             [miner.herbert.canonical :as hc]
             [four.stateful :as four]
             [re-rand :as re]
             [clojure.test.check :as sc]
             [clojure.test.check.properties :as prop]
-            [clojure.math.combinatorics :as mc]
+            [clojure.math.combinatorics :as mc :exclude [update]]
             [clojure.walk :as w]
             [clojure.test.check.rose-tree :as rose]
             [clojure.test.check.generators :as gen]))
@@ -167,10 +168,10 @@ of generators, not variadic"
 
 ;; assumes only canonical
 (defn quantified-many? [expr]
-  (and (seq? expr) (h/case-of? (first expr) * +)))
+  (and (seq? expr) (internal/case-of? (first expr) * +)))
 
 (defn dequantify 
-  ([expr] (if (and (seq? expr) (h/case-of? (first expr) * + ?)) (second expr) expr))
+  ([expr] (if (and (seq? expr) (internal/case-of? (first expr) * + ?)) (second expr) expr))
   ([quant expr] (if (and (seq? expr) (= (first expr) quant)) (second expr) expr)))
 
 
@@ -196,7 +197,7 @@ of generators, not variadic"
 (defn mk-map [schemas extensions]
   (condp == (count schemas)
     0 (gen/return {})
-    2 (if (h/literal? (first schemas))
+    2 (if (internal/literal? (first schemas))
         (mk-literal-hash-map schemas extensions)
         (mk-kvs (not= (ffirst schemas) +) (dequantify (first schemas))
                 (dequantify (second schemas)) extensions))
@@ -215,7 +216,7 @@ of generators, not variadic"
   (condp = (count schemas)
     0 (mk-gen 'any)
     1 (mk-gen (first schemas))
-    (let [literals (filter h/literal? schemas)]
+    (let [literals (filter internal/literal? schemas)]
       (if (seq literals)
         (if (and (apply = literals)
                  (h/conforms? (cons 'and (remove #{(first literals)} schemas)) (first literals)))
@@ -260,7 +261,7 @@ of generators, not variadic"
 ;; look for literals, invert by taking type and such-that
 ;; break down hierarchies and have map of inversions, or closed-world types
 (defn mk-not [schema extensions]
-  (cond (h/literal? schema) (gen/such-that #(not= schema %) (mk-type-of-literal schema))
+  (cond (internal/literal? schema) (gen/such-that #(not= schema %) (mk-type-of-literal schema))
         (symbol? schema) (mk-gen (get symbol-complements schema))
         :else   (throw (ex-info "Unimplemented mk-not" {:schema schema}))))
 
@@ -336,7 +337,7 @@ of generators, not variadic"
   ([schema] (mk-gen schema nil))
   ([schema extensions]
        (cond (symbol? schema) (mk-symbol-gen schema extensions)
-             (h/literal? schema) (gen/return schema)
+             (internal/literal? schema) (gen/return schema)
              (and (coll? schema) (empty? schema)) (gen/return schema)
              (seq? schema) (mk-list-gen schema extensions)
              :else (throw (ex-info "Unhandled schema" {:schema schema})))))
@@ -352,18 +353,18 @@ of generators, not variadic"
 
 (defn quantified? [expr]
   (and (seq? expr)
-       (h/case-of? (first expr) & * + ?)))
+       (internal/case-of? (first expr) & * + ?)))
 
 (defn quantified-within-functional-map? [expr]
   (and (seq? expr)
        (= (first expr) 'map)
        (== (count expr) 3)
        (seq? (second expr))
-       (h/case-of? (first (second expr)) * +)))
+       (internal/case-of? (first (second expr)) * +)))
 
 (defn quantified-within-seq? [expr]
   (and (seq? expr)
-       (h/case-of? (first expr) seq vec list)
+       (internal/case-of? (first expr) seq vec list)
        (some quantified? (rest expr))))
 
 ;; SEM: are you sure it's not a vector? YES, because vseq already ran
@@ -404,7 +405,7 @@ of generators, not variadic"
   (patch-up-singleton
   (map vseq
        (reduce (fn [vs expr]
-                   (cond (or (symbol? expr) (h/literal? expr)
+                   (cond (or (symbol? expr) (internal/literal? expr)
                              (and (seq? expr) (hc/first= expr 'quote))) (map #(conj % expr) vs)
                          (seq? expr) (quant-replacements vs expr)
                          :else (throw (ex-info "Unexpected element in seqex" {:seqex seqex}))))
@@ -413,7 +414,7 @@ of generators, not variadic"
 
 ;; expr is canonical
 (defn step-replace-quantifiers [expr]
-  (cond (or (symbol? expr) (h/literal? expr)) expr
+  (cond (or (symbol? expr) (internal/literal? expr)) expr
         (quantified-within-functional-map? expr) 
           (list* 'kvs (not= (ffirst (rest expr)) '+) (map dequantify (rest expr)))
         (quantified-within-seq? expr) (cons 'or (quantifier-replacements expr))
