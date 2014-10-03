@@ -3,7 +3,8 @@
             [clojure.set :as set]
             [miner.tagged :as tag]
             [squarepeg.core :as sp]
-            [miner.herbert.internal :as internal :refer :all])
+            [miner.herbert.canonical :as canonical]
+            [miner.herbert.private :as internal :refer :all])
   (:import miner.tagged.TaggedValue))
 
 
@@ -19,7 +20,8 @@
 
 
 (defn constraint-fn [schema]
-  (let [exts (schema->extensions schema)
+  (let [schema (canonical/rewrite schema)
+        exts (schema->extensions schema)
         start (schema->start schema)
         ;;sp/mkmemo should be faster, need benchmarks
         cfn (sp/mkmemo (mkconstraint start exts))]

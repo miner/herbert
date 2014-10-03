@@ -1,7 +1,7 @@
 (ns miner.herbert.canonical
-  (:require [miner.herbert :refer :all]
-            [miner.herbert.util :refer :all]
-            [miner.herbert.internal :refer :all]))
+  (:require [miner.herbert.util :refer :all]
+            [miner.herbert.predicates :as predicates]
+            [miner.herbert.private :as internal]))
 
 ;; canonical form eliminates convenience syntax such as the optional keys (:kw?)
 ;; and quantifier suffixes (str? int+ sym*)
@@ -12,6 +12,59 @@
 ;; Everything else is written in the list form.   [1 2] ==> (seq 1 2)
 
 (declare rewrite)
+
+
+(defn symbol-quantifier [sym]
+  (let [ch (last-char sym)]
+    (case ch
+      \+ '+
+      \* '*
+      \? '?
+      nil)))
+
+;; FIXME could use strip-last, or combine and make work with keywords
+(defn simple-sym [sym]
+  (let [sname (name sym)
+        lch (str-last-char sname)]
+    (case lch
+      (\+ \* \?) (symbol (subs sname 0 (dec (.length sname))))
+      sym)))
+
+(defn strip-last [x]
+  ;; x is symbol or keyword, typically used to strip \?
+  (let [xname (name x)
+        name1 (subs xname 0 (dec (count xname)))
+        ns (namespace x)]
+  (if (keyword? x) 
+    (keyword ns name1)
+    (symbol ns name1))))
+
+(defn optional-key? [kw]
+  (and (keyword? kw)
+       (= (last-char kw) \?)))
+
+(defn simple-key [kw]
+  (if (optional-key? kw)
+    (strip-last kw)
+    kw))
+
+(defn quantified? [expr]
+  (cond (symbol? expr) (case-of? (symbol-quantifier expr) * + ?)
+        (seq? expr) (or (case-of? (first expr) * + ?)
+                        (case-of? (symbol-quantifier (first expr)) * + ?))
+        :else false))
+
+(defn literal-or-quoted? [expr]
+  (or (predicates/literal? expr)
+      (and (seq? expr) (= (first expr) 'quote))))
+
+(defn dequote [expr]
+  (if (and (seq? expr) (= (first expr) 'quote))
+    (second expr)
+    expr))
+
+
+;;; -------------------
 
 (defn many-quantified [expr]
   ;; expr is already canonical
@@ -41,10 +94,19 @@
   ;; empty map should have been checked before
   (let [kvs (seq mp)
         single (and kvs (nil? (next kvs)))]
-    (if (and single (not (literal-or-quoted? (key (first kvs)))))
-      (list 'map
-            (many-quantified (rewrite (key (first kvs))))
-            (many-quantified (rewrite (val (first kvs)))))
+    (if single
+      (cond (literal-or-quoted? (key (first kvs)))
+              (kmap-rewrite mp)
+            (quantified? (key (first kvs)))
+              ;; FIXME: really should insist on the same quantifier!
+              (list 'map
+                    (rewrite (key (first kvs)))
+                    (rewrite (val (first kvs))))
+            :else
+              ;; special case where {kw int} is treated same as {kw* int*}
+              (list 'map
+                    (many-quantified (rewrite (key (first kvs))))
+                    (many-quantified (rewrite (val (first kvs))))))
       (kmap-rewrite mp))))
 
 (defn vec-rewrite [v]
@@ -64,7 +126,8 @@
   (cond (empty? s) s
         (= (count s) 1) (rewrite (first s))
         :else
-        (case (first s)
+          (case (first s)
+            pred s
           quote s
           when s
           grammar (if (= (count s) 2) 
@@ -77,7 +140,7 @@
                (list := (second s) (rewrite (first (nnext s))))
                (list := (second s) (rewrite (nnext s))))
           ;; else
-          (let [op (get reserved-ops (first s))]
+          (let [op (get internal/internal-reserved-ops (first s))]
                  (if op
                    (cons op (map rewrite (rest s)))
                    ;; pred and args
@@ -95,7 +158,7 @@
 (defn rewrite [schema]
   (cond (and (coll? schema) (empty? schema)) schema
         (keyword? schema) (key-rewrite schema)
-        (literal? schema) schema
+        (predicates/literal? schema) schema
         (symbol? schema) (sym-rewrite schema)
         (vector? schema) (vec-rewrite schema)
         (map? schema) (hash-map-rewrite schema)

@@ -1,7 +1,8 @@
 (ns miner.herbert.generators
   (:require [miner.herbert :as h]
-            [miner.herbert.internal :as internal]
+            [miner.herbert.private :as internal]
             [miner.herbert.util :refer :all]
+            [miner.herbert.predicates :as predicates]
             [miner.herbert.canonical :as hc]
             [four.stateful :as four]
             [re-rand :as re]
@@ -191,7 +192,7 @@ of generators, not variadic"
 (defn mk-map [schemas extensions]
   (condp == (count schemas)
     0 (gen/return {})
-    2 (if (internal/literal? (first schemas))
+    2 (if (predicates/literal? (first schemas))
         (mk-literal-hash-map schemas extensions)
         (mk-kvs (not= (ffirst schemas) +) (dequantify (first schemas))
                 (dequantify (second schemas)) extensions))
@@ -210,7 +211,7 @@ of generators, not variadic"
   (condp = (count schemas)
     0 (mk-gen 'any)
     1 (mk-gen (first schemas))
-    (let [literals (filter internal/literal? schemas)]
+    (let [literals (filter predicates/literal? schemas)]
       (if (seq literals)
         (if (and (apply = literals)
                  (h/conforms? (cons 'and (remove #{(first literals)} schemas)) (first literals)))
@@ -255,7 +256,7 @@ of generators, not variadic"
 ;; look for literals, invert by taking type and such-that
 ;; break down hierarchies and have map of inversions, or closed-world types
 (defn mk-not [schema extensions]
-  (cond (internal/literal? schema) (gen/such-that #(not= schema %) (mk-type-of-literal schema))
+  (cond (predicates/literal? schema) (gen/such-that #(not= schema %) (mk-type-of-literal schema))
         (symbol? schema) (mk-gen (get symbol-complements schema))
         :else   (throw (ex-info "Unimplemented mk-not" {:schema schema}))))
 
@@ -331,7 +332,7 @@ of generators, not variadic"
   ([schema] (mk-gen schema nil))
   ([schema extensions]
        (cond (symbol? schema) (mk-symbol-gen schema extensions)
-             (internal/literal? schema) (gen/return schema)
+             (predicates/literal? schema) (gen/return schema)
              (and (coll? schema) (empty? schema)) (gen/return schema)
              (seq? schema) (mk-list-gen schema extensions)
              :else (throw (ex-info "Unhandled schema" {:schema schema})))))
@@ -399,7 +400,7 @@ of generators, not variadic"
   (patch-up-singleton
   (map vseq
        (reduce (fn [vs expr]
-                   (cond (or (symbol? expr) (internal/literal? expr)
+                   (cond (or (symbol? expr) (predicates/literal? expr)
                              (and (seq? expr) (hc/first= expr 'quote))) (map #(conj % expr) vs)
                          (seq? expr) (quant-replacements vs expr)
                          :else (throw (ex-info "Unexpected element in seqex" {:seqex seqex}))))
@@ -408,7 +409,7 @@ of generators, not variadic"
 
 ;; expr is canonical
 (defn step-replace-quantifiers [expr]
-  (cond (or (symbol? expr) (internal/literal? expr)) expr
+  (cond (or (symbol? expr) (predicates/literal? expr)) expr
         (quantified-within-functional-map? expr) 
           (list* 'kvs (not= (ffirst (rest expr)) '+) (map dequantify (rest expr)))
         (quantified-within-seq? expr) (cons 'or (quantifier-replacements expr))

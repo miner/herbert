@@ -3,6 +3,7 @@
    :exclude [float? list? char? empty? map? seq? set? coll? even? odd? pos? neg? zero?])
   (:require [miner.tagged :as tag]))
 
+;; predicates should not depend on other files, except maybe util
 
 (defn- numeric
   ([pred]
