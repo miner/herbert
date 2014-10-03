@@ -17,7 +17,6 @@
                               := grammar recur})
 
 (declare internal-default-predicates)
-;; default-predicates defined a bit later so it can use some fns
 
 (defn reserved-sym? [sym]
   (contains? internal-reserved-ops sym))
