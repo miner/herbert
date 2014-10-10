@@ -32,49 +32,51 @@
     (and float (not 0.0))
     ))
 
+(def trials 100)
+
 (doseq [schema test-schemas]
   ;;(println " testing" schema)
   (gen-test schema))
 
-(defspec kw-key 100
+(defspec kw-key trials
   (hg/property (fn [m] (every? keyword? (keys m))) '{kw* int*}))
 
-(defspec int-vals 100
+(defspec int-vals trials
   (hg/property (fn [m] (every? integer? (vals m))) '{kw+ int+}))
 
-(defspec confirm-val-types 100
+(defspec confirm-val-types trials
   (hg/property (fn [m] (and (integer? (:int m))
                             (string? (:str m))
                             (keyword? (:kw m))))
                '{:int int :str str :kw kw}))
 
 
-(defspec confirm-nested-types 100
+(defspec confirm-nested-types trials
   (hg/property (fn [m] (and (== (get-in m [:v 2 :int]) 42)
                             (string? (:str m))))
                '{:v (vec kw sym {:int 42} float) :str str}))
 
-(defspec basic-regexs 100
+(defspec basic-regexs trials
   (hg/property (fn [s] (re-matches #"f.o" s))
                '(str "f.o")))
 
-(defspec more-regexs 100
+(defspec more-regexs trials
   (hg/property (fn [s] (re-matches #"f.*o+" s))
                '(str "f.*o+")))
 
-(defspec basic-kws 100
+(defspec basic-kws trials
   (hg/property (fn [k] (and (keyword? k) (re-matches #":k[a-z]o" (str k))))
                '(kw ":k[a-z]o")))
 
-(defspec more-kws 100
+(defspec more-kws trials
   (hg/property (fn [k] (and (keyword? k) (re-matches #":k[a-z]/f\d*o+" (str k))))
                '(kw #":k[a-z]/f\d*o+")))
 
-(defspec basic-syms 100
+(defspec basic-syms trials
   (hg/property (fn [s] (and (symbol? s) (re-matches #"s[a-z]o" (str s))))
                '(sym "s[a-z]o")))
 
-(defspec more-syms 100
+(defspec more-syms trials
   (hg/property (fn [s] (and (symbol? s) (re-matches #"s[a-z]/f\d*o+" (str s))))
                '(sym #"s[a-z]/f\d*o+")))
 

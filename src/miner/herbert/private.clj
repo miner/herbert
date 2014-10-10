@@ -482,9 +482,9 @@ nil value also succeeds for an optional kw.  Does not consume anything."
            (and (coll? expr) (empty? expr)) (sp/mklit expr)
            ;; don't use list? -- seq? covers Cons as well
            (seq? expr) (mk-list-constraint expr extensions)
-           (vector? expr) (mk-subseq-constraint sequential? 'seq expr extensions)
-           (set? expr) (mk-set-constraint expr extensions)
-           (map? expr) (mk-map-literal-constraint expr extensions)
+           ;; (vector? expr) (mk-subseq-constraint sequential? 'seq expr extensions)
+           ;; (set? expr) (mk-set-constraint expr extensions)
+           ;; (map? expr) (mk-map-literal-constraint expr extensions)
            ;; keep optional-key? before literal? test
            ;; (optional-key? expr) (sp/mkopt (sp/mklit (simple-key expr)))
            (predicates/literal? expr) (sp/mklit expr)

@@ -198,11 +198,32 @@ of generators, not variadic"
                 (dequantify (second schemas)) extensions))
     (mk-literal-hash-map schemas extensions)))
 
+(defn single-maybe-quantified? [schemas]
+  ;; special case where it makes sense to look for quantifier in single schema
+  (and (== (count schemas) 1)
+       (seq? (first schemas))
+       (== (count (first schemas)) 2)))
+
+;; SEM FIXME -- needs specialized case for single quantified schema
+;; should use the t.c style homogenous generators
+;;   BUG: distinguish + from *, + needs such-that
+;;  BUG: * or + could have multiple items, should use & to be safe
 (defn mk-seq [schemas extensions]
-  (gen-tuple-seq (map #(mk-gen % extensions) schemas)))
+  (if (single-maybe-quantified? schemas)
+    (case (ffirst schemas)
+      *  (gen/fmap seq (gen/vector (mk-gen (second (first schemas)) extensions)))
+      +  (gen/fmap seq (gen/such-that not-empty
+                                      (gen/vector (mk-gen (second (first schemas)) extensions))))
+      (gen/fmap list (mk-gen (first schemas) extensions)))
+    (gen-tuple-seq (map #(mk-gen % extensions) schemas))))
 
 (defn mk-vec [schemas extensions]
-  (apply gen/tuple (map #(mk-gen % extensions) schemas)))
+  (if (single-maybe-quantified? schemas)
+    (case (ffirst schemas)
+      *  (gen/vector (mk-gen (second (first schemas)) extensions))
+      +  (gen/such-that not-empty (gen/vector (mk-gen (second (first schemas)) extensions)))
+      (gen/fmap vector (mk-gen (first schemas) extensions)))
+    (apply gen/tuple (map #(mk-gen % extensions) schemas))))
 
 ;; look for literal and gen from that and test with others
 ;; make hierachies of schema types and start with most specific

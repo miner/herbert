@@ -339,7 +339,7 @@
     (is (r? [[:av [:av :a :a :a] :a] [:bv [:bv :b]]]))))
 
 
-(deftest quantifed-keys-vals
+(deftest quantified-keys-vals
   (is (conforms? '{kw* int*} {:a 42}))
   (is (conforms? '{kw* int*} {}))
   (is (conforms? '{kw+ int+} {:a 42}))
@@ -469,7 +469,7 @@
   (is (not (conforms? [:k?] [42])))
   (is (not (conforms? [:k?] [:a]))))
 
-(deftest singleton-containers
+(deftest singleton-collections
   (is (conforms? '[int] [1]))
   (is (conforms? '(seq int) [1]))
   (is (conforms? '(vec int) [1]))
@@ -478,12 +478,16 @@
   (is (not (conforms? '(seq int) [])))
   (is (not (conforms? '(list int) ())))
   (is (not (conforms? '(vec int) [])))
-  (is (not (conforms? '[int] [1 2])))
-  (is (not (conforms? '(seq int) [1 2])))
-  (is (not (conforms? '(list int) '(1 2))))
-  (is (not (conforms? '(vec int) [1 2]))))
+  (is (conforms? '[int] [1 2]))
+  (is (conforms? '(seq int) [1 2]))
+  (is (conforms? '(list int) '(1 2)))
+  (is (conforms? '(vec int) [1 2]))
+  (is (not (conforms? '[int?] [1 2])))
+  (is (not (conforms? '(seq int?) [1 2])))
+  (is (not (conforms? '(list int?) '(1 2))))
+  (is (not (conforms? '(vec int?) [1 2]))))
 
-(deftest pair-containers
+(deftest pair-collections
   (is (conforms? '[int int] [1 2]))
   (is (conforms? '(seq int int) [1 2]))
   (is (conforms? '(vec int int) [1 2]))
@@ -497,7 +501,7 @@
   (is (not (conforms? '(list int int) '(1 2 3))))
   (is (not (conforms? '(vec int int) [1 2 3]))))
 
-(deftest empty-containers
+(deftest empty-collections
   (is (not (conforms? '[] [1])))
   (is (not (conforms? '() '(1))))
   (is (conforms? '[] []))
@@ -549,7 +553,9 @@
 
 (deftest many-quantified-maps
   (is (conforms? '{kw int} {:a 1 :b 2}))
-  (is (conforms? '{kw int} {}))
+  (is (not (conforms? '{kw int} {})))
+  (is (conforms? '{kw int} {:a 1 :b 2}))
+  (is (conforms? '{kw int} {:a 1}))
   (is (conforms? '{kw? int?} {}))
   (is (conforms? '{kw? int?} {:a 1}))
   (is (not (conforms? '{kw? int?} {:a 1 :b 2})))

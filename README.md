@@ -125,7 +125,7 @@ macro for use with *clojure.test*.)  If you just want the generator for a schema
 `(or (vec int*) (list kw+))`  -- either a vector of ints or a list of one or more keywords
 
 * A quantified schema pattern: a list beginning with __*__, __+__ or __?__ as the first element. <BR>
-`(* kw sym)`  -- zero or more pairs of keywords and symbols
+`(* kw sym)`  -- zero or more cycles of keywords and symbols
 
 * A named schema expression is written as a list with the first element being the `:=` operator,
   followed by a (non-reserved) symbol as the binding name, and the rest of the list being a schema

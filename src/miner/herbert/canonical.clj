@@ -54,6 +54,7 @@
                         (case-of? (symbol-quantifier (first expr)) * + ?))
         :else false))
 
+;; SEM FIXME: probably should be separate predicates
 (defn literal-or-quoted? [expr]
   (or (predicates/literal? expr)
       (and (seq? expr) (= (first expr) 'quote))))
@@ -63,14 +64,21 @@
     (second expr)
     expr))
 
+;; test for single separately
+(defn implied-quantifiable? [expr]
+  (and (not (predicates/literal? expr))
+       (not (and (seq? expr)
+                 (case-of? (first expr) := * + ? & quote)))
+       (not (quantified? expr))))
 
 ;;; -------------------
 
-(defn many-quantified [expr]
+;; SEM FIXME: not used
+(defn oom-quantified [expr]
   ;; expr is already canonical
   (if (and (seq? expr) (case-of? (first expr) * +))
     expr
-    (list '* expr)))
+    (list '+ expr)))
 
 (defn sym-rewrite [sym]
   (let [quant (symbol-quantifier sym)]
@@ -97,25 +105,29 @@
     (if single
       (cond (literal-or-quoted? (key (first kvs)))
               (kmap-rewrite mp)
-            (quantified? (key (first kvs)))
+            (implied-quantifiable? (key (first kvs)))
+              ;; special case where {kw int} is treated same as {kw+ int+}
+              (list 'map
+                    (list '+ (rewrite (key (first kvs))))
+                    (list '+ (rewrite (val (first kvs)))))
+            :else
               ;; FIXME: really should insist on the same quantifier!
               (list 'map
                     (rewrite (key (first kvs)))
-                    (rewrite (val (first kvs))))
-            :else
-              ;; special case where {kw int} is treated same as {kw* int*}
-              (list 'map
-                    (many-quantified (rewrite (key (first kvs))))
-                    (many-quantified (rewrite (val (first kvs))))))
+                    (rewrite (val (first kvs)))))
       (kmap-rewrite mp))))
 
 (defn vec-rewrite [v]
-  (cons 'seq (map rewrite v)))
+  (if (and (== (count v) 1) (implied-quantifiable? (first v)))
+    (list 'seq (list '+ (rewrite (first v))))
+    (cons 'seq (map rewrite v))))
 
 ;; not the best thing to use on known vectors
+;; FIXME: NOT USED
 (defn first= [xs y]
   (and (sequential? xs) (= (first xs) y)))
 
+;; FIXME: NOT USED
 (defn reduce-amp [exprs]
   (seq (reduce (fn [res x] (if (first= x '&) (reduce conj res (next x)) (conj res x)))
                []
@@ -124,34 +136,50 @@
 
 (defn seq-rewrite [s]
   (cond (empty? s) s
-        (= (count s) 1) (rewrite (first s))
+        (== (count s) 1) (rewrite (first s))
         :else
           (case (first s)
             pred s
-          quote s
-          when s
-          grammar (if (= (count s) 2) 
-                    (rewrite (second s)) 
-                    (list* 'grammar (rewrite (second s))
-                           (interleave (take-nth 2 (nnext s))
-                                       (map rewrite (take-nth 2 (next (nnext s)))))))
-          (= == not= < > <= >=) (list 'when s)
-          := (if (== (count s) 3)
-               (list := (second s) (rewrite (first (nnext s))))
-               (list := (second s) (rewrite (nnext s))))
-          ;; else
-          (let [op (get internal/internal-reserved-ops (first s))]
-                 (if op
-                   (cons op (map rewrite (rest s)))
-                   ;; pred and args
-                   (let [pred (first s)
-                         quant (symbol-quantifier pred)]
-                     (if quant
-                       (list quant (cons (simple-sym pred) (rest s)))
-                  (cons (rewrite pred) (rest s)))))))))
+            quote s
+            when s
+            grammar (if (== (count s) 2) 
+                      (rewrite (second s)) 
+                      (list* 'grammar (rewrite (second s))
+                             (interleave (take-nth 2 (nnext s))
+                                         (map rewrite (take-nth 2 (next (nnext s)))))))
+            (= == not= < > <= >=) (list 'when s)
+            := (if (== (count s) 3)
+                 (list := (second s) (rewrite (first (nnext s))))
+                 (list := (second s) (rewrite (nnext s))))
+            ;; else
+            (let [op (get internal/internal-reserved-ops (first s))]
+              (if op
+                (cond (and (= op 'map)
+                           (== (count s) 3)
+                           (implied-quantifiable? (second s)))
+                        ;; implied quantifiable map
+                        (list 'map 
+                              (list '+ (rewrite (second s)))
+                              (list '+ (rewrite (third s))))
+                      (and (case-of? op vec list set seq)
+                           (== (count s) 2)
+                           (implied-quantifiable? (second s)))
+                        ;; implied quantifiable
+                        (list op (list '+ (rewrite (second s))))
+                      :else
+                        (cons op (map rewrite (rest s))))
+                ;; pred and args
+                (let [pred (first s)
+                      quant (symbol-quantifier pred)]
+                  (if quant
+                    (list quant (cons (simple-sym pred) (rest s)))
+                    (cons (rewrite pred) (rest s)))))))))
 
 (defn set-rewrite [st]
-  (cons 'set (map rewrite st)))
+  (if (and (== (count st) 1)
+           (implied-quantifiable? (first st)))
+    (list 'set (list '+ (rewrite (first st))))
+    (cons 'set (map rewrite st))))
 
 
 ;; SEM FIXME -- should use clojure.walk/postwalk
