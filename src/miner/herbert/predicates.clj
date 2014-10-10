@@ -3,6 +3,9 @@
    :exclude [float? list? char? empty? map? seq? set? coll? even? odd? pos? neg? zero?])
   (:require [miner.tagged :as tag]))
 
+;; Notice that we want some common fn vars defined in this ns, not clojure.core.  That
+;; allows us to take all the vars ending in "?" as Herbert predicates.
+
 ;; predicates should not depend on other files, except maybe util
 
 (defn- numeric
@@ -97,4 +100,16 @@
 
 (defn cnt? [n coll]
   (and (or (clojure.core/coll? coll) (string? coll)) (== n (count coll))))
+
+
+;; like contains? with maps and sets, that is checks for key presence.
+;; linear search with other collections (what most people might expect)
+;; notice: for vectors, it is not like contains?
+(defn in? [coll x]
+  (cond (not (clojure.core/coll? coll)) false
+        (or (clojure.core/map? coll) (clojure.core/set? coll)) (contains? coll x)
+        ;; x (some #{x} coll)
+        ;; x could by falsey so the some doesn't always work
+        :else (some #(= % x) coll)))
+
 

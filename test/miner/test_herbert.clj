@@ -588,5 +588,16 @@
   (is (not (conforms? '(map (int 10) kw) {11 :a 2 :b})))
   (is (not (conforms? '(map (int* 10) kw*) {11 :a 2 :b}))))
 
-
-
+(deftest in-operator
+  (is (conforms? '(in #{:a :b :c}) :a))
+  (is (conforms? '(or :a :b :c) :a))    ;; better
+  (is (conforms? '[(:= mmm map) (* (in mmm))] [{:a 1 :b 2 :c 3} :a :b :c :a]))
+  (is (conforms? '[(:= mmm map) (in* mmm)] [{:a 1 :b 2 :c 3} :a :b :c :a :c]))
+  ;; old way with "when"
+  (is (conforms? '[(:= mmm map) (* (:= k kw) (when (contains? mmm k)))]
+                 [{:a 1 :b 2 :c 3} :a :b :c]))
+  (is (conforms? '[(:= vs vec) (* (in vs))] [[:a :b :c] :a :b :c :a]))
+  (is (not (conforms? '[(:= vs vec) (* (in vs))] [[:a :b :c] :a :b :c :a :d])))
+  (is (conforms? '[(:= vs list) (* (in vs))] '[(:a :b :c) :a :b :c :a]))
+  (is (not (conforms? '[(:= vs list) (* (in vs))] '[(:a :b :c) :a :d :c :a]))))
+  
