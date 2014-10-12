@@ -149,9 +149,17 @@ of generators, not variadic"
   ([lo hi] (gen-one-of (gen/fmap #(+ lo %) gen-epsilon)
                        (gen/fmap #(- hi %) gen-epsilon))))
 
+(defn lookup [name extensions]
+  ;;(println "SEM debug lookup" name extensions)
+  (get (:lookup extensions) name name))
+
+(defn mk-return [name extensions]
+  (gen/return (lookup name extensions)))
 
 (defn mk-symbol-gen [schema extensions]
-  (or (get extensions schema) (get symbol-gens schema)
+  (or (get extensions schema)
+      (get symbol-gens schema)
+      (mk-return schema extensions)
       (throw (ex-info "Unknown schema" {:schema schema}))))
 
 (defn mk-kvs [allow-empty? key-schema val-schema extensions]
@@ -185,8 +193,9 @@ of generators, not variadic"
         reqs (remove opt-pair? pairs)]
     (gen/one-of
      (map (fn [qopts]
-            (gen/fmap #(apply hash-map %) 
-                      (apply gen/tuple (map mk-gen (concat qopts (mapcat identity reqs))))))
+            (gen/fmap #(apply hash-map %)
+                      (apply gen/tuple (map #(mk-gen % extensions) 
+                                            (concat qopts (mapcat identity reqs))))))
           (mk-opt-pair-seq opts)))))
 
 (defn mk-map [schemas extensions]
@@ -204,10 +213,6 @@ of generators, not variadic"
        (seq? (first schemas))
        (== (count (first schemas)) 2)))
 
-;; SEM FIXME -- needs specialized case for single quantified schema
-;; should use the t.c style homogenous generators
-;;   BUG: distinguish + from *, + needs such-that
-;;  BUG: * or + could have multiple items, should use & to be safe
 (defn mk-seq [schemas extensions]
   (if (single-maybe-quantified? schemas)
     (case (ffirst schemas)
@@ -231,19 +236,19 @@ of generators, not variadic"
 (defn mk-and [schemas extensions]
   (condp = (count schemas)
     0 (mk-gen 'any)
-    1 (mk-gen (first schemas))
+    1 (mk-gen (first schemas) extensions)
     (let [literals (filter predicates/literal? schemas)]
       (if (seq literals)
         (if (and (apply = literals)
                  (h/conforms? (cons 'and (remove #{(first literals)} schemas)) (first literals)))
-          (mk-gen (first literals))
+          (mk-gen (first literals) extensions)
           (throw (ex-info "mk-and given inconsistent literals" {:schema (cons 'and schemas)})))
         (let [symbols (filter symbol? schemas)]
           (if (seq symbols)
             ;; SEM FIXME -- need to consider the "best" symbol for the such-that
             ;; some cases might be subsume others
             (gen/such-that (h/conform (cons 'and (remove #{(first symbols)} schemas)))
-                           (mk-gen (first symbols))
+                           (mk-gen (first symbols) extensions)
                            100)
             (throw (ex-info "Unimplemented mk-and" {:schema (cons 'and schemas)}))))))))
 
@@ -278,7 +283,7 @@ of generators, not variadic"
 ;; break down hierarchies and have map of inversions, or closed-world types
 (defn mk-not [schema extensions]
   (cond (predicates/literal? schema) (gen/such-that #(not= schema %) (mk-type-of-literal schema))
-        (symbol? schema) (mk-gen (get symbol-complements schema))
+        (symbol? schema) (mk-gen (get symbol-complements schema) extensions)
         :else   (throw (ex-info "Unimplemented mk-not" {:schema schema}))))
 
 ;; maybe useful
@@ -311,19 +316,18 @@ of generators, not variadic"
           (string? regex) (gen/fmap symbol (gen-regex (re-pattern regex)))
           :else (gen/fmap symbol (gen-regex regex))))
 
+(defn mk-in-coll [coll extensions]
+  ;; empty or non-coll could be an error, but we don't throw here
+  (cond (not (coll? coll)) (gen/return coll)
+        (empty? coll) (gen/return ::void)
+        (map? coll) (gen/elements (keys coll))
+        :else (gen/elements (seq coll))))
 
-;;(defn mk-assignment [schema extensions]
+(defn mk-in [c extensions]
+  (if (symbol? c)
+    (mk-in-coll (lookup c extensions) extensions)
+    (mk-in-coll c extensions)))
 
-;; SEM still struggling with getting the parameter name translated for the assignment
-;; need a context object or a big macro to fake it.
-
-;; SEM BUG NOT IMPLEMENTED
-(defn lookup [name]
-  (println "lookup Not implemented for generators.clj")
-  name)
-
-(defn mk-return [name extensions]
-  (gen/return (lookup name)))
 
 (defn mk-list-gen [schema extensions]
   (let [sym (first schema)]
@@ -339,12 +343,13 @@ of generators, not variadic"
       ;; kvs is used internally within the generators
       kvs (mk-kvs (second schema) (third schema) (fourth schema) extensions)
       map (mk-map (rest schema) extensions)
-      or (gen/one-of (map mk-gen (rest schema)))
+      or (gen/one-of (map #(mk-gen % extensions) (rest schema)))
       not (mk-not (second schema) extensions)
       and (mk-and (rest schema) extensions)
       str (mk-str (second schema) extensions)
       kw (mk-kw (second schema) extensions)
       sym (mk-sym (second schema) extensions)
+      in (mk-in (second schema) extensions)
       ;; SEM FIXME many more
       := (mk-return (second schema) extensions)
       )))
@@ -444,6 +449,8 @@ of generators, not variadic"
     (w/postwalk step-replace-quantifiers expr)))
 
 
+
+
 (defn check-assignment [form]
   (cond (and (seq? form) (= (first form) :=)) form
         (seq? form) form
@@ -472,6 +479,8 @@ of generators, not variadic"
   (let [results (atom [])]
     (dorun (w/postwalk (swap-when! results step-assignment conj) form))
     @results))
+
+
 
 
 ;; could be generally useful?
@@ -512,15 +521,27 @@ of generators, not variadic"
      (walk root)))
 
 
-
-
+;; SEM FIXME -- need scope (levels), not just once at the top
+;; SEM FIXME -- need to pass extensions
+(defn binding-gen [bins]
+  (when (seq bins)
+    (let [bnames (map second bins)
+          bexprs (map third bins)]
+      (gen/fmap #(zipmap bnames %)
+                (apply gen/tuple (map mk-gen bexprs))))))
 
 (defn generator [schema]
   (let [canonical (hc/rewrite schema)
         dequantified (replace-all-quantifiers canonical)
-        ;;bindins (assignments dequantified)
+        bindins (assignments dequantified)
+        bgen (binding-gen bindins)
         ]
-    (mk-gen dequantified nil)))
+    ;; (when bgen (println "SEM Debug bgen" bgen))
+    (if bgen
+      (gen/bind bgen
+                (fn [lookup]
+                  (mk-gen dequantified {:lookup lookup})))
+      (mk-gen dequantified))))
 
 (defn sample 
   ([schema] (sample schema 20))
