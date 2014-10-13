@@ -105,8 +105,9 @@
 ;; like contains? with maps and sets, that is checks for key presence.
 ;; linear search with other collections (what most people might expect)
 ;; notice: for vectors, it is not like contains?
+;; For non-collections, it's like = (maybe wrong but possibly convenient)
 (defn in? [coll x]
-  (cond (not (clojure.core/coll? coll)) false
+  (cond (not (clojure.core/coll? coll)) (= coll x)
         (or (clojure.core/map? coll) (clojure.core/set? coll)) (contains? coll x)
         ;; x (some #{x} coll)
         ;; x could by falsey so the some doesn't always work

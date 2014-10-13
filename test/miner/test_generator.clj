@@ -12,7 +12,7 @@
   ([schema num]
      (let [confn (conform schema)]
        (doseq [v (hg/sample schema num)]
-         (is (confn v) (str "Schema: " schema "val: " v))))))
+         (is (confn v) (str "Schema: " schema " val: " v))))))
 
 (def test-schemas
   '(int
@@ -30,6 +30,8 @@
     ;; good to try different symbols in first place (for such-that)
     (and pos int (not neg) (not odd) (not zero))
     (and float (not 0.0))
+    [(:= mmm {kw (int 0 10)}) (+ (in mmm))]
+    [(:= mmm {(kw ":[a-z]") (int 0 10)}) {(in mmm) (int 20 30)}]
     ))
 
 (def trials 100)

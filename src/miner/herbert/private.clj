@@ -40,7 +40,7 @@
 (defn as-quantified [expr]
   (if (quantified? expr)
     expr
-    (list '* expr)))
+    (list '+ expr)))
 
 (defn literal-or-quoted? [expr]
   (or (predicates/literal? expr)
@@ -68,7 +68,7 @@ made in rule do not escape this rule's scope."
   (fn [input bindings context memo]
     (let [r (rule input bindings context memo)]
       (if (sp/success? r)
-        (sp/succeed (:r r) (:s r) (:i r) bindings (:m r))
+        (sp/succeed (:r r) (:s r) (:i r) (merge bindings (:b r)) (:m r))
         r))))
 
 (defn mkprb
@@ -103,7 +103,7 @@ Returns the successful result of the last rule or the first to fail."
        (let [r1 (rule1 input bindings context memo)]
          (if (sp/failure? r1)
            r1
-           (let [r2 (rule2 input (:b r1) context (:m r1))]
+           (let [r2 (rule2 input (merge bindings (:b r1)) context (:m r1))]
              (if (sp/failure? r2)
                r2
                ;; maybe should use not identical?
@@ -183,7 +183,7 @@ Returns the successful result of the last rule or the first to fail."
              (if (sp/success? r)
                ;; try to maintain seq/vector distinction of input, :s value is vector
                (let [res (if (seq? (first input)) (seq (:s r)) (:s r))]
-                 (sp/succeed res [res] (rest input) (:b r) (:m r)))
+                 (sp/succeed res [res] (rest input) (merge bindings (:b r)) (:m r)))
                r))
            (sp/fail "Input not expected sequence type." memo))))))
 
@@ -266,7 +266,7 @@ Returns the successful result of the last rule or the first to fail."
                (let [res (vrule (list ival) bindings context memo)]
                  (if (sp/failure? res)
                    res
-                   (sp/succeed item [item] (rest input) (:b res) memo)))
+                   (sp/succeed item [item] (rest input) (merge bindings (:b res)) memo)))
                (sp/succeed item [item] (rest input) bindings memo))
              (sp/fail (str "Not tagged " tag) memo)))))))
 
@@ -325,7 +325,7 @@ Returns the successful result of the last rule or the first to fail."
                                       false
                                       (let [res (rule (list m) mb context memo)]
                                         (if (sp/success? res)
-                                          (:b res)
+                                          (merge mb (:b res))
                                           (reduced false)))))
                                   bindings
                                   rules)]
@@ -350,7 +350,7 @@ Returns the successful result of the last rule or the first to fail."
           (let [r (rule (list (get m key)) bindings context memo)]
             (if (sp/failure? r)
               r
-              (sp/succeed nil [] input (:b r) (:m r))))
+              (sp/succeed nil [] input (merge bindings (:b r)) (:m r))))
           (sp/fail (str key " is not in map.") memo))))))
 
 ;; SEM FIXME -- what if m is not a map?  For now, says OK for optional.
@@ -369,7 +369,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
           (let [r (rule (list (get m kw)) bindings context memo)]
             (if (sp/failure? r)
               r
-              (sp/succeed nil [] input (:b r) (:m r))))
+              (sp/succeed nil [] input (merge bindings (:b r)) (:m r))))
           (sp/succeed nil [] input bindings memo))))))
 
 ;; helper for making an exception
@@ -396,14 +396,23 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   (mk-map-pair key con extensions))
 
 
-;; SEM FIXME: bindings don't get passed down from krule and vrule
+
 (defn mk-keys-vals-constraint [keys-con vals-con extensions]
   (let [krule (sp/mkseq (mkconstraint keys-con extensions) sp/end)
         vrule (sp/mkseq (mkconstraint vals-con extensions) sp/end)]
-    (sp/mkpr (fn [m]
-               (and (map? m)
-                    (sp/success? (krule (keys m) {} {} {}))
-                    (sp/success? (vrule (vals m) {} {} {})))))))
+    (fn [input bindings context memo]
+      (if (nil? (seq input))
+        (sp/fail "End of input" memo)
+        (let [m (first input)]
+          (if (map? m)
+            (let [kr (krule (keys m) bindings {} {})]
+              (if (sp/success? kr)
+                (let [vr (vrule (vals m) (merge bindings (:b kr)) {} {})]
+                  (if (sp/success? vr)
+                    (sp/succeed m [m] (rest input) (merge bindings (:b kr) (:b vr)) memo)
+                    (sp/fail (str m " does not match predicate.") memo)))
+                (sp/fail (str m " does not match predicate.") memo)))
+            (sp/fail (str m " does not match predicate.") memo)))))))
 
 
 (defn mk-map-literal-constraint [mexpr extensions]
@@ -427,6 +436,9 @@ nil value also succeeds for an optional kw.  Does not consume anything."
                                  (as-quantified (second kvexprs))
                                  extensions)
         (mkmap (map #(mk-map-entry % extensions) kvs))))))
+
+
+;; SEM FIXME: bindings don't get passed down rules
 
 (defn set-zom [rule] 
   (fn [s] (every? #(sp/success? (rule (list %) {} {} {})) s)))
@@ -472,7 +484,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
            (mkprb set? sexpr)
            (mkprb #(set/subset? litset %) sexpr) 
            (map #(mk-set-element % extensions) nonlits))))
-           
+
 ;; SEM FIXME: use a Protocol
 (defn mkconstraint 
   ([expr] (mkconstraint expr {}))

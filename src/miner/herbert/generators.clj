@@ -325,6 +325,8 @@ of generators, not variadic"
         :else (gen-regex regex)))
 
 
+;; SEM FIXME: should we require the kw regex to start with a colon
+;; for matching we do!    Not practical to cover all legal regex patterns.
 
 (defn mk-kw [regex extensions]
   (let [decolonize (fn [s] (if (.startsWith ^String s ":") (subs s 1) s))
