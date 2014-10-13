@@ -387,134 +387,14 @@ of generators, not variadic"
 
 
 
-(declare replace-quantifiers)
-
 ;; SEM FIXME -- none of this is properly tested
 ;; Did the replacement of quantifiers, but not yet the expansion of OR terms
 
-(declare replace-quantifiers)
 
 (defn quantified? [expr]
   (and (seq? expr)
        (case-of? (first expr) & * + ?)))
 
-(defn quantified-within-functional-map? [expr]
-  (and (seq? expr)
-       (= (first expr) 'map)
-       (== (count expr) 3)
-       (seq? (second expr))
-       (case-of? (first (second expr)) * +)))
-
-(defn quantified-within-seq? [expr]
-  (and (seq? expr)
-       (case-of? (first expr) seq vec list)
-       (some quantified? (rest expr))))
-
-;; SEM: are you sure it's not a vector? YES, because vseq already ran
-(defn convert-singleton [expr]
-  (if (and (seq? expr) (== (count expr) 1))
-    (case (first expr)
-      seq '(or [] ())
-      list ()
-      vec []
-      map {}
-      (first expr))
-    expr))
-
-;; SEM FIXME -- should be sized for generator, not a one-time replacement
-(defn quant-replacements [vs expr]
-  (case (first expr)
-    & (map #(reduce conj % (rest expr)) vs)
-    * (concat (map #(reduce conj % (concat (rest expr) (rest expr))) vs)
-              (map #(reduce conj % (rest expr)) vs)
-              vs)
-    + (concat (map #(reduce conj % (concat (rest expr) (rest expr))) vs)
-              (map #(reduce conj % (rest expr)) vs))
-    ? (concat (map #(reduce conj % (rest expr)) vs)
-               vs)
-    (map #(conj % expr) vs)))
-
-(defn vseq [xs]
-  (if (empty? xs)
-    ;; preserve the empty coll
-    xs
-    (seq xs)))
-
-(defn patch-up-singleton [exprs]
-  ;; SEM FIXME -- we know it can only occur in the last element so we don't have to map
-  ;; across all of them
-  (map convert-singleton exprs))
-
-(defn quantifier-replacements [seqex]
-  (patch-up-singleton
-  (map vseq
-       (reduce (fn [vs expr]
-                   (cond (or (symbol? expr) (predicates/literal? expr)
-                             (and (seq? expr) (hc/first= expr 'quote))) (map #(conj % expr) vs)
-                         (seq? expr) (quant-replacements vs expr)
-                         :else (throw (ex-info "Unexpected element in seqex" {:seqex seqex}))))
-               (list [])
-               seqex))))
-
-;; expr is canonical
-(defn step-replace-quantifiers [expr]
-  (cond (or (symbol? expr) (predicates/literal? expr)) expr
-        (quantified-within-functional-map? expr) 
-          (list* 'kvs (not= (ffirst (rest expr)) '+) (map dequantify (rest expr)))
-        (quantified-within-seq? expr) (cons 'or (quantifier-replacements expr))
-        :else expr))
-
-(defn replace-all-quantifiers [expr]
-  (if (quantified? expr) 
-    (if (== (count expr) 2)
-      (recur (second expr))
-      (throw (ex-info "Unsupported quantified schema at top level" {:schema expr})))
-    (w/postwalk step-replace-quantifiers expr)))
-
-
-
-
-(defn check-assignment [form]
-  (cond (and (seq? form) (= (first form) :=)) form
-        (seq? form) form
-        :else nil))
-
-(defn WORK-swap-when! [results-atom test-fn f]
-  (fn [form]
-    (when (test-fn form)
-      (swap! results-atom f form))
-    form))
-
-(defn swap-when! [results-atom test-fn swap-fn]
-  (fn [form]
-    (if-let [x (test-fn form)]
-      ;; ugly side effect
-      (do (swap! results-atom swap-fn form)
-          x)
-      form)))
-
-(defn step-assignment [form]
-  ;; replaces assignment with just the binding name
-  (when (and (seq? form) (= (first form) :=))
-    (list (second form))))
-
-(defn ATOM-assignments [form]
-  (let [results (atom [])]
-    (dorun (w/postwalk (swap-when! results step-assignment conj) form))
-    @results))
-
-
-
-
-;; could be generally useful?
-;; hacked from tree-seq to get post-order
-(defn subforms [root]
-   (let [walk (fn walk [node]
-                (lazy-seq
-                  (if (coll? node)
-                    (concat (mapcat walk (seq node)) (list node))
-                    (list node))))]
-     (walk root)))
 
 ;; O(n) but not bad
 (defn mapcatv [f & colls]
@@ -530,19 +410,6 @@ of generators, not variadic"
                      :else nil))]
     (walk root)))
 
-;; O(n)
-(defn add-last [xs item]
-  (concat xs (list item)))
-
-(defn GOOD-assignments [root]
-  (let [walk (fn walk [node]
-               (cond (and (seq? node) (= (first node) :=))
-                       (concat (mapcat walk (seq node)) (list node))
-                     (coll? node)
-                       (mapcat walk (seq node))
-                     :else nil))]
-     (walk root)))
-
 
 ;; SEM FIXME -- need scope (levels), not just once at the top
 ;; SEM FIXME -- need to pass extensions
@@ -553,24 +420,10 @@ of generators, not variadic"
       (gen/fmap #(zipmap bnames %)
                 (apply gen/tuple (map mk-gen bexprs))))))
 
-(defn OLD-generator [schema]
-  (let [canonical (hc/rewrite schema)
-        dequantified (replace-all-quantifiers canonical)
-        bindins (assignments dequantified)
-        bgen (binding-gen bindins)
-        ]
-    ;; (when bgen (println "SEM Debug bindins" bindins))
-    (if bgen
-      (gen/bind bgen
-                (fn [lookup]
-                  (mk-gen dequantified {:lookup lookup})))
-      (mk-gen dequantified))))
-
 (defn generator [schema]
   (let [canonical (hc/rewrite schema)
         bindins (assignments canonical)
-        bgen (binding-gen bindins)
-        ]
+        bgen (binding-gen bindins)]
     ;; (when bgen (println "SEM Debug bindins" bindins))
     (if bgen
       (gen/bind bgen
