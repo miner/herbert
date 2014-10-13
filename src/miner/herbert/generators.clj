@@ -56,6 +56,9 @@
 
 (def gen-epsilon (gen/elements [0.0 (double Float/MIN_VALUE) 1.1E-10 1.5E-5]))
 
+;; SEM see also
+;; http://dev.clojure.org/jira/browse/TCHECK-5
+
 (def gen-float (gen-one-of gen-epsilon
                             (gen/fmap - gen-epsilon)
                             (gen/fmap float gen/ratio)
@@ -78,7 +81,7 @@
 (def gen-num (gen-one-of gen-int gen-float))
 
 (defn gen-tuple-seq
-  "Like simple-check.generators/tuple but returns a seq, not a vector and takes a collection
+  "Like test.check.generators/tuple but returns a seq, not a vector and takes a collection
 of generators, not variadic"
   [generators]
   (if (empty? generators)
@@ -168,7 +171,7 @@ of generators, not variadic"
         kvgen (gen/map kgen vgen)]
     (if allow-empty?
       kvgen
-      (gen/such-that not-empty kvgen))))
+      (gen/not-empty kvgen))))
 
 ;; assumes only canonical
 (defn quantified-many? [expr]
@@ -203,9 +206,24 @@ of generators, not variadic"
     0 (gen/return {})
     2 (if (predicates/literal? (first schemas))
         (mk-literal-hash-map schemas extensions)
-        (mk-kvs (not= (ffirst schemas) +) (dequantify (first schemas))
+        (mk-kvs (not= (ffirst schemas) '+) (dequantify (first schemas))
                 (dequantify (second schemas)) extensions))
     (mk-literal-hash-map schemas extensions)))
+
+;;; SEM BUG need to handle cycles for * and + using tuple
+(defn mk-cat-gen [schema extensions]
+  (if (and (seq? schema) (= (count schema) 2))
+    (case (first schema)
+      *  (gen/list (mk-gen (second schema) extensions))
+      +  (gen/not-empty (gen/list (mk-gen (second schema) extensions)))
+      (gen/fmap list (mk-gen schema extensions)))
+    (gen/fmap list (mk-gen schema extensions))))
+
+
+(defn mk-seq-with-quants [schemas extensions]
+  (let [gens (map #(mk-cat-gen % extensions) schemas)]
+    (gen/fmap #(apply concat %)
+              (apply gen/tuple gens))))
 
 (defn single-maybe-quantified? [schemas]
   ;; special case where it makes sense to look for quantifier in single schema
@@ -213,22 +231,26 @@ of generators, not variadic"
        (seq? (first schemas))
        (== (count (first schemas)) 2)))
 
-(defn mk-seq [schemas extensions]
-  (if (single-maybe-quantified? schemas)
-    (case (ffirst schemas)
-      *  (gen/fmap seq (gen/vector (mk-gen (second (first schemas)) extensions)))
-      +  (gen/fmap seq (gen/such-that not-empty
-                                      (gen/vector (mk-gen (second (first schemas)) extensions))))
-      (gen/fmap list (mk-gen (first schemas) extensions)))
-    (gen-tuple-seq (map #(mk-gen % extensions) schemas))))
+(defn any-multi-quantified? [schemas]
+  (some quantified-many? schemas))
+
+(defn mk-list [schemas extensions]
+  (cond (single-maybe-quantified? schemas)
+          (case (ffirst schemas)
+            *  (gen/list (mk-gen (second (first schemas)) extensions))
+            +  (gen/not-empty (gen/list (mk-gen (second (first schemas)) extensions)))
+            (gen/fmap list (mk-gen (first schemas) extensions)))
+        (any-multi-quantified? schemas)    (mk-seq-with-quants schemas extensions)
+        :else     (gen-tuple-seq (map #(mk-gen % extensions) schemas))))
 
 (defn mk-vec [schemas extensions]
-  (if (single-maybe-quantified? schemas)
-    (case (ffirst schemas)
-      *  (gen/vector (mk-gen (second (first schemas)) extensions))
-      +  (gen/such-that not-empty (gen/vector (mk-gen (second (first schemas)) extensions)))
-      (gen/fmap vector (mk-gen (first schemas) extensions)))
-    (apply gen/tuple (map #(mk-gen % extensions) schemas))))
+  (cond (single-maybe-quantified? schemas)
+          (case (ffirst schemas)
+            *  (gen/vector (mk-gen (second (first schemas)) extensions))
+            +  (gen/not-empty (gen/vector (mk-gen (second (first schemas)) extensions)))
+            (gen/fmap vector (mk-gen (first schemas) extensions)))
+        (any-multi-quantified? schemas)    (gen/fmap vec (mk-seq-with-quants schemas extensions))
+        :else     (apply gen/tuple (map #(mk-gen % extensions) schemas))))
 
 ;; look for literal and gen from that and test with others
 ;; make hierachies of schema types and start with most specific
@@ -316,18 +338,18 @@ of generators, not variadic"
           (string? regex) (gen/fmap symbol (gen-regex (re-pattern regex)))
           :else (gen/fmap symbol (gen-regex regex))))
 
-(defn mk-in-coll [coll extensions]
-  ;; empty or non-coll could be an error, but we don't throw here
-  (cond (not (coll? coll)) (gen/return coll)
-        (empty? coll) (gen/return ::void)
-        (map? coll) (gen/elements (keys coll))
-        :else (gen/elements (seq coll))))
-
-(defn mk-in [c extensions]
-  (if (symbol? c)
-    (mk-in-coll (lookup c extensions) extensions)
-    (mk-in-coll c extensions)))
-
+;; SEM FIXME ::void is wrong, but maybe good for debugging
+;;   really should throw
+;;   non-coll handling is questionable, maybe should throw
+(defn in-collection [coll]
+  (cond (not (coll? coll)) (list coll)
+        (empty? coll) (list ::void)
+        (map? coll) (keys coll)
+        :else (seq coll)))
+  
+(defn mk-in [coll extensions]
+  (gen/bind (mk-gen coll extensions)
+            (fn [c] (gen/elements (in-collection c)))))
 
 (defn mk-list-gen [schema extensions]
   (let [sym (first schema)]
@@ -337,9 +359,9 @@ of generators, not variadic"
       float (apply mk-float (rest schema))
       num (gen/one-of [(apply mk-int (rest schema)) (apply mk-float (rest schema))])
       seq (gen/one-of [(mk-vec (rest schema) extensions)
-                       (mk-seq (rest schema) extensions)])
+                       (mk-list (rest schema) extensions)])
       vec (mk-vec (rest schema) extensions)
-      list (mk-seq (rest schema) extensions)
+      list (mk-list (rest schema) extensions)
       ;; kvs is used internally within the generators
       kvs (mk-kvs (second schema) (third schema) (fourth schema) extensions)
       map (mk-map (rest schema) extensions)
@@ -399,6 +421,7 @@ of generators, not variadic"
       (first expr))
     expr))
 
+;; SEM FIXME -- should be sized for generator, not a one-time replacement
 (defn quant-replacements [vs expr]
   (case (first expr)
     & (map #(reduce conj % (rest expr)) vs)
@@ -530,18 +553,30 @@ of generators, not variadic"
       (gen/fmap #(zipmap bnames %)
                 (apply gen/tuple (map mk-gen bexprs))))))
 
-(defn generator [schema]
+(defn OLD-generator [schema]
   (let [canonical (hc/rewrite schema)
         dequantified (replace-all-quantifiers canonical)
         bindins (assignments dequantified)
         bgen (binding-gen bindins)
         ]
-    ;; (when bgen (println "SEM Debug bgen" bgen))
+    ;; (when bgen (println "SEM Debug bindins" bindins))
     (if bgen
       (gen/bind bgen
                 (fn [lookup]
                   (mk-gen dequantified {:lookup lookup})))
       (mk-gen dequantified))))
+
+(defn generator [schema]
+  (let [canonical (hc/rewrite schema)
+        bindins (assignments canonical)
+        bgen (binding-gen bindins)
+        ]
+    ;; (when bgen (println "SEM Debug bindins" bindins))
+    (if bgen
+      (gen/bind bgen
+                (fn [lookup]
+                  (mk-gen canonical {:lookup lookup})))
+      (mk-gen canonical))))
 
 (defn sample 
   ([schema] (sample schema 20))

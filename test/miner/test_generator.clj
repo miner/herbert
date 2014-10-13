@@ -12,7 +12,7 @@
   ([schema num]
      (let [confn (conform schema)]
        (doseq [v (hg/sample schema num)]
-         (is (confn v) (str "Schema: " schema))))))
+         (is (confn v) (str "Schema: " schema "val: " v))))))
 
 (def test-schemas
   '(int

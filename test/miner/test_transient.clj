@@ -78,7 +78,10 @@
     (= (apply-actions #{} a)
        (apply-actions #{} (filter-actions a)))))
 
-(def trials 100000)
+;; (def trials 100000)
+;; needs to be big to catch anything in Clojure 1.5.1
+;; not really worth trying in Clojure 1.6+ since the bug is fixed
+(def trials 100)
 
 (defspec transient-property-test trials transient-property)
 
