@@ -33,6 +33,11 @@
 ;; maybe intern a helper to make it work
    
 
+(defn quantified? [expr]
+  (and (seq? expr)
+       (case-of? (first expr) & * + ?)))
+
+
 
 (declare mk-gen)
 
@@ -152,6 +157,16 @@ of generators, not variadic"
   ([lo hi] (gen-one-of (gen/fmap #(+ lo %) gen-epsilon)
                        (gen/fmap #(- hi %) gen-epsilon))))
 
+(defn mk-pos
+  ([] (gen-one-of (mk-int 1 Long/MAX_VALUE) (mk-float Double/MIN_VALUE Double/MAX_VALUE)))
+  ([hi] (gen-one-of (mk-int 1 hi) (mk-float Double/MIN_VALUE hi)))
+  ([lo hi] (gen-one-of (mk-int lo hi) (mk-float lo hi)))) 
+
+(defn mk-neg
+  ([] (gen-one-of (mk-int Long/MIN_VALUE -1) (mk-float (- Double/MAX_VALUE) (- Double/MIN_VALUE))))
+  ([lo] (gen-one-of (mk-int lo -1) (mk-float lo (- Double/MIN_VALUE))))
+  ([lo hi] (gen-one-of (mk-int lo hi) (mk-float lo hi))))
+
 (defn lookup [name extensions]
   ;;(println "SEM debug lookup" name extensions)
   (get (:lookup extensions) name name))
@@ -172,10 +187,6 @@ of generators, not variadic"
     (if allow-empty?
       kvgen
       (gen/not-empty kvgen))))
-
-;; assumes only canonical
-(defn quantified-many? [expr]
-  (and (seq? expr) (case-of? (first expr) * +)))
 
 (defn dequantify 
   ([expr] (if (and (seq? expr) (case-of? (first expr) * + ?)) (second expr) expr))
@@ -210,19 +221,39 @@ of generators, not variadic"
                 (dequantify (second schemas)) extensions))
     (mk-literal-hash-map schemas extensions)))
 
-;;; SEM BUG need to handle cycles for * and + using tuple
+
+(defn mk-cat-cycle [schemas minimum extensions]
+  (gen/bind (gen/sized #(gen/choose 0 %))
+            (fn [num]
+              (gen/fmap #(apply concat %)
+                        (gen/vector (gen-tuple-seq (map #(mk-gen % extensions) schemas))
+                                    (max minimum num))))))
+
+
+;;; SEM BUG need to handle cycles for * and + using tuple -- working on this
 (defn mk-cat-gen [schema extensions]
-  (if (and (seq? schema) (= (count schema) 2))
-    (case (first schema)
-      *  (gen/list (mk-gen (second schema) extensions))
-      +  (gen/not-empty (gen/list (mk-gen (second schema) extensions)))
-      (gen/fmap list (mk-gen schema extensions)))
+  (if (seq? schema)
+    (if (= (count schema) 2)
+      (case (first schema)
+        *  (gen/list (mk-gen (second schema) extensions))
+        +  (gen/not-empty (gen/list (mk-gen (second schema) extensions)))
+        ?  (gen-one-of (gen/return '(::void)) (gen/fmap list (mk-gen (second schema) extensions)))
+        &  (gen/fmap list (mk-gen (second schema) extensions))
+        (gen/fmap list (mk-gen schema extensions)))
+      ;; general case, possibly with multiple schemas in cycles
+      (case (first schema)
+        *  (mk-cat-cycle (rest schema) 0 extensions)
+        +  (mk-cat-cycle (rest schema) 1 extensions)
+        ?  (gen-one-of (gen/return '(::void))
+                       (gen-tuple-seq (map #(mk-gen % extensions) (rest schema))))
+        &  (gen-tuple-seq (map #(mk-gen % extensions) (rest schema)))
+        (gen/fmap list (mk-gen schema extensions))))
     (gen/fmap list (mk-gen schema extensions))))
 
 
 (defn mk-seq-with-quants [schemas extensions]
   (let [gens (map #(mk-cat-gen % extensions) schemas)]
-    (gen/fmap #(apply concat %)
+    (gen/fmap #(remove #{::void} (apply concat %))
               (apply gen/tuple gens))))
 
 (defn single-maybe-quantified? [schemas]
@@ -231,26 +262,33 @@ of generators, not variadic"
        (seq? (first schemas))
        (== (count (first schemas)) 2)))
 
-(defn any-multi-quantified? [schemas]
-  (some quantified-many? schemas))
-
 (defn mk-list [schemas extensions]
   (cond (single-maybe-quantified? schemas)
           (case (ffirst schemas)
             *  (gen/list (mk-gen (second (first schemas)) extensions))
             +  (gen/not-empty (gen/list (mk-gen (second (first schemas)) extensions)))
+            ?  (gen-one-of (gen/return ())
+                           (gen/fmap list (mk-gen (second (first schemas)) extensions)))
+            &  (gen/fmap list (mk-gen (second (first schemas)) extensions))
             (gen/fmap list (mk-gen (first schemas) extensions)))
-        (any-multi-quantified? schemas)    (mk-seq-with-quants schemas extensions)
-        :else     (gen-tuple-seq (map #(mk-gen % extensions) schemas))))
+        (some quantified? schemas)
+          (mk-seq-with-quants schemas extensions)
+        :else
+          (gen-tuple-seq (map #(mk-gen % extensions) schemas))))
 
 (defn mk-vec [schemas extensions]
   (cond (single-maybe-quantified? schemas)
           (case (ffirst schemas)
             *  (gen/vector (mk-gen (second (first schemas)) extensions))
             +  (gen/not-empty (gen/vector (mk-gen (second (first schemas)) extensions)))
+            ?  (gen-one-of (gen/return [])
+                           (gen/fmap vector (mk-gen (second (first schemas)) extensions)))
+            &  (gen/fmap vector (mk-gen (second (first schemas)) extensions))
             (gen/fmap vector (mk-gen (first schemas) extensions)))
-        (any-multi-quantified? schemas)    (gen/fmap vec (mk-seq-with-quants schemas extensions))
-        :else     (apply gen/tuple (map #(mk-gen % extensions) schemas))))
+        (some quantified? schemas)
+          (gen/fmap vec (mk-seq-with-quants schemas extensions))
+        :else
+          (apply gen/tuple (map #(mk-gen % extensions) schemas))))
 
 ;; look for literal and gen from that and test with others
 ;; make hierachies of schema types and start with most specific
@@ -375,6 +413,8 @@ of generators, not variadic"
       sym (mk-sym (second schema) extensions)
       in (mk-in (second schema) extensions)
       ;; SEM FIXME many more
+      pos (apply mk-pos (rest schema))
+      neg (apply mk-neg (rest schema))
       := (mk-return (second schema) extensions)
       )))
 
@@ -391,11 +431,6 @@ of generators, not variadic"
 
 ;; SEM FIXME -- none of this is properly tested
 ;; Did the replacement of quantifiers, but not yet the expansion of OR terms
-
-
-(defn quantified? [expr]
-  (and (seq? expr)
-       (case-of? (first expr) & * + ?)))
 
 
 ;; O(n) but not bad
