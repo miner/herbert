@@ -32,8 +32,8 @@
     (and float (not 0.0))
     [(:= n int) n n]
     [(:= mmm {kw (int 0 10)}) (+ (in mmm))]
-    [(:= mmm {(kw ":[a-z]") (int 0 10)}) {(in mmm) (int 20 30)}]
-    [(+ (int 10) (int -5 -1)) (int 100 200) (& (int 400 440) (int 500 510))
+    [(:= mmm {(kw ":[a-z]") (neg -10)}) {(in mmm) (pos 20 30)}]
+    [(+ (even 10) (odd -5 -1)) (int 100 200) (& (int 400 440) (int 500 510))
      (* (int 600 601) (int 770 779)) (? (int 990 999))]
     ))
 

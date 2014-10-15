@@ -44,8 +44,15 @@
 (def even? (numeric integer? clojure.core/even?))
 (def odd? (numeric integer? clojure.core/odd?))
 (def pos? (numeric number? clojure.core/pos?))
-(def neg? (numeric number? clojure.core/neg?))
+
 (def zero? (numeric number? clojure.core/zero?))
+
+;; neg? doesn't exactly follow the numeric? pattern
+;; the single arg case is lo, not hi
+(defn neg? 
+  ([x] (and (number? x) (clojure.core/neg? x)))
+  ([lo x] (neg? lo 0 x))
+  ([lo hi x] (and (number? x) (clojure.core/neg? x) (<= lo x hi))))
 
 (defn literal? [x]
   (or (keyword? x) (number? x) (string? x) (false? x) (true? x) (nil? x) (clojure.core/char? x)))

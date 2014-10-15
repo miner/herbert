@@ -14,32 +14,13 @@
             [clojure.test.check.generators :as gen]))
 
 
-;;; SEM messed up but maybe salvageable
-(defmacro gen-let1 [arg gen gexpr]
-  `(gen/bind ~gen (fn [~arg] (let [~arg (gen/return ~arg)] ~gexpr))))
 
-(defmacro gen-let [gbindings gexpr]
-  (assert (even? (count gbindings)))
-  (if (seq gbindings)
-    `(gen-let1 ~(first gbindings) ~(second gbindings) (gen-let [~@(nnext gbindings)] ~gexpr))
-    `~gexpr))
+(declare mk-gen)
 
-(defmacro with-generators [gbindings gexpr]
-  (assert (even? (count gbindings)))
-  (if (seq gbindings)
-    `(gen-let1 ~(first gbindings) ~(second gbindings) (gen-let [~@(nnext gbindings)] ~gexpr))
-    `~gexpr))
-
-;; maybe intern a helper to make it work
-   
 
 (defn quantified? [expr]
   (and (seq? expr)
        (case-of? (first expr) & * + ?)))
-
-
-
-(declare mk-gen)
 
 (defn gen-one-of [& gens]
   (gen/one-of gens))
@@ -166,6 +147,17 @@ of generators, not variadic"
   ([] (gen-one-of (mk-int Long/MIN_VALUE -1) (mk-float (- Double/MAX_VALUE) (- Double/MIN_VALUE))))
   ([lo] (gen-one-of (mk-int lo -1) (mk-float lo (- Double/MIN_VALUE))))
   ([lo hi] (gen-one-of (mk-int lo hi) (mk-float lo hi))))
+
+;;; Long/MAX_VALUE is odd, Long/MIN_VALUE is even
+(defn mk-even
+  ([] (mk-even Long/MIN_VALUE Long/MAX_VALUE))
+  ([hi] (mk-even 0 hi))
+  ([lo hi] (gen/fmap #(if (even? %) % (dec %)) (mk-int (inc lo) hi))))
+
+(defn mk-odd
+  ([] (mk-odd Long/MIN_VALUE Long/MAX_VALUE))
+  ([hi] (mk-odd 0 hi))
+  ([lo hi] (gen/fmap #(if (odd? %) % (dec %)) (mk-int (inc lo) hi))))
 
 (defn lookup [name extensions]
   ;;(println "SEM debug lookup" name extensions)
@@ -415,6 +407,8 @@ of generators, not variadic"
       ;; SEM FIXME many more
       pos (apply mk-pos (rest schema))
       neg (apply mk-neg (rest schema))
+      even (apply mk-even (rest schema))
+      odd (apply mk-odd (rest schema))
       := (mk-return (second schema) extensions)
       )))
 
