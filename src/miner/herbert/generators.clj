@@ -221,8 +221,7 @@ of generators, not variadic"
                         (gen/vector (gen-tuple-seq (map #(mk-gen % extensions) schemas))
                                     (max minimum num))))))
 
-
-;;; SEM BUG need to handle cycles for * and + using tuple -- working on this
+;;; expect caller to concatenate or mapcat results from generators
 (defn mk-cat-gen [schema extensions]
   (if (seq? schema)
     (if (= (count schema) 2)
