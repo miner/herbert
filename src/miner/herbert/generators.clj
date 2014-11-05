@@ -187,22 +187,36 @@ of generators, not variadic"
 (defn opt-pair? [[k v]]
   (hc/first= k '?))
 
-(defn mk-opt-pair-seq [opts]
-  ;; opts are [(* [(? kw) any])]
-  ;; need to gen with opt or not in a flat seq [(* kw any)]
-  ;; basically a combo of all ordered subsets
-  (map #(apply concat %) (mc/subsets (map (fn [[quant val]] [(dequantify quant) val]) opts))))
+
+(defn opt-lit-keys [hm-schemas]
+  (reduce (fn [opts sch] (if (and (hc/first= sch '?)
+                                  (predicates/literal? (second sch))
+                                  (== (count sch) 2))
+                           (conj opts (second sch))
+                           opts))
+          []
+          ;; only consider the key schemas
+          (take-nth 2 hm-schemas)))
+
+(defn dequantify-keys [hm-schemas]
+  (reduce (fn [res [k v]] (conj res (dequantify k) v))
+          []
+          (partition 2 hm-schemas)))
+
+;; SEM FIXME -- try to use gen/hash-map (but needs literal keys)
+;; SEM FIXME -- t.c 0.6 will have `shuffle` which might be a good replacement for mc/subsets
 
 (defn mk-literal-hash-map [schemas extensions]
-  (let [pairs (partition 2 schemas)
-        opts (filter opt-pair? pairs)
-        reqs (remove opt-pair? pairs)]
-    (gen/one-of
-     (map (fn [qopts]
-            (gen/fmap #(apply hash-map %)
-                      (apply gen/tuple (map #(mk-gen % extensions) 
-                                            (concat qopts (mapcat identity reqs))))))
-          (mk-opt-pair-seq opts)))))
+  (let [opt-keys (opt-lit-keys schemas)
+        dequantified (dequantify-keys schemas)
+        tup-gen (apply gen/tuple (map #(mk-gen % extensions) dequantified))]
+    (if (empty? opt-keys)
+      (gen/fmap #(apply hash-map %) tup-gen)
+      (let [opt-subsets (mc/subsets opt-keys)]
+        (gen/bind (gen/elements opt-subsets)
+                  (fn [qopts]
+                    (gen/fmap #(apply dissoc (apply hash-map %) qopts)
+                              tup-gen)))))))
 
 (defn mk-map [schemas extensions]
   (condp == (count schemas)

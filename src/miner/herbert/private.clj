@@ -308,10 +308,12 @@ Returns the successful result of the last rule or the first to fail."
       class (mk-class (second lexpr))
       tag (mk-tag (second lexpr) (third lexpr) extensions)
       grammar (mkconstraint (second lexpr) (schema->extensions lexpr))
-      ;; else it must be a constraint
+       ;; else it must be a predicate constraint
+      ;; SEM FIXME: apparently to support binding name in list (N)
+      ;;   but do we need that with canonical form?  Yes, (in Ns)
       (mk-list-bind nil lexpr extensions))))
 
-;;      (throw (ex-info "Unknown list expr" {:expr lexpr}))
+
 
 
 ;; need to reduce the subrules and preserve the bindings

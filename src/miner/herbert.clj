@@ -12,8 +12,6 @@
 ;; inherit some things from internal
 (def reserved-ops internal-reserved-ops)
 
-(def default-predicates internal-default-predicates)
-
 (def ns->predicates internal-ns->predicates)
 
 (def default-predicates internal-default-predicates)
