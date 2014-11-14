@@ -21,11 +21,7 @@ represented as **edn** values.
 
 ## Leiningen
 
-Add the dependency to your project.clj:
-
-    [com.velisco/herbert "a.b.c"]
-
-where "a.b.c" is the version number from Clojars.
+*Herbert* is available from Clojars.  Add the following dependency to your *project.clj*:
 
 [![Herbert on clojars.org][latest]][clojar]
 
