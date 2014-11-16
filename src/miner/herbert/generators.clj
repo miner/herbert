@@ -357,9 +357,9 @@ of generators, not variadic"
 
 ;; originally from fredericksgary
 (defn gen-regex [regex]
-  {:gen (fn [r _size]
-          (binding [four/*rand* r]
-            (rose/pure (re/re-rand regex))))})
+  (gen/make-gen (fn [r _size]
+                  (binding [four/*rand* r]
+                    (rose/pure (re/re-rand regex))))))
 
 (defn mk-str [regex extensions]
   ;; accepts regex or string (for EDN compatibility) or nil for any string (I like ascii)
