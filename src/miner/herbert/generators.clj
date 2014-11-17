@@ -6,7 +6,7 @@
             [miner.herbert.canonical :as hc]
             [four.stateful :as four]
             [re-rand :as re]
-            [clojure.test.check :as sc]
+            [clojure.test.check :as tc]
             [clojure.test.check.properties :as prop]
             [clojure.math.combinatorics :as mc :exclude [update]]
             [clojure.walk :as w]
@@ -396,13 +396,20 @@ of generators, not variadic"
   (gen/bind (mk-gen coll extensions)
             (fn [c] (gen/elements (in-collection c)))))
 
+(defn lookup-args [args extensions]
+  (map (fn [x] (if (symbol? x)
+                 (lookup x extensions)
+                 x))
+       args))
+
 (defn mk-list-gen [schema extensions]
   (let [sym (first schema)]
     (case sym
       quote (gen/return (second schema))
-      int (apply mk-int (rest schema))
-      float (apply mk-float (rest schema))
-      num (gen/one-of [(apply mk-int (rest schema)) (apply mk-float (rest schema))])
+      int (apply mk-int (lookup-args (rest schema) extensions))
+      float (apply mk-float (lookup-args (rest schema) extensions))
+      num (gen/one-of [(apply mk-int (lookup-args (rest schema) extensions))
+                       (apply mk-float (lookup-args (rest schema) extensions))])
       seq (gen/one-of [(mk-vec (rest schema) extensions)
                        (mk-list (rest schema) extensions)])
       vec (mk-vec (rest schema) extensions)
@@ -418,10 +425,10 @@ of generators, not variadic"
       sym (mk-sym (second schema) extensions)
       in (mk-in (second schema) extensions)
       ;; SEM FIXME many more
-      pos (apply mk-pos (rest schema))
-      neg (apply mk-neg (rest schema))
-      even (apply mk-even (rest schema))
-      odd (apply mk-odd (rest schema))
+      pos (apply mk-pos (lookup-args (rest schema) extensions))
+      neg (apply mk-neg (lookup-args (rest schema) extensions))
+      even (apply mk-even (lookup-args (rest schema) extensions))
+      odd (apply mk-odd (lookup-args (rest schema) extensions))
       := (mk-return (second schema) extensions)
       )))
 
@@ -468,7 +475,7 @@ of generators, not variadic"
   (let [canonical (hc/rewrite schema)
         bindins (assignments canonical)
         bgen (binding-gen bindins)]
-    ;; (when bgen (println "SEM Debug bindins" bindins))
+    ;;  (when bgen (println "SEM Debug bindins" bindins))
     (if bgen
       (gen/bind bgen
                 (fn [lookup]
@@ -479,9 +486,6 @@ of generators, not variadic"
   ([schema] (sample schema 20))
   ([schema num] (gen/sample (generator schema) num)))
 
-(defn gen-prop [pred generator]
-  (prop/for-all* [generator] pred))
-
 (defn property 
   ([pred schema] (prop/for-all* [(generator schema)] pred))
   ([pred schema1 schema2] (prop/for-all* [(generator schema1) (generator schema2)] pred))
@@ -490,4 +494,4 @@ of generators, not variadic"
 
 (defn check
   ([pred schema] (check 100 pred schema))
-  ([trials pred schema] (sc/quick-check trials (property pred schema))))
+  ([trials pred schema] (tc/quick-check trials (property pred schema))))
