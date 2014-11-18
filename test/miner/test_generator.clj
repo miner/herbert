@@ -13,7 +13,7 @@
      (let [confn (conform schema)
            result (hg/check num confn schema)]
        (is (:result result) (str "Schema: " schema " failed "
-                                 (pr-str (get-in result [:shrunk :smallest])))))))
+                                 (first (get-in result [:shrunk :smallest])))))))
 
 (def test-schemas
   '(int
