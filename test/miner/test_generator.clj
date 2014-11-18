@@ -11,7 +11,7 @@
   ([schema] (gen-test schema 100))
   ([schema num]
      (let [confn (conform schema)
-           result (hg/check confn schema)]
+           result (hg/check num confn schema)]
        (is (:result result) (str "Schema: " schema " failed "
                                  (pr-str (get-in result [:shrunk :smallest])))))))
 
