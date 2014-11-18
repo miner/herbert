@@ -7,12 +7,13 @@
             [clojure.test.check.properties :as prop]
             [clojure.test.check.clojure-test :as ct :refer (defspec)] ))
 
-(defn gen-test 
+(defn gen-test
   ([schema] (gen-test schema 100))
   ([schema num]
-     (let [confn (conform schema)]
-       (doseq [v (hg/sample schema num)]
-         (is (confn v) (str "Schema: " schema " val: " v))))))
+     (let [confn (conform schema)
+           result (hg/check confn schema)]
+       (is (:result result) (str "Schema: " schema " failed "
+                                 (pr-str (get-in result [:shrunk :smallest])))))))
 
 (def test-schemas
   '(int
