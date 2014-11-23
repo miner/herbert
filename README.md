@@ -115,7 +115,10 @@ macro for use with *clojure.test*.)  If you just want the generator for a schema
 * A quantified schema pattern: adding a __*__, __+__ or __?__ at the end of a symbol for
   zero-or-more, one-or-more, or zero-or-one (optional): <BR>
 **int***, **str+**, **sym?**
-  
+
+* A quoted expression matches itself without any other interpretation: <BR>
+**'foo?** matches the symbol _foo?_ literally.<BR>
+
 * A compound schema pattern: using **and**, **or** and **not** <BR>
 `(or sym+ nil)`  -- one or more symbols or nil <BR>
 `(or (vec int*) (list kw+))`  -- either a vector of ints or a list of one or more keywords
@@ -128,23 +131,25 @@ macro for use with *clojure.test*.)  If you just want the generator for a schema
   pattern.  The names of predicates and special operators (like **and**, **or**, etc.) are not
   allowed as binding names.  The name may be used as a parameter to other schema patterns.
   Also, the name may be used in the pattern expression to create a recursive pattern.<BR>
-`(:= n int 1 10)` -- matches 1 to 10 (inclusive)<BR>
-`(:= a (or :a [:b a]))` -- matches [:b [:b [:b :a]]]
+`(:= N int 1 10)` -- matches 1 to 10 (inclusive)<BR>
+`(:= A (or :a [:b A]))` -- matches [:b [:b [:b :a]]]
 
 * A bound symbol matches an element equal to the value that the name was bound to
   previously. <BR>
-`[(:= n int) n n]` -- matches [3 3 3]
+`[(:= N int) N N]` -- matches [3 3 3]
 	
 * A literal vector [in square brackets] matches any sequential (not just a vector) with the
   contained pattern. <BR>
 `[(* kw sym)]`  -- matches (:a foo :b bar :c baz) and [:a foo]
 
-* A literal map in {curly braces} matches any map with the given literal keys and values matching
-  the corresponding schemas.  Optional keywords are written with a ? suffix such as **:kw?**.  For
-  convenience, an optional keyword schema implicitly allows **nil** for the corresponding
-  value. An empty literal map {} matches exactly the empty map.  Use `map` to match any
-  map. <BR>
-`{:a int :b sym :c? [int*]}`  -- matches {:a 10 :b foo :c [1 2 3]} and {:a 1 :b bar}
+* A literal map in {curly braces} matches any map with the given literal keys and values
+  matching the corresponding schemas.  Optional keywords are written with a _?_ suffix such as
+  **:kw?**.  (Use a quote mark to match a literal keyword ending with _?_.  **':k?** matches _:k?_
+  literally without any special interpretation of the _?_ suffix.) For convenience, an optional
+  keyword schema implicitly allows **nil** for the corresponding value. An empty literal map
+  _{}_ matches exactly the empty map.  Use `map` to match any map. <BR>
+`{:a int :b sym :c? [int*]}`  -- matches {:a 10 :b foo :c [1 2 3]} and {:a 1 :b bar} <BR>
+`{:x? sym ':k? int}`  -- matches {:k? 10} but not {:k 10} because the keyword was quoted.
 
 * The literal map in {curly braces} may also contains a single pair of patterns with a
   non-literal key pattern.  All keys and and values are required to match in the map value.
@@ -174,7 +179,7 @@ macro for use with *clojure.test*.)  If you just want the generator for a schema
 * An inlined schema pattern:  a list starting with `&` as the first element refers to multiple
   elements in order (as opposed to being within a collection).  It can be useful for adding `when`
   tests where an extra element would not normally be allowed.<BR>
-`{:a (:= n int) :b (& (:= f float) (> n f))}` -- matches {:a 4 :b 3.14}
+`{:a (:= N int) :b (& (:= F float) (> N F))}` -- matches {:a 4 :b 3.14}
 
 * The `map` schema predicate matches a map.  It takes the same arguments as the {curly brace}
   literal map schema.  With no arguments, `(map)` matches any map, same as `map`.  Use `{}` to
@@ -251,11 +256,11 @@ a hack:
 * The `when` form does not consume any input.  The expression is evaluated within the enviroment
   of the previous bindings -- if it returns a logical true, the match continues.  On a logical
   false, the whole match fails. <BR>
-`[(:= n int) (:= m int) (when (== (* 3 n) m))]` -- matches [2 6]
+`[(:= N int) (:= M int) (when (== (* 3 N) M))]` -- matches [2 6]
 
 * A list starting with `=`, `==`, `not=`, `<`, `>`, `<=` or `>=` is an *implied when* and treated
   as if the form was within an `when` test. <BR>
-`[(:= n int) (:= m int) (== (* 3 n) m)]` -- matches [2 6]
+`[(:= N int) (:= M int) (== (* 3 N) M)]` -- matches [2 6]
 
 ## Examples
 
@@ -279,12 +284,12 @@ a hack:
 (h/conforms? '{:a int :b sym :c? [str*]} '{:a foo :b bar})
 ;=> false
 
-(h/conforms? '{:a (:= a int) :b sym :c? [a+]} '{:a 1 :b foo :c [1 1 1]})
-; a is bound to the int associated with :a, and then used again to define the values
+(h/conforms? '{:a (:= A int) :b sym :c? [A+]} '{:a 1 :b foo :c [1 1 1]})
+; _A_ is bound to the int associated with :a, and then used again to define the values
 ; in the seq associated with :c.  
 ;=> true
 
-(h/conforms? '(& {:a (:= a int) :b (:= b sym) :c (:= c [b+])} (when (= (count c) a))) 
+(h/conforms? '(& {:a (:= A int) :b (:= B sym) :c (:= C [B+])} (when (= (count C) A))) 
            '{:a 2 :b foo :c [foo foo]})
 
 ; The & operator just means the following elements are found inline,
@@ -295,14 +300,14 @@ a hack:
 ; must be equal to the symbol associated with :b.
 => true
 
-((h/conform '[(:= a int) (:= b int) (:= c int+ a b)]) [3 7 4 5 6])
+((h/conform '[(:= A int) (:= B int) (:= C int+ A B)]) [3 7 4 5 6])
 ; Inside a seq, the first two ints establish the low and high range of the rest 
 ; of the int values.
-;=> {c [4 5 6], b 7, a 3}
+;=> {C [4 5 6], B 7, A 3}
 
-(def my-checker (h/conform '[(:= max int) (:= xs int+ max)]))
+(def my-checker (h/conform '[(:= MAX int) (:= XS int+ MAX)]))
 (my-checker [7 3 5 6 4])
-;=> {xs [3 5 6 4], max 7}
+;=> {XS [3 5 6 4], MAX 7}
 
 (defn palindrome? [s]
 	(and (string? s)
@@ -310,7 +315,7 @@ a hack:
 		
 (h/conforms? '(grammar [pal+]
 	              palindrome user/palindrome?
-                  pal {:len (:= len int) :palindrome (and palindrome (cnt len))})
+                  pal {:len (:= LEN int) :palindrome (and palindrome (cnt LEN))})
              [{:palindrome "civic" :len 5}
               {:palindrome "kayak" :len 5} 
               {:palindrome "level" :len 5}
