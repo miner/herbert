@@ -9,7 +9,8 @@
 
 
 
-;; inherit some things from internal
+;; SEM FIXME: needs documenation to explain usage
+;; inherit some things from internal so that they are public in the main namespace
 (def reserved-ops internal-reserved-ops)
 
 (def ns->predicates internal-ns->predicates)
