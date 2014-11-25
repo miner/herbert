@@ -4,11 +4,17 @@
             [miner.tagged :as tag]
             [squarepeg.core :as sp]
             [miner.herbert.canonical :as canonical]
-            [miner.herbert.private :as internal :refer :all 
-                                   :rename {internal-reserved-ops reserved-ops, 
-                                            internal-ns->predicates ns->predicates, 
-                                            internal-default-predicates default-predicates}])
+            [miner.herbert.private :as internal :refer :all])
   (:import miner.tagged.TaggedValue))
+
+
+
+;; inherit some things from internal
+(def reserved-ops internal-reserved-ops)
+
+(def ns->predicates internal-ns->predicates)
+
+(def default-predicates internal-default-predicates)
 
 
 (defn constraint-fn [schema]
