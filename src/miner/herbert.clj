@@ -27,12 +27,16 @@
   nil)
 
 
-(defn constraint-fn [schema]
+;; SEM FIXME -- could do better
+(defn- merge-context [extensions context]
+  (assoc extensions :context context))
+
+(defn- constraint-fn [schema user-context]
   (let [schema (canonical/rewrite schema)
         exts (schema->extensions schema)
         start (schema->start schema)
         ;;sp/mkmemo should be faster, need benchmarks
-        cfn (sp/mkmemo (mkconstraint start exts))]
+        cfn (sp/mkmemo (mkconstraint start (merge-context exts user-context)))]
        (fn ff
          ([item] (ff item {} {} {}))
          ([item context] (ff item context {} {}))
@@ -45,21 +49,23 @@
     (list 'grammar schema)))
 
 ;; creates a fn that test for conformance to the schema
-(defn conform [schema] 
-  (if (fn? schema) 
-    schema 
+(defn conform
+  ([schema] (if (fn? schema) 
+              schema 
+              (conform schema nil)))
+  ([schema context]
     (let [grammar (schema->grammar schema)
-          con-fn (constraint-fn schema)]
+          con-fn (constraint-fn schema context)]
        (fn 
          ([] grammar)
          ([x] (let [res (con-fn x)]
                 (when (sp/success? res)
                   (with-meta (:b res) {::schema grammar}))))))))
 
-
+;; SEM finish this with real context
 (defn blame-fn [schema] 
   (let [grammar (schema->grammar schema)
-        con-fn (constraint-fn schema)]
+        con-fn (constraint-fn schema nil)]
     (fn 
       ([] grammar)
       ([x] (let [res (con-fn x)]
@@ -69,8 +75,9 @@
 (defn blame [schema x]
   ((blame-fn schema) x))
 
-(defn conforms? [schema x] 
-  (boolean ((conform schema) x)))
+(defn conforms?
+  ([schema x] (conforms? schema nil x))
+  ([schema context x] (boolean ((conform schema context) x))))
 
 (defn schema-merge
   "Makes one schema expression out of several, ignoring the 'start' expression from all but the
