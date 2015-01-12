@@ -46,6 +46,11 @@
   (or (predicates/literal? expr)
       (and (seq? expr) (= (first expr) 'quote))))
 
+(defn optional-literal? [expr]
+  (and (seq? expr)
+       (case-of? (first expr) ?)
+       (literal-or-quoted? (second expr))))
+
 (defn dequote [expr]
   (if (and (seq? expr) (= (first expr) 'quote))
     (second expr)
@@ -422,7 +427,9 @@ nil value also succeeds for an optional kw.  Does not consume anything."
     (sp/mklit {})
     (let [kvs (seq mexpr)
           single (nil? (next kvs))]
-      (if (and single (not (literal-or-quoted? (key (first kvs)))))
+      (if (and single
+               (not (literal-or-quoted? (key (first kvs))))
+               (not (optional-literal? (key (first kvs)))))
         (mk-keys-vals-constraint (as-quantified (key (first kvs)))
                                  (as-quantified (val (first kvs)))
                                  extensions)
@@ -433,7 +440,9 @@ nil value also succeeds for an optional kw.  Does not consume anything."
     (mkprb map? 'map)
     (let [kvs (partition 2 kvexprs)
           single (nil? (next kvs))]
-      (if (and single (not (literal-or-quoted? (first kvexprs))))
+      (if (and single 
+               (not (literal-or-quoted? (first kvexprs)))
+               (not (optional-literal? (first kvexprs))))
         (mk-keys-vals-constraint (as-quantified (first kvexprs))
                                  (as-quantified (second kvexprs))
                                  extensions)

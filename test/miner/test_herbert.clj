@@ -66,6 +66,13 @@
        {:a? 1 :b 'foo :d 'bar}   true  
        {:a 'foo :a? 1 :b 'foo :c nil}  true))
 
+(deftest single-optional
+  (is (conforms? '{:a? int} {:a 1}))
+  (is (conforms? '{:a? int} {:a 1 :b 2}))
+  (is (conforms? '{:a? int} {:b 1}))
+  (is (conforms? '{:a? int :b? int} {:b 1}))
+  (is (not (conforms? '{:a? int} {:a :b}))))
+
 (deftest sets
   (are [val result] (= (conforms? '#{:a :b :c} val) result)
        #{:a :b :c}   true
