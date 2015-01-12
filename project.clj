@@ -7,6 +7,6 @@
                  [com.velisco/tagged "0.3.4"]
                  [com.velicso/re-rand "0.1.2"]
                  [org.clojure/math.combinatorics "0.0.8"]
-                 [org.clojure/test.check "0.6.1"]
+                 [org.clojure/test.check "0.6.2"]
                  [squarepeg "0.6.1"]]  )
 

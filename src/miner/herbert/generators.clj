@@ -14,6 +14,19 @@
             [clojure.test.check.generators :as gen]))
 
 
+;; originally from fredericksgary
+(defn default-string-from-regex-generator [regex]
+  (gen/make-gen (fn [r _size]
+                  (binding [four/*rand* r]
+                    (rose/pure (re/re-rand regex))))))
+
+
+(def ^:dynamic *string-from-regex-generator* default-string-from-regex-generator)
+
+;; (def ^:dynamic *string-from-regex-generator*  chuck/string-from-regex)
+
+(defn gen-regex [regex]
+  (*string-from-regex-generator* regex))
 
 (declare mk-gen)
 
@@ -354,12 +367,6 @@ of generators, not variadic"
 ;; maybe useful
 (defn regex? [r]
  (instance? java.util.regex.Pattern r))
-
-;; originally from fredericksgary
-(defn gen-regex [regex]
-  (gen/make-gen (fn [r _size]
-                  (binding [four/*rand* r]
-                    (rose/pure (re/re-rand regex))))))
 
 (defn mk-str [regex extensions]
   ;; accepts regex or string (for EDN compatibility) or nil for any string (I like ascii)
