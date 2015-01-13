@@ -12,8 +12,6 @@
   ([schema num]
      (let [confn (conform schema)
            result (hg/check num confn schema)]
-       (print ".")
-       (flush)
        (is (:result result) (str "Schema: " schema " failed "
                                  (first (get-in result [:shrunk :smallest])))))))
 
@@ -42,9 +40,10 @@
 
 (def trials 100)
 
-(doseq [schema test-schemas]
-  ;;(println " testing" schema)
-  (gen-test schema))
+(deftest schemas
+  (doseq [schema test-schemas]
+    ;;(println " testing" schema)
+    (gen-test schema)))
 
 (defspec kw-key trials
   (hg/property (fn [m] (every? keyword? (keys m))) '{kw* int*}))
