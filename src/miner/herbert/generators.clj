@@ -4,8 +4,7 @@
             [miner.herbert.util :refer :all]
             [miner.herbert.predicates :as predicates]
             [miner.herbert.canonical :as hc]
-            [four.stateful :as four]
-            [re-rand :as re]
+            [miner.herbert.regex :as hr]
             [clojure.test.check :as tc]
             [clojure.test.check.properties :as prop]
             [clojure.math.combinatorics :as mc :exclude [update]]
@@ -13,17 +12,12 @@
             [clojure.test.check.rose-tree :as rose]
             [clojure.test.check.generators :as gen]))
 
-
-;; originally from fredericksgary
-(defn default-string-from-regex-generator [regex]
-  (gen/make-gen (fn [r _size]
-                  (binding [four/*rand* r]
-                    (rose/pure (re/re-rand regex))))))
-
-
-(def ^:dynamic *string-from-regex-generator* default-string-from-regex-generator)
-
-;; (def ^:dynamic *string-from-regex-generator*  chuck/string-from-regex)
+(def ^:dynamic *string-from-regex-generator*
+  "A test.check generator that takes a regular expression (a java.util.regex.Pattern 
+or a String) and generates a matching string.  Herbert will use this internally for
+constraints that depend on matching a regex.  The default generator handles only basic
+regexs like \"[Ff]o+ba?r*\" or \"Ba(r|z)\\d+\"."
+  hr/string-generator)
 
 (defn gen-regex [regex]
   (*string-from-regex-generator* regex))

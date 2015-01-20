@@ -7,8 +7,10 @@
             [clojure.test.check.properties :as prop]
             [clojure.test.check.clojure-test :as ct :refer (defspec)] ))
 
+(def trials 100)
+
 (defn gen-test
-  ([schema] (gen-test schema 100))
+  ([schema] (gen-test schema trials))
   ([schema num]
      (let [confn (conform schema)
            result (hg/check num confn schema)]
@@ -37,8 +39,6 @@
     [(+ (even 10) (odd -5 -1)) (int 100 200) (& (int 400 440) (int 500 510))
      (* (int 600 601) (int 770 779)) (? (int 990 999))]
     ))
-
-(def trials 100)
 
 (deftest schemas
   (doseq [schema test-schemas]
@@ -87,6 +87,9 @@
   (hg/property (fn [s] (and (symbol? s) (re-matches #"s[a-z]/f\d*o+" (str s))))
                '(sym #"s[a-z]/f\d*o+")))
 
+(defspec str-regexes 1000
+  (let [re #"((s[a-z]*)|\d+)(x[a-j]y|y[^-A-Za-z]z|pq|PQ)\w@[^A-Zaz]"]
+    (hg/property (fn [s] (and (string? s) (re-matches re s))) (list 'str re))))
 
 (comment
 ;; some properties that should fail
