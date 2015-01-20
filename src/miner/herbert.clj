@@ -17,6 +17,15 @@
 
 (def default-predicates internal-default-predicates)
 
+(def ^:dynamic *string-from-regex-generator*
+  "When bound to a test.check generator, Herbert will use this generator internally for
+  constraints that depend on matching a regular expression.  The generator should take one
+  argument, which can be either a java.util.regex.Pattern or a String, as the regex.  It
+  should generate strings that match the given regex.  When nil (the default), Herbert will
+  use its internal string generator which handles a limited but common regular expression
+  syntax.  Regexs like \"[Ff]o+ba?r*\" or \"Ba(r|z)\\d+\" work as expected."
+  nil)
+
 
 (defn constraint-fn [schema]
   (let [schema (canonical/rewrite schema)

@@ -12,15 +12,10 @@
             [clojure.test.check.rose-tree :as rose]
             [clojure.test.check.generators :as gen]))
 
-(def ^:dynamic *string-from-regex-generator*
-  "A test.check generator that takes a regular expression (a java.util.regex.Pattern 
-or a String) and generates a matching string.  Herbert will use this internally for
-constraints that depend on matching a regex.  The default generator handles only basic
-regexs like \"[Ff]o+ba?r*\" or \"Ba(r|z)\\d+\"."
-  hr/string-generator)
-
 (defn gen-regex [regex]
-  (*string-from-regex-generator* regex))
+  (if h/*string-from-regex-generator*
+    (h/*string-from-regex-generator* regex)
+    (hr/string-generator regex)))
 
 (declare mk-gen)
 
