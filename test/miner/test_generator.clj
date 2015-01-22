@@ -87,8 +87,12 @@
   (hg/property (fn [s] (and (symbol? s) (re-matches #"s[a-z]/f\d*o+" (str s))))
                '(sym #"s[a-z]/f\d*o+")))
 
-(defspec str-regexes 1000
-  (let [re #"((s[a-z]*)|\d+)(x[a-j]y|y[^-A-Za-z]z|pq|PQ)\w@[^A-Zaz]"]
+(let [re #"((s[a-z]*)|\d+)(x[a-j]y|y[^-A-Za-z]z|pq|PQ)\w@[^A-Zaz]"]
+  (defspec str-regexes 1000
+    (hg/property (fn [s] (and (string? s) (re-matches re s))) (list 'str re))))
+
+(let [re #"\.\?\w\[\][-.?]"]
+  (defspec escaped-str-regexes 1000
     (hg/property (fn [s] (and (string? s) (re-matches re s))) (list 'str re))))
 
 (comment
