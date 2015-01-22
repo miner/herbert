@@ -1,4 +1,4 @@
-(defproject com.velisco/herbert "0.6.7-SNAPSHOT"
+(defproject com.velisco/herbert "0.6.7"
   :description "A schema for edn"
   :url "https://github.com/miner/herbert"
   :license {:name "Eclipse Public License"
