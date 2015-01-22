@@ -369,7 +369,8 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   (fn [input bindings context memo]
     (if (nil? (seq input))
       (sp/fail "End of input" memo)
-      (let [m (first input)]
+      (let [m (first input)
+            kw (dequote kw)]
         (if (and (map? m) (get m kw))
           ;; used get above instead of contains? because "optional" interpretation
           ;; treats nil value like having no kw, turns out to be convenient

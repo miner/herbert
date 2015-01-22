@@ -610,3 +610,16 @@
   (is (conforms? '[(:= vs list) (* (in vs))] '[(:a :b :c) :a :b :c :a]))
   (is (not (conforms? '[(:= vs list) (* (in vs))] '[(:a :b :c) :a :d :c :a]))))
   
+(deftest collection-keys
+  (is (conforms? '{:a int '[:foo "bar"] str} '{:a 10 [:foo "bar"] "baz"}))
+  (is (conforms? '{:a int (? '[:foo "bar"]) str} '{:a 10 [:foo "bar"] "baz"}))
+  (is (conforms? '{:a int (? '[:foo "bar"]) str} '{:a 10}))
+  (is (not (conforms? '{:a int (? '[:foo "bar"]) str} '{:a "foo"})))
+  (is (not (conforms? '{:a int (? '[:foo "bar"]) str} '{:a 10 [:foo "bar"] 13})))
+  (is (conforms? '{'[:foo "bar"] str} '{:a 10 [:foo "bar"] "baz"}))
+  (is (conforms? '{(? '[:foo "bar"]) str} '{:a 10 [:foo "bar"] "baz"}))
+  (is (conforms? '{(? '[:foo "bar"]) str} '{:a 10}))
+  (is (conforms? '{(? '[:foo "bar"]) str} '{:a "foo"}))
+  (is (not (conforms? '{(? '[:foo "bar"]) str} '{[:foo "bar"] 13})))
+  (is (not (conforms? '{(? '[:foo "bar"]) str} '{:a 10 [:foo "bar"] 13}))))
+
