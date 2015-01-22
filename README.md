@@ -240,7 +240,7 @@ macro for use with *clojure.test*.)  If you just want the generator for a schema
   argument is the *start-pattern* which is the actual pattern to match.  It is followed by
   zero or more rules, declared as an inline pair of a symbol, the `term`, and its pattern
   definition.  A rule can refer to previously defined terms or use its own term symbol in a
-  recursive pattern.  The *start-pattern* can refer to any of the terms in the `(schema ...)`
+  recursive pattern.  The *start-pattern* can refer to any of the terms in the `grammar`
   form.  If you want to go crazy, you can nest another `grammar` pattern as the definition
   of a term, but the nested `grammar` expression is in an isolated scope so its rules are
   not available to the outer scope. <BR>
@@ -250,7 +250,7 @@ macro for use with *clojure.test*.)  If you just want the generator for a schema
 
 ## Regular Expression Support
 
-For conformance testing (as with `conform?`), Herbert allows several terms to be
+For conformance testing (as with `conforms?`), Herbert allows several terms to be
 parameterized by regular expression (see `str`, `sym`, etc).  Both the Clojure syntax
 for regular expressions and the Java String format are allowed (see
 *clojure.core/re-pattern* and *java.util.regex.Pattern*.)  Note that Clojure regular
@@ -268,10 +268,10 @@ does not support advanced regex features such as unicode notation, minimum and m
 counts, intersection character classes, POSIX character classes, case-insensitity flags,
 look-ahead, look-back, back-references, greedy, reluctant or possessive quantification, etc.
 
-The dynamic Var `\*string-from-regex-generator\*` allows the user to customize the
+The dynamic Var `*string-from-regex-generator*` allows the user to customize the
 *test.check* string generator used internally by Herbert.  When
-`\*string-from-regex-generator\*` is bound to a *test.check* generator, Herbert will use
-this generator for terms that are parameterized by a regular expression.  The generator
+`*string-from-regex-generator*` is bound to a *test.check* generator, Herbert will use
+this generator for any term that is parameterized by a regular expression.  The generator
 should take one argument, which can be either a **java.util.regex.Pattern** or a **String**,
 as the regex.  It should generate strings that match the given regex.  When it's bound to nil
 (the default), Herbert will use its internal string generator as described above.
