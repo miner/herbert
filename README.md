@@ -248,6 +248,51 @@ macro for use with *clojure.test*.)  If you just want the generator for a schema
   matches [{:name "Herbert" :phone "408-555-1212"} {:name "Jenny" :phone "415-867-5309"}]
   
 
+## Regular Expression Support
+
+For conformance test (see *conform?*), Herbert uses the Clojure syntax for regular
+expressions or the Java String format (see *clojure.core/re-pattern* and
+*java.util.regex.Pattern*.)  Note that Clojure regular expressions (like #"foo+bar*") are
+not EDN types, so you should use Strings if you want your Herbert schemas to be completely
+EDN-compatible.  The main difference is that Java String notation requires you to use double
+backslashes to get the effect of a single backslash in your regex.  (Clojure #"foo\d" would
+be written as the String "foo\\d".)
+
+Although the full Java regular expression syntax is supported for conformance testing, the
+Herbert generator implementation supports only a limited form of regular expressions.
+(Someday, *test.check* may support a regex generator, but for now, Herbert has to implement
+string generation as best it can.)  The built-in string generator supports basic regular
+expressions with ASCII characters, such as "[a-z] [^abc] a.b* c+d(ef|gh)? \d\D\w\W\s\S".  It
+does not support advanced regex features such as unicode notation, minimum and maximum match
+counts, intersection character classes, POSIX character classes, case-insensitity flags,
+look-ahead, look-back, back-references, greedy, reluctant or possessive quantification, etc.
+
+The dynamic Var __\*string-from-regex-generator\*__ allows the user to customize the
+*test.check* generator used internally by Herbert.  When __\*string-from-regex-generator\*__
+is bound to a *test.check* generator, Herbert will use this generator for constraints that
+are parameterized by a regular expression.  The generator should take one argument, which can
+be either a java.util.regex.Pattern or a String, as the regex.  It should generate strings
+that match the given regex.  When nil (the default), Herbert will use its internal string
+generator as described previously.
+
+If you need better support for Java regular expressions when generating Strings, you should
+consider using the [test.chuck][chuck] library which provides the *string-from-regex*
+generator.  You can use it with Herbert like this:
+
+[chuck]: https://github.com/gfredericks/test.chuck "test.chuck"
+
+
+```clojure
+(require '[com.gfredericks.test.chuck.generators :as chuck])
+(require '[miner.herbert :as h])
+(require '[miner.herbert.generators :as hg])
+
+(binding [h/*string-from-regex-generator* chuck/string-from-regex]
+	(hg/sample '(str #"\x66oo\dbar{1,3}") 5))
+
+;=> ("foo5bar" "foo2barr" "foo5barrr" "foo2barrr" "foo9bar")
+```
+  
 ## Experimental Features
 
 These features are implemented as an experiment, but I'm not sure I'll keep them as they're a bit of
