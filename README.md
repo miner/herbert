@@ -171,8 +171,8 @@ macro for use with *clojure.test*.)  If you just want the generator for a schema
 `(int 1 10)`  -- matches 4, but not 12
 
 * String, symbol and keyword schema patterns (such as __str__, __sym__ and __kw__) may take an
-  optional regex argument, specified as a string (for EDN compatibility) or a Clojure regular
-  expression (like *#"regex"*).  In that case, the `pr-str` of the element must match the
+  optional regex argument, specified as a string (for **edn** compatibility) or a Clojure regular
+  expression (like `#"[Rr]ege?x"`).  In that case, the `pr-str` of the element must match the
   regex. <BR>
 `(kw ":user/.*")` -- matches :user/foo
 
@@ -254,8 +254,8 @@ For conformance testing (as with `conforms?`), Herbert allows several terms to b
 parameterized by regular expression (see `str`, `sym`, etc).  Both the Clojure syntax
 for regular expressions and the Java String format are allowed (see
 *clojure.core/re-pattern* and *java.util.regex.Pattern*.)  Note that Clojure regular
-expressions (like `#"foo+bar*"`) are not EDN types, so you should use Strings if you want your
-Herbert schemas to be completely EDN-compatible.  The main difference is that Java String
+expressions (like `#"foo+bar*"`) are not **edn** types, so you should use Strings if you want your
+Herbert schemas to be completely **edn**-compatible.  The main difference is that Java String
 notation requires you to use double backslashes to get the effect of a single backslash in
 your regex.  For example, Clojure `#"foo\d"` would be written as the String `"foo\\d"`.
 
