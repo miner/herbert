@@ -14,8 +14,6 @@
   ([schema num]
      (let [confn (conform schema)
            result (hg/check num confn schema)]
-       (print ".")
-       (flush)
        (is (:result result) (str "Schema: " schema " failed "
                                  (first (get-in result [:shrunk :smallest])))))))
 
