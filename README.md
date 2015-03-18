@@ -381,7 +381,9 @@ a hack:
 * "The Way to Eden" lightning talk at Clojure/Conj 2013 
     * slides:  https://github.com/miner/way-to-edn
     * video:  http://www.youtube.com/watch?v=bmHTFo2Rf2w&t=19m55s
-
+* "Generating Generators" talk at Clojure/Conj 2014
+    * slides: https://speakerdeck.com/miner/generating-generators
+	* video: https://www.youtube.com/watch?v=4JGu33WF0Us
 
 ## Related Projects
 If *Herbert* isn't exactly what you're looking for, here are some other projects that take
