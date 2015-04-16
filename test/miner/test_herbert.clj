@@ -398,8 +398,37 @@
 (deftest dates-and-uuid
   (is (conforms? '(tag inst) (java.util.Date.)))
   (is (conforms? '(tag inst) (java.sql.Timestamp. 0)))
-  (is (conforms? '(tag inst) (java.util.Calendar/getInstance))))
+  (is (conforms? '(tag inst) (java.util.Calendar/getInstance)))
+  (is (conforms? '(tag inst "1970") #inst "1970"))
+  (is (not (conforms? '(tag inst "1970") "1970")))
+  (is (not (conforms? '(tag inst "1980") #inst "1990"))))
 
+(deftest nested-inst-and-uuid
+  (is (conforms? '[[:create-resource
+                   [:resource/id (tag uuid "552fc7b3-8905-46fd-b50b-dd613c940504")]
+                   {:occurrence/place 281474976711832,
+                    :occurrence/start-time (tag inst)}]
+                  [:create-resource
+                   [:resource/id (tag uuid)]
+                   {:occurrence/place 281474976711832,
+                    :occurrence/start-time (tag inst "1970-01-01T00:00:00.002-00:00")}]
+                  [:create-resource
+                   [:resource/id (tag uuid)]
+                   {:occurrence/place 281474976711832,
+                    :occurrence/start-time (tag inst "1970-01-01T00:00:00.003-00:00")}]]
+
+                 [[:create-resource
+                   [:resource/id #uuid "552fc7b3-8905-46fd-b50b-dd613c940504"]
+                   {:occurrence/place 281474976711832,
+                    :occurrence/start-time #inst "1970-01-01T00:00:00.001-00:00"}]
+                  [:create-resource
+                   [:resource/id #uuid "552fc7b3-5ffa-4eb8-b3ac-8e3b15bcead0"]
+                   {:occurrence/place 281474976711832,
+                    :occurrence/start-time #inst "1970-01-01T00:00:00.002-00:00"}]
+                  [:create-resource
+                   [:resource/id #uuid "552fc7b3-af79-489c-8eaf-09e3845106d0"]
+                   {:occurrence/place 281474976711832,
+                    :occurrence/start-time #inst "1970-01-01T00:00:00.003-00:00"}]])))
 
 (deftest readme-examples
   (is (= ((conform '[(:= A int) (:= B int) (:= C int+ A B)]) [3 7 4 5 6])

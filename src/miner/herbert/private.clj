@@ -1,6 +1,7 @@
 (ns miner.herbert.private
   (:require [clojure.string :as str]
             [clojure.set :as set]
+            [clojure.edn :as edn]
             [miner.tagged :as tag]
             [squarepeg.core :as sp]
             [miner.herbert.util :refer :all]
@@ -16,6 +17,9 @@
                               vec seq list set map mod tag
                               := grammar recur herbert})
 
+(def ^:dynamic *herbert-readers* nil)
+
+(def ^:dynamic *herbert-default-reader-fn* nil)
 
 (defn reserved-sym? [sym]
   (contains? internal-reserved-ops sym))
@@ -254,13 +258,18 @@ Returns the successful result of the last rule or the first to fail."
   (and (re-matches (if (string? regex-or-str) (re-pattern regex-or-str) regex-or-str) (pr-str sym))
        true))
 
-(defn mk-tag 
+(defn mk-tag
   ;; tag could be a symbol (exact match) or a string/regex to match pr-str of item's actual tag
   ([tag] (if (symbol? tag) 
            (mkprb #(= (tag/edn-tag %) tag) (list 'tag tag))
            (mkprb #(regex-sym-match? tag (tag/edn-tag %)) (list 'tag tag))))
 
   ([tag valpat extensions]
+   (if (and (symbol? tag) valpat (predicates/literal? valpat))
+     (mkprb #(= (edn/read-string {:readers (or *herbert-readers* *data-readers*)
+                                  :default (or *herbert-default-reader-fn* *default-data-reader-fn*)}
+                                 (format "#%s \"%s\"" tag valpat))
+                %))
      (let [vrule (when valpat (mkconstraint valpat extensions))]
        (fn [input bindings context memo]
          (let [item (first input)
@@ -273,7 +282,7 @@ Returns the successful result of the last rule or the first to fail."
                    res
                    (sp/succeed item [item] (rest input) (merge bindings (:b res)) memo)))
                (sp/succeed item [item] (rest input) bindings memo))
-             (sp/fail (str "Not tagged " tag) memo)))))))
+             (sp/fail (str "Not tagged " tag) memo))))))))
 
 (declare mk-hash-map-constraint)
 (declare mk-set-constraint)
