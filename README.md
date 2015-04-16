@@ -208,20 +208,24 @@ macro for use with *clojure.test*.)  If you just want the generator for a schema
   flexible and extensible to use `tag`. <BR>
 `(class java.util.Date)` -- matches a java.util.Date, but not a java.util.Calendar
 
-* The `tag` list pattern takes a symbol as its first argument.  The pattern matches against the
-  `edn-tag` of the item.  The first argument may also be a string which is interpreted as a regex
-  matching the `pr-str` of the `edn-tag`.  The optional second argument is a schema pattern that
-  will be matched against the `edn-value` of the item.  The `edn-tag` and `edn-value` are defined in
-  the [tagged][] project.  See the `miner.tagged.EdnTag` protocol for more information.  Basically,
-  the `edn-tag` is the symbol that normally would be used to print as a _tagged record_ (record
-  class `my.ns.Rec` would use tag `my.ns/Rec`).  Several Java classes corresponding to built-in
-  tagged literals (see `clojure.core/default-data-readers`) have predefined tags as well.  The
-  `edn-value` is typically a map for a record or the item itself for most other classes.  Custom
-  records and Java classes can extend the `miner.tagged.EdnTag` protocol to participate in `tag`
-  pattern matching. <BR>
-`(tag my.ns/Rec {:a int})` -- matches an instance of the record class `my.ns.Rec` with an integer
-  value for the key `:a`. <BR>
-`(tag inst)` -- matches any instance of java.util.Date, java.util.Calendar or java.sql.Timestamp
+* The `tag` list pattern takes a symbol as its first argument.  The pattern matches against
+  the `edn-tag` of the item.  The first argument may also be a string which is interpreted
+  as a regex matching the `pr-str` of the `edn-tag`.  The optional second argument may be a
+  literal (such as a "string") in which case the value is whatever constant
+  `edn/read-string` would construct by reading a string with that tag and literal.  On the
+  other hand, if the option second argument is a non-literal schema pattern that pattern
+  will be matched against the `edn-value` of the item.  For example, the Herbert `map`
+  notation would be appropriate for matching a record value.  The `edn-tag` and `edn-value`
+  are defined in the [tagged][] project.  See the `miner.tagged.EdnTag` protocol for more
+  information.  Basically, the `edn-tag` is the symbol that normally would be used to print
+  as a _tagged record_ (record class `my.ns.Rec` would use tag `my.ns/Rec`).  Several Java
+  classes corresponding to built-in tagged literals (see
+  `clojure.core/default-data-readers`) have predefined tags as well.  The `edn-value` is
+  typically a map for a record or the item itself for most other classes.  Custom records
+  and Java classes can extend the `miner.tagged.EdnTag` protocol to participate in `tag`
+  pattern matching. <BR> `(tag my.ns/Rec {:a int})` -- matches an instance of the record
+  class `my.ns.Rec` with an integer value for the key `:a`. <BR> `(tag inst)` -- matches any
+  instance of java.util.Date, java.util.Calendar or java.sql.Timestamp
 
 [tagged]: https://github.com/miner/tagged "tagged"
 
