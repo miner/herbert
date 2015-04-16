@@ -1,7 +1,6 @@
 (ns miner.herbert.private
   (:require [clojure.string :as str]
             [clojure.set :as set]
-            [clojure.edn :as edn]
             [miner.tagged :as tag]
             [squarepeg.core :as sp]
             [miner.herbert.util :refer :all]
@@ -265,10 +264,11 @@ Returns the successful result of the last rule or the first to fail."
            (mkprb #(regex-sym-match? tag (tag/edn-tag %)) (list 'tag tag))))
 
   ([tag valpat extensions]
-   (if (and (symbol? tag) valpat (predicates/literal? valpat))
-     (mkprb #(= (edn/read-string {:readers (or *herbert-readers* *data-readers*)
-                                  :default (or *herbert-default-reader-fn* *default-data-reader-fn*)}
-                                 (format "#%s \"%s\"" tag valpat))
+   (if (and (symbol? tag) valpat (literal-or-quoted? valpat))
+     (mkprb #(= (tag/read-string {:readers (or *herbert-readers* *data-readers*)
+                                  :default (or *herbert-default-reader-fn*
+                                               tag/tagged-default-reader)}
+                                 (str "#" tag " " (pr-str (dequote valpat))))
                 %))
      (let [vrule (when valpat (mkconstraint valpat extensions))]
        (fn [input bindings context memo]
