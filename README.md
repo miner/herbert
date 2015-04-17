@@ -114,7 +114,7 @@ macro for use with *clojure.test*.)  If you just want the generator for a schema
 
 * A quantified schema pattern: adding a __*__, __+__ or __?__ at the end of a symbol for
   zero-or-more, one-or-more, or zero-or-one (optional): <BR>
-**int***, **str+**, **sym?**
+**int\***, **str\+**, **sym?**
 
 * A quoted expression matches itself without any other interpretation: <BR>
 **'foo?** matches the symbol _foo?_ literally.<BR>
