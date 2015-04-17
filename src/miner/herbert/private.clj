@@ -18,7 +18,7 @@
 
 (def ^:dynamic *herbert-readers* nil)
 
-(def ^:dynamic *herbert-default-reader-fn* nil)
+(def ^:dynamic *herbert-default-tag-reader* (constantly nil))
 
 (defn reserved-sym? [sym]
   (contains? internal-reserved-ops sym))
@@ -257,6 +257,20 @@ Returns the successful result of the last rule or the first to fail."
   (and (re-matches (if (string? regex-or-str) (re-pattern regex-or-str) regex-or-str) (pr-str sym))
        true))
 
+(defn tag-reader-constant [tag val]
+  ;; returns the tagged literal constant or nil if not applicable
+  ;; allow nil value in reader map to defeat a tag
+  (when (and val (symbol? tag) (literal-or-quoted? val))
+    (let [reader-map (first (filter #(contains? % tag)
+                                 (list *herbert-readers* *data-readers*
+                                       default-data-readers)))]
+      (if-let [reader (and reader-map (get reader-map tag))]
+        (reader (dequote val))
+        (let [default-reader (tag/some-tag-reader *herbert-default-tag-reader*
+                                                  tag/record-tag-reader
+                                                  tag/->TaggedValue)]
+          (default-reader tag (dequote val)))))))
+
 (defn mk-tag
   ;; tag could be a symbol (exact match) or a string/regex to match pr-str of item's actual tag
   ([tag] (if (symbol? tag) 
@@ -264,12 +278,8 @@ Returns the successful result of the last rule or the first to fail."
            (mkprb #(regex-sym-match? tag (tag/edn-tag %)) (list 'tag tag))))
 
   ([tag valpat extensions]
-   (if (and (symbol? tag) valpat (literal-or-quoted? valpat))
-     (mkprb #(= (tag/read-string {:readers (or *herbert-readers* *data-readers*)
-                                  :default (or *herbert-default-reader-fn*
-                                               tag/tagged-default-reader)}
-                                 (str "#" tag " " (pr-str (dequote valpat))))
-                %))
+   (if-let [data-constant (tag-reader-constant tag valpat)]
+     (sp/mklit data-constant)
      (let [vrule (when valpat (mkconstraint valpat extensions))]
        (fn [input bindings context memo]
          (let [item (first input)
