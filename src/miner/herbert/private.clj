@@ -262,9 +262,9 @@ Returns the successful result of the last rule or the first to fail."
   ;; allow nil value in reader map to defeat a tag
   (when (and val (symbol? tag) (literal-or-quoted? val))
     (let [reader-map (first (filter #(contains? % tag)
-                                 (list *herbert-readers* *data-readers*
-                                       default-data-readers)))]
-      (if-let [reader (and reader-map (get reader-map tag))]
+                                    (list *herbert-readers* *data-readers*
+                                          default-data-readers)))]
+      (if-let [reader (get reader-map tag)]
         (reader (dequote val))
         (let [default-reader (tag/some-tag-reader *herbert-default-tag-reader*
                                                   tag/record-tag-reader
