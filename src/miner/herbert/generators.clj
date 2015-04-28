@@ -34,9 +34,13 @@
 
 (def gen-symbol (gen-one-of gen/symbol gen/symbol-ns))
 
-(def gen-even (gen/fmap (fn [n] (if (even? n) n (unchecked-add n (if (neg? n) 1 -1)))) gen-int))
+(defn- safe-1 [n]
+  ;; avoid overflow by +1 or -1 toward zero, away from extremes
+  (unchecked-add n (if (neg? n) 1 -1)))
 
-(def gen-odd (gen/fmap (fn [n] (if (odd? n) n (unchecked-add n (if (neg? n) 1 -1)))) gen-int))
+(def gen-even (gen/fmap (fn [n] (if (even? n) n (safe-1 n))) gen-int))
+
+(def gen-odd (gen/fmap (fn [n] (if (odd? n) n (safe-1 n))) gen-int))
 
 (def gen-seq (gen-one-of (gen/list gen/any-printable) (gen/vector gen/any-printable)))
 
