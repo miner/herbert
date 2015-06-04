@@ -30,31 +30,6 @@
              {}
              (ns-publics (the-ns ns))))
 
-
-;;;; repeated in canonical
-(defn quantified? [expr]
-  (and (seq? expr) (case-of? (first expr) * + ?)))
-
-(defn as-quantified [expr]
-  (if (quantified? expr)
-    expr
-    (list '+ expr)))
-
-(defn literal-or-quoted? [expr]
-  (or (pred/literal? expr)
-      (and (seq? expr) (= (first expr) 'quote))))
-
-(defn optional-literal? [expr]
-  (and (seq? expr)
-       (case-of? (first expr) ?)
-       (literal-or-quoted? (second expr))))
-
-(defn dequote [expr]
-  (if (and (seq? expr) (= (first expr) 'quote))
-    (second expr)
-    expr))
-;;;; END repeated in canonical
-
   
 ;; loosey-goosey get or just yourself, sort of an ersatz lexical binding
 ;; This is necessary to allow `step`, `iter` and `indexed` to work with fn names (see as-fn)
@@ -409,7 +384,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   ;; so symbols get treated as literals, appropriate for literal '{foo 1} maps
   (let [rule (mkconstraint con extensions)]
     (cond 
-          (or (pred/literal? key) (symbol? key)) (mk-key key rule)
+          (or (literal? key) (symbol? key)) (mk-key key rule)
           (seq? key) (case (first key)
                        (quote +) (mk-key (second key) rule)
                        (? *) (mk-kw-opt (second key) rule)
@@ -529,7 +504,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
            ;; (map? expr) (mk-map-literal-constraint expr extensions)
            ;; keep optional-key? before literal? test
            ;; (optional-key? expr) (sp/mkopt (sp/mklit (simple-key expr)))
-           (pred/literal? expr) (sp/mklit expr)
+           (literal? expr) (sp/mklit expr)
            :else (throw (ex-info "Unknown constraint form" {:con expr :extensions extensions})))))
 
 (defn qsymbol? [x]

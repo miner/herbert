@@ -1,15 +1,11 @@
 (ns miner.herbert.generators
   (:require [miner.herbert :as h]
-            [miner.herbert.private :as internal]
             [miner.herbert.util :refer :all]
-            [miner.herbert.predicates :as predicates]
             [miner.herbert.canonical :as hc]
             [miner.herbert.regex :as hr]
             [clojure.test.check :as tc]
             [clojure.test.check.properties :as prop]
             [clojure.math.combinatorics :as mc :exclude [update]]
-            [clojure.walk :as w]
-            [clojure.test.check.rose-tree :as rose]
             [clojure.test.check.generators :as gen]))
 
 (defn gen-regex [regex]
@@ -19,8 +15,8 @@
 
 (declare mk-gen)
 
-
-(defn quantified? [expr]
+;; like util/quantified? but also looks for &
+(defn quantified-or-inline? [expr]
   (and (seq? expr)
        (case-of? (first expr) & * + ?)))
 
@@ -191,12 +187,11 @@ of generators, not variadic"
   ([quant expr] (if (and (seq? expr) (= (first expr) quant)) (second expr) expr)))
 
 (defn opt-pair? [[k v]]
-  (hc/first= k '?))
-
+  (first= k '?))
 
 (defn opt-lit-keys [hm-schemas]
-  (reduce (fn [opts sch] (if (and (hc/first= sch '?)
-                                  (predicates/literal? (second sch))
+  (reduce (fn [opts sch] (if (and (first= sch '?)
+                                  (literal? (second sch))
                                   (== (count sch) 2))
                            (conj opts (second sch))
                            opts))
@@ -227,7 +222,7 @@ of generators, not variadic"
 (defn mk-map [schemas extensions]
   (condp == (count schemas)
     0 (gen/return {})
-    2 (if (predicates/literal? (first schemas))
+    2 (if (literal? (first schemas))
         (mk-literal-hash-map schemas extensions)
         (mk-kvs (not= (ffirst schemas) '+) (dequantify (first schemas))
                 (dequantify (second schemas)) extensions))
@@ -282,7 +277,7 @@ of generators, not variadic"
                            (gen/fmap list (mk-gen (second (first schemas)) extensions)))
             &  (gen/fmap list (mk-gen (second (first schemas)) extensions))
             (gen/fmap list (mk-gen (first schemas) extensions)))
-        (some quantified? schemas)
+        (some quantified-or-inline? schemas)
           (mk-seq-with-quants schemas extensions)
         :else
           (gen-tuple-seq (map #(mk-gen % extensions) schemas))))
@@ -296,7 +291,7 @@ of generators, not variadic"
                            (gen/fmap vector (mk-gen (second (first schemas)) extensions)))
             &  (gen/fmap vector (mk-gen (second (first schemas)) extensions))
             (gen/fmap vector (mk-gen (first schemas) extensions)))
-        (some quantified? schemas)
+        (some quantified-or-inline? schemas)
           (gen/fmap vec (mk-seq-with-quants schemas extensions))
         :else
           (apply gen/tuple (map #(mk-gen % extensions) schemas))))
@@ -308,7 +303,7 @@ of generators, not variadic"
   (condp = (count schemas)
     0 (mk-gen 'any)
     1 (mk-gen (first schemas) extensions)
-    (let [literals (filter predicates/literal? schemas)]
+    (let [literals (filter literal? schemas)]
       (if (seq literals)
         (if (and (apply = literals)
                  (h/conforms? (cons 'and (remove #{(first literals)} schemas)) (first literals)))
@@ -353,7 +348,7 @@ of generators, not variadic"
 ;; look for literals, invert by taking type and such-that
 ;; break down hierarchies and have map of inversions, or closed-world types
 (defn mk-not [schema extensions]
-  (cond (predicates/literal? schema) (gen/such-that #(not= schema %) (mk-type-of-literal schema))
+  (cond (literal? schema) (gen/such-that #(not= schema %) (mk-type-of-literal schema))
         (symbol? schema) (mk-gen (get symbol-complements schema) extensions)
         :else   (throw (ex-info "Unimplemented mk-not" {:schema schema}))))
 
@@ -436,7 +431,7 @@ of generators, not variadic"
   ([schema] (mk-gen schema nil))
   ([schema extensions]
        (cond (symbol? schema) (mk-symbol-gen schema extensions)
-             (predicates/literal? schema) (gen/return schema)
+             (literal? schema) (gen/return schema)
              (and (coll? schema) (empty? schema)) (gen/return schema)
              (seq? schema) (mk-list-gen schema extensions)
              :else (throw (ex-info "Unhandled schema" {:schema schema})))))

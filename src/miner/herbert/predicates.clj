@@ -1,7 +1,8 @@
 (ns miner.herbert.predicates
   (:refer-clojure 
    :exclude [float? list? char? empty? map? seq? set? coll? even? odd? pos? neg? zero?])
-  (:require [miner.tagged :as tag]))
+  (:require [miner.tagged :as tag]
+            [miner.herbert.util :refer :all]))
 
 ;; predicates should not depend on other files, except maybe util
 
@@ -33,7 +34,6 @@
 (def seq? clojure.core/sequential?)
 (def coll? clojure.core/coll?)
 (def map? clojure.core/map?)
-(def keys? clojure.core/map?)
 (def set? clojure.core/set?)
 
 (defn bool? [x] (or (true? x) (false? x)))
@@ -50,9 +50,6 @@
   ([x] (and (number? x) (clojure.core/neg? x)))
   ([lo x] (neg? lo 0 x))
   ([lo hi x] (and (number? x) (clojure.core/neg? x) (<= lo x hi))))
-
-(defn literal? [x]
-  (or (keyword? x) (number? x) (string? x) (false? x) (true? x) (nil? x) (clojure.core/char? x)))
 
 (defn empty? [x]
   (or (nil? x)
@@ -153,9 +150,6 @@
 
 (defmethod predicate 'map [_]
   map?)
-
-(defmethod predicate 'keys [_]
-  keys?)
 
 (defmethod predicate 'set [_]
   set?)

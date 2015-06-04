@@ -1,6 +1,5 @@
 (ns miner.herbert.canonical
   (:require [miner.herbert.util :refer :all]
-            [miner.herbert.predicates :as predicates]
             [miner.herbert.private :as internal]))
 
 ;; canonical form eliminates convenience syntax such as the optional keys (:kw?)
@@ -48,28 +47,19 @@
     (strip-last kw)
     kw))
 
-(defn quantified? [expr]
+;; more complex than util/quantified?
+(defn quantified-expr? [expr]
   (cond (symbol? expr) (case-of? (symbol-quantifier expr) * + ?)
         (seq? expr) (or (case-of? (first expr) * + ?)
                         (case-of? (symbol-quantifier (first expr)) * + ?))
         :else false))
 
-;; SEM FIXME: probably should be separate predicates
-(defn literal-or-quoted? [expr]
-  (or (predicates/literal? expr)
-      (and (seq? expr) (= (first expr) 'quote))))
-
-(defn dequote [expr]
-  (if (and (seq? expr) (= (first expr) 'quote))
-    (second expr)
-    expr))
-
 ;; test for single separately
 (defn implied-quantifiable? [expr]
-  (and (not (predicates/literal? expr))
+  (and (not (literal? expr))
        (not (and (seq? expr)
                  (case-of? (first expr) := * + ? & quote)))
-       (not (quantified? expr))))
+       (not (quantified-expr? expr))))
 
 ;;; -------------------
 
@@ -121,18 +111,6 @@
   (if (and (== (count v) 1) (implied-quantifiable? (first v)))
     (list 'seq (list '+ (rewrite (first v))))
     (cons 'seq (map rewrite v))))
-
-;; not the best thing to use on known vectors
-;; FIXME: NOT USED
-(defn first= [xs y]
-  (and (sequential? xs) (= (first xs) y)))
-
-;; FIXME: NOT USED
-(defn reduce-amp [exprs]
-  (seq (reduce (fn [res x] (if (first= x '&) (reduce conj res (next x)) (conj res x)))
-               []
-               exprs)))
-
 
 (defn seq-rewrite [s]
   (cond (empty? s) s
@@ -186,7 +164,7 @@
 (defn rewrite [schema]
   (cond (and (coll? schema) (empty? schema)) schema
         (keyword? schema) (key-rewrite schema)
-        (predicates/literal? schema) schema
+        (literal? schema) schema
         (symbol? schema) (sym-rewrite schema)
         (vector? schema) (vec-rewrite schema)
         (map? schema) (hash-map-rewrite schema)

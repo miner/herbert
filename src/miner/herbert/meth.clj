@@ -327,3 +327,12 @@ pred:
              (seq? schema) (mk-list-gen schema extensions)
              :else (throw (ex-info "Unhandled schema" {:schema schema})))))
 
+
+
+;; NOT USED
+(defn reduce-amp [exprs]
+  (seq (reduce (fn [res x] (if (first= x '&) (reduce conj res (next x)) (conj res x)))
+               []
+               exprs)))
+
+
