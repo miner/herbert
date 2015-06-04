@@ -4,6 +4,7 @@
             [miner.tagged :as tag]
             [squarepeg.core :as sp]
             [miner.herbert.canonical :as canonical]
+            [miner.herbert.predicates :as pred]
             [miner.herbert.private :as internal :refer :all])
   (:import miner.tagged.TaggedValue))
 
@@ -12,10 +13,6 @@
 ;; SEM FIXME: needs documenation to explain usage
 ;; inherit some things from internal so that they are public in the main namespace
 (def reserved-ops internal-reserved-ops)
-
-(def ns->predicates internal-ns->predicates)
-
-(def default-predicates internal-default-predicates)
 
 (def ^:dynamic *string-from-regex-generator*
   "When bound to a test.check generator, Herbert will use this generator internally for

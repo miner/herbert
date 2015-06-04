@@ -3,9 +3,6 @@
    :exclude [float? list? char? empty? map? seq? set? coll? even? odd? pos? neg? zero?])
   (:require [miner.tagged :as tag]))
 
-;; Notice that we want some common fn vars defined in this ns, not clojure.core.  That
-;; allows us to take all the vars ending in "?" as Herbert predicates.
-
 ;; predicates should not depend on other files, except maybe util
 
 (defn- numeric
@@ -121,3 +118,101 @@
         :else (some #(= % x) coll)))
 
 
+;; symbol to predicate fn
+(defmulti predicate identity)
+
+(defmethod predicate :default [_]
+  nil)
+
+(defmethod predicate 'str [_]
+  str?)
+
+(defmethod predicate 'num [_]
+  num?)
+
+(defmethod predicate 'int [_]
+  int?)
+
+(defmethod predicate 'list [_]
+  seq?)
+
+(defmethod predicate 'float [_]
+  float?)
+
+(defmethod predicate 'seq [_]
+  sequential?)
+
+(defmethod predicate 'mod [_]
+  mod?)
+
+(defmethod predicate 'vec [_]
+  vec?)
+
+(defmethod predicate 'coll [_]
+  coll?)
+
+(defmethod predicate 'map [_]
+  map?)
+
+(defmethod predicate 'keys [_]
+  keys?)
+
+(defmethod predicate 'set [_]
+  set?)
+
+(defmethod predicate 'bool [_]
+  bool?)
+
+(defmethod predicate 'even [_]
+  even?)
+
+(defmethod predicate 'odd [_]
+  odd?)
+
+(defmethod predicate 'pos [_]
+  pos?)
+
+(defmethod predicate 'zero [_]
+  zero?)
+
+(defmethod predicate 'neg [_]
+  neg?)
+
+(defmethod predicate 'literal [_]
+  literal?)
+
+(defmethod predicate 'empty [_]
+  empty?)
+
+(defmethod predicate 'any [_]
+  any?)
+
+(defmethod predicate 'char [_]
+  char?)
+
+(defmethod predicate 'sym [_]
+  sym?)
+
+(defmethod predicate 'kw [_]
+  kw?)
+
+(defmethod predicate 'step [_]
+  step?)
+
+(defmethod predicate 'iter [_]
+  iter?)
+
+(defmethod predicate 'indexed [_]
+  indexed?)
+
+(defmethod predicate 'cnt [_]
+  cnt?)
+
+(defmethod predicate 'in [_]
+  in?)
+
+
+;;; unfinished macro
+#_ (defmacro defpred [fname]
+  (let [sym (stripped fname)]
+  `(defmethod predicate '~sym [_] ~fname)))
