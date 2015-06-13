@@ -35,8 +35,7 @@ As with `case`, constants must be compile-time literals, and need not be quoted.
 
 ;;;; project specific utilities
 
-
-;; SEM FIXME: what about & ?
+;; SEM FIXME: what about & for inline?   I think not for now.
 
 (defn quantified? [expr]
   (and (seq? expr) (case-of? (first expr) * + ?)))

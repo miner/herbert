@@ -8,10 +8,19 @@
             [clojure.math.combinatorics :as mc :exclude [update]]
             [clojure.test.check.generators :as gen]))
 
+
+;; gen-* functions return a t.c generator, general purpose, no knowledge of schemas
+;; mk-* functions  return a t.c generator, use schemas or designed for schema parameters
+
+;; SEM FIXME: want to turn "extensions" into "context"
+;; make context first arg, allow variadics where natural (typically & schemas)
+
+
 (defn gen-regex [regex]
   (if h/*string-from-regex-generator*
     (h/*string-from-regex-generator* regex)
     (hr/string-generator regex)))
+
 
 (declare mk-gen)
 
@@ -77,12 +86,14 @@ of generators, not variadic"
     (gen/fmap seq (apply gen/tuple generators))))
 
 
+;; SEM: hack!
 (def gen-error (gen/return '<ERROR>))
 
 (def gen-kw (gen/frequency [[4 gen/keyword]
                             [1 gen/keyword-ns]
                             [1 (gen/fmap keyword gen-symbol)]]))
 
+#_
 (def symbol-gens {'int gen-int 
                   'even gen-even
                   'odd gen-odd
@@ -168,6 +179,7 @@ of generators, not variadic"
 (defn mk-return [name extensions]
   (gen/return (lookup name extensions)))
 
+#_
 (defn mk-symbol-gen [schema extensions]
   (or (get extensions schema)
       (get symbol-gens schema)
@@ -345,6 +357,8 @@ of generators, not variadic"
   (get symbol-complements schema))
 
 
+;; SEM FIXME:  need a multifn for make-generator-not
+
 ;; look for literals, invert by taking type and such-that
 ;; break down hierarchies and have map of inversions, or closed-world types
 (defn mk-not [schema extensions]
@@ -391,12 +405,16 @@ of generators, not variadic"
   (gen/bind (mk-gen coll extensions)
             (fn [c] (gen/elements (in-collection c)))))
 
-(defn lookup-args [args extensions]
-  (map (fn [x] (if (symbol? x)
-                 (lookup x extensions)
-                 x))
-       args))
 
+(defn lookup-arg [x extensions]
+  (if (symbol? x)
+    (lookup x extensions)
+    x))
+
+(defn lookup-args [args extensions]
+  (map #(lookup-arg % extensions) args))
+
+#_
 (defn mk-list-gen [schema extensions]
   (let [sym (first schema)]
     (case sym
@@ -427,7 +445,8 @@ of generators, not variadic"
       := (mk-return (second schema) extensions)
       )))
 
-(defn mk-gen 
+#_
+(defn mk-gen-ORIG 
   ([schema] (mk-gen schema nil))
   ([schema extensions]
        (cond (symbol? schema) (mk-symbol-gen schema extensions)
@@ -435,6 +454,165 @@ of generators, not variadic"
              (and (coll? schema) (empty? schema)) (gen/return schema)
              (seq? schema) (mk-list-gen schema extensions)
              :else (throw (ex-info "Unhandled schema" {:schema schema})))))
+
+
+(defmulti make-generator (fn [sym args extensions] sym))
+
+(defmethod make-generator 'quote [_ args _]
+  {:pre [(= (count args) 1)]}
+  (gen/return (first args)))
+
+;; SEM FIXME consider extensions as first arg
+;; consider multi-arg case statements to avoid apply
+
+(defmethod make-generator 'int [_ args extensions]
+  (if (seq args)
+    (apply mk-int (lookup-args args extensions))
+    gen-int))
+
+(defmethod make-generator 'float [_ args extensions]
+  (if (seq args)
+    (apply mk-float (lookup-args args extensions))
+    gen-float))
+
+(defmethod make-generator 'num [_ args extensions]
+  (if (seq args)
+    (let [largs (lookup-args args extensions)]
+      (gen/one-of [(apply mk-int largs)
+                   (apply mk-float largs)]))
+    gen-num))
+
+
+(defmethod make-generator 'seq [_ args extensions]
+  (if (seq args)
+    (gen/one-of [(mk-vec args extensions)
+                 (mk-list args extensions)])
+    gen-seq))
+
+(defmethod make-generator 'vec [_ args extensions]
+  (if (seq args)
+    (mk-vec args extensions)
+    (gen/vector gen/any-printable)))
+
+(defmethod make-generator 'list [_ args extensions]
+  (if (seq args)
+    (mk-list args extensions)
+    (gen/list gen/any-printable)))
+  
+(defmethod make-generator 'kvs [_ args extensions]
+  ;; kvs is used internally within the generators
+  (mk-kvs (first args) (second args) (third args) extensions))
+  
+(defmethod make-generator 'map [_ args extensions]
+  (if (seq args)
+    (mk-map args extensions)
+    (gen/map gen/keyword gen/any-printable)))
+  
+(defmethod make-generator 'or [_ args extensions]
+  (if (seq args)
+    (gen/one-of (map #(mk-gen % extensions) args))
+    gen-error))
+  
+(defmethod make-generator 'and [_ args extensions]
+  (if (seq args)
+    (mk-and args extensions)
+    gen/any-printable))
+
+(defmethod make-generator 'str [_ args extensions]
+  (case (count args)
+    0 gen/string
+    1 (mk-str (first args) extensions)))
+    
+
+(defmethod make-generator 'kw [_ args extensions]
+  (case (count args)
+    0 gen-kw
+    1 (mk-kw (first args) extensions)))
+
+(defmethod make-generator 'sym [_ args extensions]
+  (case (count args)
+    0 gen-symbol
+    1 (mk-sym (first args) extensions)))
+
+(defmethod make-generator 'in [_ args extensions]
+  {:pre [(= (count args) 1)]}              
+  (mk-in (first args) extensions))
+  
+
+(defmethod make-generator 'pos [_ args extensions]
+  (case (count args)
+    0 (gen-one-of gen/s-pos-int gen-pos-float)
+    1 (mk-pos (lookup-arg (first args) extensions))
+    2 (mk-pos (lookup-arg (first args) extensions) (lookup-arg (second args) extensions))))
+
+(defmethod make-generator 'neg [_ args extensions]
+  (case (count args)
+    0 (gen-one-of gen/s-neg-int (gen/fmap - gen-pos-float))
+    1 (mk-neg (lookup-arg (first args) extensions))
+    2 (mk-neg (lookup-arg (first args) extensions) (lookup-arg (second args) extensions))))
+
+
+(defmethod make-generator 'even [_ args extensions]
+  (case (count args)
+    0 gen-even
+    1 (mk-even (lookup-arg (first args) extensions))
+    2 (mk-even (lookup-arg (first args) extensions) (lookup-arg (second args) extensions))))
+
+
+(defmethod make-generator 'odd [_ args extensions]
+  (case (count args)
+    0 gen-odd
+    1 (mk-odd (lookup-arg (first args) extensions))
+    2 (mk-odd (lookup-arg (first args) extensions) (lookup-arg (second args) extensions))))
+
+(defmethod make-generator := [_ args extensions]
+  {:pre [(seq args)]}
+  ;; ignore the other args at this point, they will already be processed as bindings
+  (mk-return (first args) extensions))
+
+(defmethod make-generator 'bool [_ args extensions]
+  {:pre [(empty? args)]}
+  gen/boolean)
+
+(defmethod make-generator 'char [_ args extensions]
+  {:pre [(empty? args)]}
+  gen/char)
+
+(defmethod make-generator 'any [_ args extensions]
+  {:pre [(empty? args)]}
+  gen/any-printable)
+
+
+;; SEM FIXME: will need its own multifn for not-generators
+(defmethod make-generator 'not [_ args extensions]
+  {:pre [(= (count args) 1)]}
+  (mk-not (first args) extensions))
+
+(defmethod make-generator :default [sym args extensions]
+  {:pre [(empty? args)]}
+  (mk-return sym extensions))
+
+;; NEW using multi
+(defn mk-gen
+  ([schema] (mk-gen schema nil))
+  ([schema extensions]
+       (cond (symbol? schema) (make-generator schema () extensions)
+             (literal? schema) (gen/return schema)
+             (and (coll? schema) (empty? schema)) (gen/return schema)
+             (seq? schema) (make-generator (first schema) (rest schema) extensions)
+             :else (throw (ex-info "Unhandled schema" {:schema schema})))))
+
+
+
+
+
+;; SEM FIXME: OOPS, forgot to consider this!
+
+;; your mgen could lookup-args on the args if it wants to
+;; important point: extensions always first arg (allows lookups)
+
+
+
 
 
 
@@ -490,3 +668,8 @@ of generators, not variadic"
 (defn check
   ([pred schema] (check 100 pred schema))
   ([trials pred schema] (tc/quick-check trials (property pred schema))))
+
+
+
+
+
