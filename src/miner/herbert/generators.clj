@@ -12,7 +12,7 @@
 ;; gen-* functions return a t.c generator, general purpose, no knowledge of schemas
 ;; mk-* functions  return a t.c generator, use schemas or designed for schema parameters
 
-;; SEM FIXME: want to turn "extensions" into "context"
+;; SEM FIXME: want to turn "context" into "context"
 ;; make context first arg, allow variadics where natural (typically & schemas)
 
 
@@ -172,23 +172,23 @@ of generators, not variadic"
   ([hi] (mk-odd 0 hi))
   ([lo hi] (gen/fmap #(if (odd? %) % (dec %)) (mk-int (inc lo) hi))))
 
-(defn lookup [name extensions]
-  ;;(println "SEM debug lookup" name extensions)
-  (get (:lookup extensions) name name))
+(defn lookup [name context]
+  ;;(println "SEM debug lookup" name context)
+  (get (:lookup context) name name))
 
-(defn mk-return [name extensions]
-  (gen/return (lookup name extensions)))
+(defn mk-return [name context]
+  (gen/return (lookup name context)))
 
 #_
-(defn mk-symbol-gen [schema extensions]
-  (or (get extensions schema)
+(defn mk-symbol-gen [schema context]
+  (or (get context schema)
       (get symbol-gens schema)
-      (mk-return schema extensions)
+      (mk-return schema context)
       (throw (ex-info "Unknown schema" {:schema schema}))))
 
-(defn mk-kvs [allow-empty? key-schema val-schema extensions]
-  (let [kgen (if key-schema (mk-gen key-schema extensions) gen/any-printable)
-        vgen (if val-schema (mk-gen val-schema extensions) gen/any-printable)
+(defn mk-kvs [allow-empty? key-schema val-schema context]
+  (let [kgen (if key-schema (mk-gen key-schema context) gen/any-printable)
+        vgen (if val-schema (mk-gen val-schema context) gen/any-printable)
         kvgen (gen/map kgen vgen)]
     (if allow-empty?
       kvgen
@@ -219,10 +219,10 @@ of generators, not variadic"
 ;; SEM FIXME -- try to use gen/hash-map (but needs literal keys)
 ;; SEM FIXME -- t.c 0.6 will have `shuffle` which might be a good replacement for mc/subsets
 
-(defn mk-literal-hash-map [schemas extensions]
+(defn mk-literal-hash-map [schemas context]
   (let [opt-keys (opt-lit-keys schemas)
         dequantified (dequantify-keys schemas)
-        tup-gen (apply gen/tuple (map #(mk-gen % extensions) dequantified))]
+        tup-gen (apply gen/tuple (map #(mk-gen % context) dequantified))]
     (if (empty? opt-keys)
       (gen/fmap #(apply hash-map %) tup-gen)
       (let [opt-subsets (mc/subsets opt-keys)]
@@ -231,46 +231,46 @@ of generators, not variadic"
                     (gen/fmap #(apply dissoc (apply hash-map %) qopts)
                               tup-gen)))))))
 
-(defn mk-map [schemas extensions]
+(defn mk-map [schemas context]
   (condp == (count schemas)
     0 (gen/return {})
     2 (if (literal? (first schemas))
-        (mk-literal-hash-map schemas extensions)
+        (mk-literal-hash-map schemas context)
         (mk-kvs (not= (ffirst schemas) '+) (dequantify (first schemas))
-                (dequantify (second schemas)) extensions))
-    (mk-literal-hash-map schemas extensions)))
+                (dequantify (second schemas)) context))
+    (mk-literal-hash-map schemas context)))
 
 
-(defn mk-cat-cycle [schemas minimum extensions]
+(defn mk-cat-cycle [schemas minimum context]
   (gen/bind (gen/sized #(gen/choose 0 %))
             (fn [num]
               (gen/fmap #(apply concat %)
-                        (gen/vector (gen-tuple-seq (map #(mk-gen % extensions) schemas))
+                        (gen/vector (gen-tuple-seq (map #(mk-gen % context) schemas))
                                     (max minimum num))))))
 
 ;;; expect caller to concatenate or mapcat results from generators
-(defn mk-cat-gen [schema extensions]
+(defn mk-cat-gen [schema context]
   (if (seq? schema)
     (if (= (count schema) 2)
       (case (first schema)
-        *  (gen/list (mk-gen (second schema) extensions))
-        +  (gen/not-empty (gen/list (mk-gen (second schema) extensions)))
-        ?  (gen-one-of (gen/return '(::void)) (gen/fmap list (mk-gen (second schema) extensions)))
-        &  (gen/fmap list (mk-gen (second schema) extensions))
-        (gen/fmap list (mk-gen schema extensions)))
+        *  (gen/list (mk-gen (second schema) context))
+        +  (gen/not-empty (gen/list (mk-gen (second schema) context)))
+        ?  (gen-one-of (gen/return '(::void)) (gen/fmap list (mk-gen (second schema) context)))
+        &  (gen/fmap list (mk-gen (second schema) context))
+        (gen/fmap list (mk-gen schema context)))
       ;; general case, possibly with multiple schemas in cycles
       (case (first schema)
-        *  (mk-cat-cycle (rest schema) 0 extensions)
-        +  (mk-cat-cycle (rest schema) 1 extensions)
+        *  (mk-cat-cycle (rest schema) 0 context)
+        +  (mk-cat-cycle (rest schema) 1 context)
         ?  (gen-one-of (gen/return '(::void))
-                       (gen-tuple-seq (map #(mk-gen % extensions) (rest schema))))
-        &  (gen-tuple-seq (map #(mk-gen % extensions) (rest schema)))
-        (gen/fmap list (mk-gen schema extensions))))
-    (gen/fmap list (mk-gen schema extensions))))
+                       (gen-tuple-seq (map #(mk-gen % context) (rest schema))))
+        &  (gen-tuple-seq (map #(mk-gen % context) (rest schema)))
+        (gen/fmap list (mk-gen schema context))))
+    (gen/fmap list (mk-gen schema context))))
 
 
-(defn mk-seq-with-quants [schemas extensions]
-  (let [gens (map #(mk-cat-gen % extensions) schemas)]
+(defn mk-seq-with-quants [schemas context]
+  (let [gens (map #(mk-cat-gen % context) schemas)]
     (gen/fmap #(remove #{::void} (apply concat %))
               (apply gen/tuple gens))))
 
@@ -280,53 +280,53 @@ of generators, not variadic"
        (seq? (first schemas))
        (== (count (first schemas)) 2)))
 
-(defn mk-list [schemas extensions]
+(defn mk-list [schemas context]
   (cond (single-maybe-quantified? schemas)
           (case (ffirst schemas)
-            *  (gen/list (mk-gen (second (first schemas)) extensions))
-            +  (gen/not-empty (gen/list (mk-gen (second (first schemas)) extensions)))
+            *  (gen/list (mk-gen (second (first schemas)) context))
+            +  (gen/not-empty (gen/list (mk-gen (second (first schemas)) context)))
             ?  (gen-one-of (gen/return ())
-                           (gen/fmap list (mk-gen (second (first schemas)) extensions)))
-            &  (gen/fmap list (mk-gen (second (first schemas)) extensions))
-            (gen/fmap list (mk-gen (first schemas) extensions)))
+                           (gen/fmap list (mk-gen (second (first schemas)) context)))
+            &  (gen/fmap list (mk-gen (second (first schemas)) context))
+            (gen/fmap list (mk-gen (first schemas) context)))
         (some quantified-or-inline? schemas)
-          (mk-seq-with-quants schemas extensions)
+          (mk-seq-with-quants schemas context)
         :else
-          (gen-tuple-seq (map #(mk-gen % extensions) schemas))))
+          (gen-tuple-seq (map #(mk-gen % context) schemas))))
 
-(defn mk-vec [schemas extensions]
+(defn mk-vec [schemas context]
   (cond (single-maybe-quantified? schemas)
           (case (ffirst schemas)
-            *  (gen/vector (mk-gen (second (first schemas)) extensions))
-            +  (gen/not-empty (gen/vector (mk-gen (second (first schemas)) extensions)))
+            *  (gen/vector (mk-gen (second (first schemas)) context))
+            +  (gen/not-empty (gen/vector (mk-gen (second (first schemas)) context)))
             ?  (gen-one-of (gen/return [])
-                           (gen/fmap vector (mk-gen (second (first schemas)) extensions)))
-            &  (gen/fmap vector (mk-gen (second (first schemas)) extensions))
-            (gen/fmap vector (mk-gen (first schemas) extensions)))
+                           (gen/fmap vector (mk-gen (second (first schemas)) context)))
+            &  (gen/fmap vector (mk-gen (second (first schemas)) context))
+            (gen/fmap vector (mk-gen (first schemas) context)))
         (some quantified-or-inline? schemas)
-          (gen/fmap vec (mk-seq-with-quants schemas extensions))
+          (gen/fmap vec (mk-seq-with-quants schemas context))
         :else
-          (apply gen/tuple (map #(mk-gen % extensions) schemas))))
+          (apply gen/tuple (map #(mk-gen % context) schemas))))
 
 ;; look for literal and gen from that and test with others
 ;; make hierachies of schema types and start with most specific
 ;; beware of expensive such-that with unlikely success, it will try forever
-(defn mk-and [schemas extensions]
+(defn mk-and [schemas context]
   (condp = (count schemas)
     0 (mk-gen 'any)
-    1 (mk-gen (first schemas) extensions)
+    1 (mk-gen (first schemas) context)
     (let [literals (filter literal? schemas)]
       (if (seq literals)
         (if (and (apply = literals)
                  (h/conforms? (cons 'and (remove #{(first literals)} schemas)) (first literals)))
-          (mk-gen (first literals) extensions)
+          (mk-gen (first literals) context)
           (throw (ex-info "mk-and given inconsistent literals" {:schema (cons 'and schemas)})))
         (let [symbols (filter symbol? schemas)]
           (if (seq symbols)
             ;; SEM FIXME -- need to consider the "best" symbol for the such-that
             ;; some cases might be subsume others
             (gen/such-that (h/conform (cons 'and (remove #{(first symbols)} schemas)))
-                           (mk-gen (first symbols) extensions)
+                           (mk-gen (first symbols) context)
                            100)
             (throw (ex-info "Unimplemented mk-and" {:schema (cons 'and schemas)}))))))))
 
@@ -361,16 +361,16 @@ of generators, not variadic"
 
 ;; look for literals, invert by taking type and such-that
 ;; break down hierarchies and have map of inversions, or closed-world types
-(defn mk-not [schema extensions]
+(defn mk-not [schema context]
   (cond (literal? schema) (gen/such-that #(not= schema %) (mk-type-of-literal schema))
-        (symbol? schema) (mk-gen (get symbol-complements schema) extensions)
+        (symbol? schema) (mk-gen (get symbol-complements schema) context)
         :else   (throw (ex-info "Unimplemented mk-not" {:schema schema}))))
 
 ;; maybe useful
 (defn regex? [r]
  (instance? java.util.regex.Pattern r))
 
-(defn mk-str [regex extensions]
+(defn mk-str [regex context]
   ;; accepts regex or string (for EDN compatibility) or nil for any string (I like ascii)
   (cond (nil? regex) gen/string-ascii
         (string? regex) (gen-regex (re-pattern regex))
@@ -380,14 +380,14 @@ of generators, not variadic"
 ;; SEM FIXME: should we require the kw regex to start with a colon
 ;; for matching we do!    Not practical to cover all legal regex patterns.
 
-(defn mk-kw [regex extensions]
+(defn mk-kw [regex context]
   (let [decolonize (fn [s] (if (.startsWith ^String s ":") (subs s 1) s))
         kwize (comp keyword decolonize)]
     (cond (nil? regex) gen-kw
           (string? regex) (gen/fmap kwize (gen-regex (re-pattern regex)))
           :else (gen/fmap kwize (gen-regex regex)))))
 
-(defn mk-sym [regex extensions]
+(defn mk-sym [regex context]
     (cond (nil? regex) gen-symbol
           (string? regex) (gen/fmap symbol (gen-regex (re-pattern regex)))
           :else (gen/fmap symbol (gen-regex regex))))
@@ -401,205 +401,214 @@ of generators, not variadic"
         (map? coll) (keys coll)
         :else (seq coll)))
   
-(defn mk-in [coll extensions]
-  (gen/bind (mk-gen coll extensions)
+(defn mk-in [coll context]
+  (gen/bind (mk-gen coll context)
             (fn [c] (gen/elements (in-collection c)))))
 
 
-(defn lookup-arg [x extensions]
+(defn lookup-arg [x context]
   (if (symbol? x)
-    (lookup x extensions)
+    (lookup x context)
     x))
 
-(defn lookup-args [args extensions]
-  (map #(lookup-arg % extensions) args))
+(defn lookup-args [args context]
+  (map #(lookup-arg % context) args))
 
 #_
-(defn mk-list-gen [schema extensions]
+(defn mk-list-gen [schema context]
   (let [sym (first schema)]
     (case sym
       quote (gen/return (second schema))
-      int (apply mk-int (lookup-args (rest schema) extensions))
-      float (apply mk-float (lookup-args (rest schema) extensions))
-      num (gen/one-of [(apply mk-int (lookup-args (rest schema) extensions))
-                       (apply mk-float (lookup-args (rest schema) extensions))])
-      seq (gen/one-of [(mk-vec (rest schema) extensions)
-                       (mk-list (rest schema) extensions)])
-      vec (mk-vec (rest schema) extensions)
-      list (mk-list (rest schema) extensions)
+      int (apply mk-int (lookup-args (rest schema) context))
+      float (apply mk-float (lookup-args (rest schema) context))
+      num (gen/one-of [(apply mk-int (lookup-args (rest schema) context))
+                       (apply mk-float (lookup-args (rest schema) context))])
+      seq (gen/one-of [(mk-vec (rest schema) context)
+                       (mk-list (rest schema) context)])
+      vec (mk-vec (rest schema) context)
+      list (mk-list (rest schema) context)
       ;; kvs is used internally within the generators
-      kvs (mk-kvs (second schema) (third schema) (fourth schema) extensions)
-      map (mk-map (rest schema) extensions)
-      or (gen/one-of (map #(mk-gen % extensions) (rest schema)))
-      not (mk-not (second schema) extensions)
-      and (mk-and (rest schema) extensions)
-      str (mk-str (second schema) extensions)
-      kw (mk-kw (second schema) extensions)
-      sym (mk-sym (second schema) extensions)
-      in (mk-in (second schema) extensions)
+      kvs (mk-kvs (second schema) (third schema) (fourth schema) context)
+      map (mk-map (rest schema) context)
+      or (gen/one-of (map #(mk-gen % context) (rest schema)))
+      not (mk-not (second schema) context)
+      and (mk-and (rest schema) context)
+      str (mk-str (second schema) context)
+      kw (mk-kw (second schema) context)
+      sym (mk-sym (second schema) context)
+      in (mk-in (second schema) context)
       ;; SEM FIXME many more
-      pos (apply mk-pos (lookup-args (rest schema) extensions))
-      neg (apply mk-neg (lookup-args (rest schema) extensions))
-      even (apply mk-even (lookup-args (rest schema) extensions))
-      odd (apply mk-odd (lookup-args (rest schema) extensions))
-      := (mk-return (second schema) extensions)
+      pos (apply mk-pos (lookup-args (rest schema) context))
+      neg (apply mk-neg (lookup-args (rest schema) context))
+      even (apply mk-even (lookup-args (rest schema) context))
+      odd (apply mk-odd (lookup-args (rest schema) context))
+      := (mk-return (second schema) context)
       )))
 
 #_
 (defn mk-gen-ORIG 
   ([schema] (mk-gen schema nil))
-  ([schema extensions]
-       (cond (symbol? schema) (mk-symbol-gen schema extensions)
+  ([schema context]
+       (cond (symbol? schema) (mk-symbol-gen schema context)
              (literal? schema) (gen/return schema)
              (and (coll? schema) (empty? schema)) (gen/return schema)
-             (seq? schema) (mk-list-gen schema extensions)
+             (seq? schema) (mk-list-gen schema context)
              :else (throw (ex-info "Unhandled schema" {:schema schema})))))
 
+;; new sig, better for variadic args to go last
+;; BUT, could we just do the return a function trick that we did with predicate?
+;; Maybe not with the operators AND, OR, etc. but for the simple types, which are all we
+;; really need for extensibility.  It's a pain to always lookup-args in my methods
 
-(defmulti make-generator (fn [sym args extensions] sym))
+;; Might need a combinator one-of so you can combine them
+
+#_ 
+(defmulti make-generator (fn [context sym & args] sym))
+
+(defmulti make-generator (fn [sym args context] sym))
 
 (defmethod make-generator 'quote [_ args _]
   {:pre [(= (count args) 1)]}
   (gen/return (first args)))
 
-;; SEM FIXME consider extensions as first arg
+;; SEM FIXME consider context as first arg
 ;; consider multi-arg case statements to avoid apply
 
-(defmethod make-generator 'int [_ args extensions]
+(defmethod make-generator 'int [_ args context]
   (if (seq args)
-    (apply mk-int (lookup-args args extensions))
+    (apply mk-int (lookup-args args context))
     gen-int))
 
-(defmethod make-generator 'float [_ args extensions]
+(defmethod make-generator 'float [_ args context]
   (if (seq args)
-    (apply mk-float (lookup-args args extensions))
+    (apply mk-float (lookup-args args context))
     gen-float))
 
-(defmethod make-generator 'num [_ args extensions]
+(defmethod make-generator 'num [_ args context]
   (if (seq args)
-    (let [largs (lookup-args args extensions)]
+    (let [largs (lookup-args args context)]
       (gen/one-of [(apply mk-int largs)
                    (apply mk-float largs)]))
     gen-num))
 
 
-(defmethod make-generator 'seq [_ args extensions]
+(defmethod make-generator 'seq [_ args context]
   (if (seq args)
-    (gen/one-of [(mk-vec args extensions)
-                 (mk-list args extensions)])
+    (gen/one-of [(mk-vec args context)
+                 (mk-list args context)])
     gen-seq))
 
-(defmethod make-generator 'vec [_ args extensions]
+(defmethod make-generator 'vec [_ args context]
   (if (seq args)
-    (mk-vec args extensions)
+    (mk-vec args context)
     (gen/vector gen/any-printable)))
 
-(defmethod make-generator 'list [_ args extensions]
+(defmethod make-generator 'list [_ args context]
   (if (seq args)
-    (mk-list args extensions)
+    (mk-list args context)
     (gen/list gen/any-printable)))
   
-(defmethod make-generator 'kvs [_ args extensions]
+(defmethod make-generator 'kvs [_ args context]
   ;; kvs is used internally within the generators
-  (mk-kvs (first args) (second args) (third args) extensions))
+  (mk-kvs (first args) (second args) (third args) context))
   
-(defmethod make-generator 'map [_ args extensions]
+(defmethod make-generator 'map [_ args context]
   (if (seq args)
-    (mk-map args extensions)
+    (mk-map args context)
     (gen/map gen/keyword gen/any-printable)))
   
-(defmethod make-generator 'or [_ args extensions]
+(defmethod make-generator 'or [_ args context]
   (if (seq args)
-    (gen/one-of (map #(mk-gen % extensions) args))
+    (gen/one-of (map #(mk-gen % context) args))
     gen-error))
   
-(defmethod make-generator 'and [_ args extensions]
+(defmethod make-generator 'and [_ args context]
   (if (seq args)
-    (mk-and args extensions)
+    (mk-and args context)
     gen/any-printable))
 
-(defmethod make-generator 'str [_ args extensions]
+(defmethod make-generator 'str [_ args context]
   (case (count args)
     0 gen/string
-    1 (mk-str (first args) extensions)))
+    1 (mk-str (first args) context)))
     
 
-(defmethod make-generator 'kw [_ args extensions]
+(defmethod make-generator 'kw [_ args context]
   (case (count args)
     0 gen-kw
-    1 (mk-kw (first args) extensions)))
+    1 (mk-kw (first args) context)))
 
-(defmethod make-generator 'sym [_ args extensions]
+(defmethod make-generator 'sym [_ args context]
   (case (count args)
     0 gen-symbol
-    1 (mk-sym (first args) extensions)))
+    1 (mk-sym (first args) context)))
 
-(defmethod make-generator 'in [_ args extensions]
+(defmethod make-generator 'in [_ args context]
   {:pre [(= (count args) 1)]}              
-  (mk-in (first args) extensions))
+  (mk-in (first args) context))
   
 
-(defmethod make-generator 'pos [_ args extensions]
+(defmethod make-generator 'pos [_ args context]
   (case (count args)
     0 (gen-one-of gen/s-pos-int gen-pos-float)
-    1 (mk-pos (lookup-arg (first args) extensions))
-    2 (mk-pos (lookup-arg (first args) extensions) (lookup-arg (second args) extensions))))
+    1 (mk-pos (lookup-arg (first args) context))
+    2 (mk-pos (lookup-arg (first args) context) (lookup-arg (second args) context))))
 
-(defmethod make-generator 'neg [_ args extensions]
+(defmethod make-generator 'neg [_ args context]
   (case (count args)
     0 (gen-one-of gen/s-neg-int (gen/fmap - gen-pos-float))
-    1 (mk-neg (lookup-arg (first args) extensions))
-    2 (mk-neg (lookup-arg (first args) extensions) (lookup-arg (second args) extensions))))
+    1 (mk-neg (lookup-arg (first args) context))
+    2 (mk-neg (lookup-arg (first args) context) (lookup-arg (second args) context))))
 
 
-(defmethod make-generator 'even [_ args extensions]
+(defmethod make-generator 'even [_ args context]
   (case (count args)
     0 gen-even
-    1 (mk-even (lookup-arg (first args) extensions))
-    2 (mk-even (lookup-arg (first args) extensions) (lookup-arg (second args) extensions))))
+    1 (mk-even (lookup-arg (first args) context))
+    2 (mk-even (lookup-arg (first args) context) (lookup-arg (second args) context))))
 
 
-(defmethod make-generator 'odd [_ args extensions]
+(defmethod make-generator 'odd [_ args context]
   (case (count args)
     0 gen-odd
-    1 (mk-odd (lookup-arg (first args) extensions))
-    2 (mk-odd (lookup-arg (first args) extensions) (lookup-arg (second args) extensions))))
+    1 (mk-odd (lookup-arg (first args) context))
+    2 (mk-odd (lookup-arg (first args) context) (lookup-arg (second args) context))))
 
-(defmethod make-generator := [_ args extensions]
+(defmethod make-generator := [_ args context]
   {:pre [(seq args)]}
   ;; ignore the other args at this point, they will already be processed as bindings
-  (mk-return (first args) extensions))
+  (mk-return (first args) context))
 
-(defmethod make-generator 'bool [_ args extensions]
+(defmethod make-generator 'bool [_ args context]
   {:pre [(empty? args)]}
   gen/boolean)
 
-(defmethod make-generator 'char [_ args extensions]
+(defmethod make-generator 'char [_ args context]
   {:pre [(empty? args)]}
   gen/char)
 
-(defmethod make-generator 'any [_ args extensions]
+(defmethod make-generator 'any [_ args context]
   {:pre [(empty? args)]}
   gen/any-printable)
 
 
 ;; SEM FIXME: will need its own multifn for not-generators
-(defmethod make-generator 'not [_ args extensions]
+(defmethod make-generator 'not [_ args context]
   {:pre [(= (count args) 1)]}
-  (mk-not (first args) extensions))
+  (mk-not (first args) context))
 
-(defmethod make-generator :default [sym args extensions]
+(defmethod make-generator :default [sym args context]
   {:pre [(empty? args)]}
-  (mk-return sym extensions))
+  (mk-return sym context))
 
 ;; NEW using multi
 (defn mk-gen
   ([schema] (mk-gen schema nil))
-  ([schema extensions]
-       (cond (symbol? schema) (make-generator schema () extensions)
+  ([schema context]
+       (cond (symbol? schema) (make-generator schema () context)
              (literal? schema) (gen/return schema)
              (and (coll? schema) (empty? schema)) (gen/return schema)
-             (seq? schema) (make-generator (first schema) (rest schema) extensions)
+             (seq? schema) (make-generator (first schema) (rest schema) context)
              :else (throw (ex-info "Unhandled schema" {:schema schema})))))
 
 
@@ -609,7 +618,7 @@ of generators, not variadic"
 ;; SEM FIXME: OOPS, forgot to consider this!
 
 ;; your mgen could lookup-args on the args if it wants to
-;; important point: extensions always first arg (allows lookups)
+;; important point: context always first arg (allows lookups)
 
 
 
@@ -636,7 +645,7 @@ of generators, not variadic"
 
 
 ;; SEM FIXME -- need scope (levels), not just once at the top
-;; SEM FIXME -- need to pass extensions
+;; SEM FIXME -- need to pass context
 (defn binding-gen [bins]
   (when (seq bins)
     (let [bnames (map second bins)
