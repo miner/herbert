@@ -3,10 +3,65 @@
             [miner.herbert.util :refer :all]
             [miner.herbert.canonical :as hc]
             [miner.herbert.regex :as hr]
+            [clojure.set :as set]
             [clojure.test.check :as tc]
             [clojure.test.check.properties :as prop]
             [clojure.math.combinatorics :as mc :exclude [update]]
             [clojure.test.check.generators :as gen]))
+
+
+
+
+
+(defn direct-peers [type-info tag]
+  (if-let [par (get-in type-info [:parents tag])]
+    (disj (get-in type-info [:subtypes par]) tag)))
+
+(defn parent-peers [type-info tag]
+  (if-let [par (get-in type-info [:parents tag])]
+    (direct-peers type-info par)))
+
+
+(defn make-type-info [root]
+  {:subtypes {}
+   :hierarchy (make-hierarchy)
+   :root root
+   :complements {}})
+
+;; main extensibility point
+(defn add-subtype
+  ([type-info parent child]
+   (let [children (:subtypes type-info)]
+     (assoc (assoc-in type-info [:parents child] parent)
+            :subtypes (assoc children parent (conj (get children parent #{}) child))))))
+
+(defn add-children [type-info parent children]
+  ;; awkward code to preserve :subtypes that derive will drop from type-info
+  (reduce #(add-subtype %1 parent %2) type-info children))
+
+;; for declaring subgroups that divide a type, but aren't considered proper subtypes in the
+;; sense of a type-info.  For example, pos/neg and odd/even
+(defn add-complements
+  ([type-info parent tag1 tag2]
+   (assoc-in (assoc-in type-info [:complements tag1] (vector parent tag2))
+             [:complements tag2] (vector parent tag1)))
+  ([type-info parent tag1 tag2 & tags]
+   (let [all (set (list* tag1 tag2 tags))]
+     (reduce #(assoc-in %1 [:complements %2] (into [parent] (disj all %2))) type-info all))))
+  
+
+(defn standard-herbert-type-info []
+  ;; pos/neg in both int and float
+  ;; odd/even
+  (-> (make-type-info 'any)
+      (add-children 'any '[num sym kw str bool char seq map])
+      (add-children 'num '[int float])
+      (add-children 'seq '[list vec])
+      (add-complements 'num 'pos 'neg)
+      (add-complements 'int 'odd 'even)))
+
+(def herbert-type-info (standard-herbert-type-info))
+
 
 
 ;; gen-* functions return a t.c generator, general purpose, no knowledge of schemas
@@ -29,8 +84,13 @@
   (and (seq? expr)
        (case-of? (first expr) & * + ?)))
 
+;; convenience, filters out nils, returns nil if no useful gens
 (defn gen-one-of [& gens]
-  (gen/one-of gens))
+  (let [gens (remove nil? gens)]
+    (when (seq gens)
+      (if (next gens)
+        (gen/one-of gens)
+        (first gens)))))
 
 ;; I wanted to make sure that we get a few extreme values for int (Java long)
 (def gen-int (gen/frequency [[10 gen/int] 
@@ -95,6 +155,7 @@ of generators, not variadic"
 
 
 ;; sufficient complements for testing, not logically complete
+#_
 (def symbol-complements '{even odd
                           odd even
                           neg (or pos 0 0.0)
@@ -114,6 +175,20 @@ of generators, not variadic"
                           and or
                           num (or str sym kw)
                           list (or vec sym kw int)})
+
+
+(defn lookup [context name]
+  ;;(println "SEM debug lookup" name context)
+  (get (:lookup context) name name))
+
+(defn lookup-arg [context x]
+  (if (symbol? x)
+    (lookup context x)
+    x))
+
+(defn lookup-args [context args]
+  (map #(lookup-arg context %) args))
+
 
 ;; int is a Java long
 ;; a bit of extra bias for the extreme values helps test edge cases
@@ -149,10 +224,6 @@ of generators, not variadic"
   ([] (mk-odd Long/MIN_VALUE Long/MAX_VALUE))
   ([hi] (mk-odd 0 hi))
   ([lo hi] (gen/fmap #(if (odd? %) % (dec %)) (mk-int (inc lo) hi))))
-
-(defn lookup [context name]
-  ;;(println "SEM debug lookup" name context)
-  (get (:lookup context) name name))
 
 (defn mk-return [context name]
   (gen/return (lookup context name)))
@@ -202,15 +273,14 @@ of generators, not variadic"
                     (gen/fmap #(apply dissoc (apply hash-map %) qopts)
                               tup-gen)))))))
 
-(defn mk-map [context schemas]
-  (condp == (count schemas)
-    0 (gen/return {})
-    2 (if (literal? (first schemas))
-        (mk-literal-hash-map context schemas)
-        (mk-kvs context
-                (not= (ffirst schemas) '+) (dequantify (first schemas))
-                (dequantify (second schemas))))
-    (mk-literal-hash-map context schemas)))
+(defn mk-map
+  ([context] (gen/return {}))
+  ([context kschema vschema]
+   (if (literal? kschema)
+     (mk-literal-hash-map context [kschema vschema])
+     (mk-kvs context (not= (first kschema) '+) (dequantify kschema) (dequantify vschema))))
+  ([context kschema vschema & schemas]
+    (mk-literal-hash-map context (list* kschema vschema schemas))))
 
 
 (defn mk-cat-cycle [context schemas minimum]
@@ -302,30 +372,32 @@ of generators, not variadic"
                            100)
             (throw (ex-info "Unimplemented mk-and" {:schema (cons 'and schemas)}))))))))
 
+;; SEM FIXME: this could be extensible with a multifn
+(defn symbolic-type-of-literal [lit]
+  (cond (string? lit) 'str
+        (integer? lit) 'int
+        (float? lit) 'float
+        (keyword? lit) 'kw
+        (symbol? lit) 'sym
+        (vector? lit) 'vec
+        (list? lit) 'list
+        (seq? lit) 'seq
+        (char? lit) 'char
+        (true? lit) 'bool
+        (false? lit)  'bool
+        (map? lit)  'map
+        (set? lit) 'set
+        (nil? lit) nil
+        :else (throw (ex-info "Unimplemented symbolic-type-of-literal" {:schema lit}))))
+
 (defn mk-type-of-literal [lit]
-  (cond (string? lit) (mk-gen 'str)
-        (integer? lit) (mk-gen 'int)
-        (float? lit) (mk-gen 'float)
-        (keyword? lit) (mk-gen 'kw)
-        (symbol? lit) (mk-gen 'sym)
-        (vector? lit) (mk-gen 'vec)
-        (list? lit) (mk-gen 'list)
-        (seq? lit) (mk-gen 'seq)
-        (char? lit) (mk-gen 'char)
-        (true? lit) (mk-gen 'bool)
-        (false? lit) (mk-gen 'bool)
-        (map? lit) (mk-gen 'map)
-        (set? lit) (mk-gen 'set)
-        (nil? lit) (mk-gen nil)
-          :else (throw (ex-info "Unimplemented mk-type-of-literal" {:schema lit}))))
+  (mk-gen (symbolic-type-of-literal lit)))
 
 
-
-
-;; SEM FIXME:  need a multifn for make-generator-not
 
 ;; look for literals, invert by taking type and such-that
 ;; break down hierarchies and have map of inversions, or closed-world types
+#_
 (defn mk-not [context schema]
   (cond (literal? schema) (gen/such-that #(not= schema %) (mk-type-of-literal schema))
         (symbol? schema) (mk-gen context (get symbol-complements schema))
@@ -362,24 +434,15 @@ of generators, not variadic"
 ;; SEM FIXME ::void is wrong, but maybe good for debugging
 ;;   really should throw
 ;;   non-coll handling is questionable, maybe should throw
-(defn in-collection [coll]
+(defn as-collection [coll]
   (cond (not (coll? coll)) (list coll)
         (empty? coll) (list ::void)
         (map? coll) (keys coll)
         :else (seq coll)))
   
 (defn mk-in [context coll]
-  (gen/bind (mk-gen context coll)
-            (fn [c] (gen/elements (in-collection c)))))
+  (gen/elements (as-collection (lookup-arg context coll))))
 
-
-(defn lookup-arg [context x]
-  (if (symbol? x)
-    (lookup context x)
-    x))
-
-(defn lookup-args [context args]
-  (map #(lookup-arg context %) args))
 
 ;; new sig, better for variadic args to go last
 ;; BUT, could we just do the return a function trick that we did with predicate?
@@ -390,18 +453,71 @@ of generators, not variadic"
 
 (defmulti make-generator (fn [context sym & args] sym))
 
+;; a generator that makes values that are not whatever. Obviously, it's hard to be comprehensive,
+;; but try to be useful for testing.
+(defmulti make-not-generator (fn [context sym & args] sym))
+
+;; SEM IDEA: might be better to have a similiarly-not (same type, outside params) and a
+;; typely-not (completely different base types) to make it easier to
+;; rewrite complicated AND/OR/NOT expressions.
+
+
+(defn make-complement-generator [context tag]
+  (let [type-info (or (:type-info context) herbert-type-info)
+        peers (direct-peers type-info tag)
+        parpeers (parent-peers type-info tag)]
+    (gen/one-of (remove nil? (map mk-gen (into peers parpeers))))))
+
 (defmethod make-generator 'quote [_ _ arg]
   (gen/return arg))
+
+(defmethod make-not-generator 'quote [_ _ arg]
+  (gen/such-that #(not= arg %) gen/any-printable))
+
+(defmethod make-generator 'zero
+  ([_ _] (gen/one-of [(gen/return 0) (gen/return 0.0)])))
+
+(defmethod make-not-generator 'zero
+  ([_ _] (gen/such-that (complement zero?) gen/int)))
 
 (defmethod make-generator 'int
   ([_ _] gen-int)
   ([context _ hi] (mk-int (lookup-arg context hi)))
   ([context _ lo hi] (mk-int (lookup-arg context lo) (lookup-arg context hi))))
 
+(defmethod make-not-generator 'int
+  ([context t] (make-complement-generator context t))
+  ([context _ hi]
+   (let [high (lookup-arg context hi)]
+     (when (< 0 high Long/MAX_VALUE)
+       (mk-int (inc high) Long/MAX_VALUE))))
+  ([context _ lo hi]
+   (let [high (lookup-arg context hi)
+         low (lookup-arg context lo)]
+     (when (< Long/MIN_VALUE low high Long/MAX_VALUE)
+       (gen-one-of (mk-int (inc high) Long/MAX_VALUE)
+                   (mk-int Long/MIN_VALUE (dec low)))))))
+
 (defmethod make-generator 'float
   ([_ _] gen-float)
   ([context _ hi] (mk-float (lookup-arg context hi)))
   ([context _ lo hi] (mk-float (lookup-arg context lo) (lookup-arg context hi))))
+
+(defmethod make-not-generator 'float
+  ([context t] (make-complement-generator context t))
+  ([context _ hi]
+   (let [high (double (lookup-arg context hi))]
+     (if (< 0 high Double/MAX_VALUE)
+       (gen-one-of gen-int (mk-neg) (mk-float (Math/nextUp high) Double/MAX_VALUE))
+       gen-int)))
+  ([context _ lo hi]
+   (let [high (double (lookup-arg context hi))
+         low (double (lookup-arg context lo))]
+     (if (< low high)
+       (gen-one-of gen-int
+                   (mk-float (Math/nextUp high) Double/MAX_VALUE)
+                   (mk-float (- Double/MAX_VALUE) (Math/nextAfter low (- Double/MAX_VALUE))))
+       gen-int))))
 
 (defmethod make-generator 'num
   ([_ _] gen-num)
@@ -411,59 +527,149 @@ of generators, not variadic"
                                        low (lookup-arg context lo)]
                                    [(mk-int low high) (mk-float low high)]))))  
 
+(defmethod make-not-generator 'num
+  ([context t] (make-complement-generator context t))
+  ([context _ hi] (gen/one-of (let [high (lookup-arg context hi)]
+                                [(mk-int (inc high) Long/MAX_VALUE)
+                                 (mk-float (Math/nextUp (double high)) Double/MAX_VALUE)
+                                 (mk-neg)
+                                 gen/string-ascii gen-symbol gen-kw])))
+  ([context _ lo hi] (gen/one-of (let [high (lookup-arg context hi)
+                                       low (lookup-arg context lo)]
+                                   [(mk-int Long/MIN_VALUE (dec low))
+                                    (mk-int (inc high) Long/MAX_VALUE)
+                                    (mk-float (- Double/MAX_VALUE)
+                                              (Math/nextAfter low (- Double/MAX_VALUE)))
+                                    (mk-float (Math/nextUp (double high)) Double/MAX_VALUE)
+                                    gen/string-ascii gen-symbol gen-kw]))))
+
 (defmethod make-generator 'seq
   ([_ _] gen-seq)
   ([context _ & args] (gen/one-of [(mk-vec context args)
                                    (mk-list context args)])))
 
+;; SEM FIXME: ignoring params on many of these NOT GENs, could do seqs that don't match param types
+
+(defmethod make-not-generator 'seq
+  ([context t] (make-complement-generator context t))
+  ([context _ & args] nil))
+
+
 (defmethod make-generator 'vec 
   ([_ _] (gen/vector gen/any-printable))
   ([context _ & args] (mk-vec context args)))
 
+(defmethod make-not-generator 'vec
+  ([context t] (make-complement-generator context t))
+  ([context _ & args] nil))
+
+
 (defmethod make-generator 'list
   ([_ _] (gen/list gen/any-printable))
   ([context _ & args] (mk-list context args)))
-  
-(defmethod make-generator 'kvs [context _ allow-empty? ks vs]
-  ;; kvs is used internally within the generators
-  (mk-kvs context allow-empty? ks vs))
 
-;; SEM FIXME -- could do better with arity, change mk-map
+(defmethod make-not-generator 'list
+  ([context t] (make-complement-generator context t))
+  ([context _ & args] nil))
+  
+
+(defmethod make-generator 'kvs
+  ([context _ allow-empty? ks vs]
+   ;; kvs is used internally within the generators
+   (mk-kvs context allow-empty? ks vs)))
+
+;; SEM FIXME: could be much better, zipmap of (not vs)
+(defmethod make-not-generator 'kvs
+   ;; kvs is used internally within the generators, basically same as map for not-gen
+  ([context _] (make-complement-generator context 'map))
+  ([context _ allow-empty? ks vs] nil))
+
+
 (defmethod make-generator 'map
   ([_ _] (gen/map gen/keyword gen/any-printable))
-  ([context _ & args] (mk-map context args)))
-  
-(defmethod make-generator 'or [context _ & args]
-  (gen/one-of (map #(mk-gen context %) args)))
+  ([context _ kschema vschema] (mk-map context kschema vschema))
+  ([context _ kschema vschema & schemas] (apply mk-map context kschema vschema schemas)))
 
-(defmethod make-generator 'and [context _ & args]
-  (mk-and context args))
+;; SEM FIXME: could be specialized
+(defmethod make-not-generator 'map
+  ([context t] (make-complement-generator context t))
+  ([_ t & _schemas] nil))
+
+
 
 ;; SEM FIXME: do you want to support a lookup for the regex? or just literal, as is currently?
 (defmethod make-generator 'str
   ([_ _] gen/string-ascii)
   ([_ _ regex] (gen-regex (if (string? regex) (re-pattern regex) regex))))
 
+
+;; SEM FIXME: could specialize on NOT regex
+(defmethod make-not-generator 'str
+  ([context t] (make-complement-generator context t))
+  ([_ _ regex] nil))
+
 (defmethod make-generator 'kw
   ([_ _] gen-kw)
   ([context _ regex] (mk-kw context regex)))
+
+(defmethod make-not-generator 'kw
+  ([context t] (make-complement-generator context t))
+  ([_ _ regex] nil))
+
+
 
 (defmethod make-generator 'sym
   ([_ _] gen-symbol)
   ([context _ regex] (mk-sym context regex)))
 
-(defmethod make-generator 'in [context _ coll]
-  (mk-in context coll))
+(defmethod make-not-generator 'sym
+  ([context t] (make-complement-generator context t))
+  ([_ _ regex] nil))
+
+
+(defmethod make-generator 'in
+  ([_ _] nil)
+  ([context _ coll] (mk-in context coll)))
+
+(defmethod make-not-generator 'in
+  ([_ _] nil)
+  ([_ _ coll] (let [cset (set (as-collection coll))]
+                (gen/such-that #(not (contains? cset %))
+                               gen/any-printable))))
 
 (defmethod make-generator 'pos
   ([_ _] (gen-one-of gen/s-pos-int gen-pos-float))
   ([context _ hi] (mk-pos (lookup-arg context hi)))
   ([context _ lo hi] (mk-pos (lookup-arg context lo) (lookup-arg context hi))))
 
+(defmethod make-not-generator 'pos
+  ([_ _] (mk-int Long/MIN_VALUE 0))
+  ([context _ hi] (let [high (lookup-arg context hi)]
+                    (when (< high Long/MAX_VALUE)
+                      (mk-pos (inc high) Long/MAX_VALUE))))
+  ([context _ lo hi]
+   (let [high (lookup-arg context hi)
+         low (lookup-arg context lo)]
+       (gen-one-of (when (pos? low) (mk-pos 0 (dec low)))
+                   (when (< high Long/MAX_VALUE) (mk-pos (inc high) Long/MAX_VALUE))))))
+
+
 (defmethod make-generator 'neg
   ([_ _] (gen-one-of gen/s-neg-int (gen/fmap - gen-pos-float)))
-  ([context _ hi] (mk-neg (lookup-arg context hi)))
+  ([context _ lo] (mk-neg (lookup-arg context lo)))
   ([context _ lo hi] (mk-neg (lookup-arg context lo) (lookup-arg context hi))))
+
+(defmethod make-not-generator 'neg
+  ([_ _] (mk-int Long/MAX_VALUE))
+  ([context _ lo] (let [low (lookup-arg context lo)]
+                    (when (> low Long/MIN_VALUE)
+                      (mk-neg Long/MIN_VALUE (dec low)))))
+  ([context _ lo hi]
+   (let [high (lookup-arg context hi)
+         low (lookup-arg context lo)]
+       (gen-one-of (when (< Long/MIN_VALUE low) (mk-neg Long/MIN_VALUE (dec low)))
+                   (when (< high -1) (mk-neg (inc high) -1))))))
+
 
 
 (defmethod make-generator 'even
@@ -471,34 +677,148 @@ of generators, not variadic"
   ([context _ hi] (mk-even (lookup-arg context hi)))
   ([context _ lo hi] (mk-even (lookup-arg context lo) (lookup-arg context hi))))
 
+(defmethod make-not-generator 'even
+  ([_ _] gen-odd)
+  ([context _ hi] (let [high (lookup-arg context hi)]
+                    (when (< high (- Long/MAX_VALUE 2))
+                      (mk-even (inc high) Long/MAX_VALUE))))
+  ([context _ lo hi] 
+   (let [high (lookup-arg context hi)
+         low (lookup-arg context lo)]
+       (gen-one-of (when (< (inc Long/MIN_VALUE) low) (mk-even Long/MIN_VALUE (dec low)))
+                   (when (<  high (dec Long/MAX_VALUE)) (mk-even (inc high) Long/MAX_VALUE))))))
 
 (defmethod make-generator 'odd
   ([_ _] gen-odd)
   ([context _ hi] (mk-odd (lookup-arg context hi)))
   ([context _ lo hi] (mk-odd (lookup-arg context lo) (lookup-arg context hi))))
 
+(defmethod make-not-generator 'odd
+  ([_ _] gen-even)
+  ([context _ hi] (let [high (lookup-arg context hi)]
+                    (when (< high (- Long/MAX_VALUE 2))
+                      (mk-odd (inc high) Long/MAX_VALUE))))
+  ([context _ lo hi] 
+   (let [high (lookup-arg context hi)
+         low (lookup-arg context lo)]
+       (gen-one-of (when (< (inc Long/MIN_VALUE) low) (mk-odd Long/MIN_VALUE (dec low)))
+                   (when (<  high (dec Long/MAX_VALUE)) (mk-odd (inc high) Long/MAX_VALUE))))))
+
+
+
 (defmethod make-generator := [context _ name _]
-  ;; ignore the other args at this point, they will already be processed as bindings
+  ;; ignore the other args, they will already be processed as generator bindings
   (mk-return context name))
+
+(defmethod make-not-generator := [context _ name _]
+  ;; ignore the other args, they will already be processed as generator bindings
+  (gen/such-that #(not= (lookup-arg context name) %) gen/any-printable))
+
 
 (defmethod make-generator 'bool [_ _]
   gen/boolean)
 
+(defmethod make-not-generator 'bool
+  ([context t] (make-complement-generator context t)))
+
+
 (defmethod make-generator 'char [_ _]
   gen/char)
+
+(defmethod make-not-generator 'char
+  ([context t] (make-complement-generator context t)))
+
+
 
 (defmethod make-generator 'any [_ _]
   gen/any-printable)
 
+(defmethod make-not-generator 'any
+  ([_ _] nil))
 
-;; SEM FIXME: will need its own multifn for not-generators
-(defmethod make-generator 'not [context _ term]
-  (mk-not context term))
+
+
+(defmethod make-generator 'or
+  ([_ _] nil)
+  ([context _ term] (mk-gen context term))
+  ([context _ term & terms]
+   (gen/one-of (remove nil? (map #(mk-gen context %) (cons term terms))))))
+
+;; SEM FIXME: consider a make-type-info of terms, take intersection of all complements
+;; hier types and subtypes
+;; subgroup odd/even, neg/pos splitting of parent type.  int.odd, int.pos, float.neg
+;; union (of possibly multiple subgroups)  pos = int.pos + float.pos
+;;    or num.pos = int.pos + float.pos -- num is the common parent of int and float
+;; complement is set of siblings at one level of type-info
+;;    could be at the subgroup level:  any = #{str sym kw num}
+
+
+;; SEM FIXME:  lots more to think about.  Seems that no arg handles "whole" type (using
+;; closed world assumption), params should
+;; be just within type (or maybe parent type).
+
+;; SEM FIXME:  type-info atom could hold canonical types, for closed world reasoning.
+
+;; SEM FIXME: doesn't handle nested ANDs, ORs, NOTs, or quantifiers
+(defn symbolic-type [expr]
+  (cond (literal? expr) (symbolic-type-of-literal expr)
+        (symbol? expr) expr
+        (seq? expr) (first expr)))
+
+(defmethod make-not-generator 'or
+  ([_ _] nil)
+  ([context _ expr] (make-generator context 'not expr))
+  ([context _ expr & exprs]
+   (let [tyinfo (or (:type-info context) herbert-type-info)
+         terms (cons expr exprs)
+         bases (map symbolic-type terms)
+         lits (filter literal? terms)
+         pars (remove nil? (map #(get-in tyinfo [:parents %]) bases))
+         complements (set/difference (set (mapcat #(get-in tyinfo [:subtypes %]) pars))
+                                     (conj nil (set bases))) ]
+     (println "SEM debug lits" lits)
+     (if (empty? complements)
+       (gen-error)
+       (if (seq lits)
+         (gen/such-that #(not (contains? (set lits) %))
+                        (gen/one-of (remove nil? (map mk-gen complements))))
+         (gen/one-of (remove nil? (map mk-gen complements))))))))
+
+;; SEM FIXME: AND should look for subsumption of types
+(defmethod make-generator 'and
+  ([_ _] gen/any-printable)
+  ([context _ term] (mk-gen term))
+  ([context _ term & terms] (mk-and context (cons term terms))))
+
+;; (not (and a b)) ==> (or (not a) (not b))
+(defmethod make-not-generator 'and
+  ([context _] nil)
+  ([context _ expr] (make-generator context 'not expr))
+  ([context _ expr1 expr2] (mk-gen context (list 'or (list 'not expr1) (list 'not expr2))))
+  ([context _ expr1 expr2 & exprs]
+   (mk-gen context (cons 'or (map #(list 'not %) (list* expr1 expr2 exprs))))))
+
+;; uses another multifn for the not-generators
+(defmethod make-generator 'not [context _ schema]
+  (cond (literal? schema) (gen/such-that #(not= schema %) (mk-type-of-literal schema))
+        (symbol? schema) (make-not-generator context schema)
+        (seq? schema) (gen-one-of (make-not-generator context (first schema))
+                                  (apply make-not-generator context (first schema) (rest schema)))
+        :else (throw (str "make-generator NOT case unimplemented for " schema))))
+
+(defmethod make-not-generator 'not
+  ([context _ schema] (mk-gen context schema)))
+
 
 (defmethod make-generator :default [context sym]
   (mk-return context sym))
 
-;; NEW using multi
+(defmethod make-not-generator :default [context sym]
+  (mk-gen context (list 'not sym)))
+
+
+;; SEM FIXME: Is the (next schema) really useful?  Maybe not worth distinguishing
+
 (defn mk-gen
   ([schema] (mk-gen nil schema))
   ([context schema]
@@ -576,8 +896,4 @@ of generators, not variadic"
 (defn check
   ([pred schema] (check 100 pred schema))
   ([trials pred schema] (tc/quick-check trials (property pred schema))))
-
-
-
-
 
