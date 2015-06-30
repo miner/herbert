@@ -10,17 +10,28 @@
             [clojure.test.check.generators :as gen]))
 
 
+(defn all-supertypes [type-info tag]
+  (get-in type-info [:hierarchy :ancestors tag]))
 
+(defn supertype [type-info tag]
+  (first (get-in type-info [:hierarchy :parents tag])))
 
+(defn complement-types [type-info tag]
+  (if-let [super (supertype type-info tag)]
+    (disj (get-in type-info [:subtypes super]) tag)))
 
-(defn direct-peers [type-info tag]
-  (if-let [par (get-in type-info [:parents tag])]
-    (disj (get-in type-info [:subtypes par]) tag)))
+(defn super-complement-types [type-info tag]
+  (if-let [super (supertype type-info tag)]
+    (complement-types type-info super)))
 
-(defn parent-peers [type-info tag]
-  (if-let [par (get-in type-info [:parents tag])]
-    (direct-peers type-info par)))
+;; A complement group is a collection with the base type symbol first, then complementary
+;; symbols next.  The complements are not part of the normal hierarchy, and the symbols might
+;; represent cross-type predicates.  For example, pos includes positive ints and positive
+;; floats so it's not a proper subtype.  However, it's a useful concept for the complement
+;; of neg (if you handle zero correctly!)
 
+(defn complement-group [type-info tag]
+  (get-in type-info [:complements tag]))
 
 (defn make-type-info [root]
   {:subtypes {}
@@ -29,36 +40,44 @@
    :complements {}})
 
 ;; main extensibility point
-(defn add-subtype
-  ([type-info parent child]
-   (let [children (:subtypes type-info)]
-     (assoc (assoc-in type-info [:parents child] parent)
-            :subtypes (assoc children parent (conj (get children parent #{}) child))))))
+(defn add-subtype [type-info super subtype]
+   (let [stypes (:subtypes type-info)
+         hier (:hierarchy type-info)]
+     (assoc type-info
+            :subtypes (assoc stypes super (conj (get stypes super #{}) subtype))
+            :hierarchy (derive hier subtype super))))
 
-(defn add-children [type-info parent children]
-  ;; awkward code to preserve :subtypes that derive will drop from type-info
-  (reduce #(add-subtype %1 parent %2) type-info children))
+(defn add-subtypes [type-info super subtypes]
+  (reduce #(add-subtype %1 super %2) type-info subtypes))
 
 ;; for declaring subgroups that divide a type, but aren't considered proper subtypes in the
 ;; sense of a type-info.  For example, pos/neg and odd/even
-(defn add-complements
-  ([type-info parent tag1 tag2]
-   (assoc-in (assoc-in type-info [:complements tag1] (vector parent tag2))
-             [:complements tag2] (vector parent tag1)))
-  ([type-info parent tag1 tag2 & tags]
-   (let [all (set (list* tag1 tag2 tags))]
-     (reduce #(assoc-in %1 [:complements %2] (into [parent] (disj all %2))) type-info all))))
-  
+(defn add-complements [type-info tag complset]
+  (reduce #(assoc-in % [:complements %2] (cons tag (seq (disj complset %2))))
+          type-info
+          complset))
+
+(defn type-rank [type-info tag]
+  (if (= (:root type-info) tag)
+    1
+    (let [super-cnt (count (all-supertypes type-info tag))]
+      (if (pos? super-cnt)
+        (inc super-cnt)
+        (if-let [group (complement-group type-info tag)]
+          (+ 1000 (type-rank type-info (first group)))
+          0)))))
+
+
 
 (defn standard-herbert-type-info []
   ;; pos/neg in both int and float
   ;; odd/even
   (-> (make-type-info 'any)
-      (add-children 'any '[num sym kw str bool char seq map])
-      (add-children 'num '[int float])
-      (add-children 'seq '[list vec])
-      (add-complements 'num 'pos 'neg)
-      (add-complements 'int 'odd 'even)))
+      (add-subtypes 'any '[num sym kw str bool char seq map])
+      (add-subtypes 'num '[int float])
+      (add-subtypes 'seq '[list vec])
+      (add-complements 'num '#{neg zero pos})
+      (add-complements 'int '#{odd even})))
 
 (def herbert-type-info (standard-herbert-type-info))
 
@@ -152,29 +171,6 @@ of generators, not variadic"
 (def gen-kw (gen/frequency [[4 gen/keyword]
                             [1 gen/keyword-ns]
                             [1 (gen/fmap keyword gen-symbol)]]))
-
-
-;; sufficient complements for testing, not logically complete
-#_
-(def symbol-complements '{even odd
-                          odd even
-                          neg (or pos 0 0.0)
-                          pos (or neg 0 0.0)
-                          float int
-                          int float
-                          vec (or list sym kw int)
-                          seq (or sym kw int)
-                          map (or vec kw sym int)
-                          sym (or vec kw int)
-                          or any
-                          str (or kw int sym)
-                          kw (or int sym vec)
-                          any or
-                          char (or str int sym)
-                          bool (or str kw int sym)
-                          and or
-                          num (or str sym kw)
-                          list (or vec sym kw int)})
 
 
 (defn lookup [context name]
@@ -394,15 +390,6 @@ of generators, not variadic"
   (mk-gen (symbolic-type-of-literal lit)))
 
 
-
-;; look for literals, invert by taking type and such-that
-;; break down hierarchies and have map of inversions, or closed-world types
-#_
-(defn mk-not [context schema]
-  (cond (literal? schema) (gen/such-that #(not= schema %) (mk-type-of-literal schema))
-        (symbol? schema) (mk-gen context (get symbol-complements schema))
-        :else   (throw (ex-info "Unimplemented mk-not" {:schema schema}))))
-
 ;; maybe useful
 (defn regex? [r]
  (instance? java.util.regex.Pattern r))
@@ -464,9 +451,12 @@ of generators, not variadic"
 
 (defn make-complement-generator [context tag]
   (let [type-info (or (:type-info context) herbert-type-info)
-        peers (direct-peers type-info tag)
-        parpeers (parent-peers type-info tag)]
-    (gen/one-of (remove nil? (map mk-gen (into peers parpeers))))))
+        [base & compls] (complement-group type-info tag)]
+    (if base
+      (apply gen-one-of (mk-gen 'not base) (map mk-gen compls))
+      (let [peers (complement-types type-info tag)
+            parpeers (super-complement-types type-info tag)]
+        (gen/one-of (remove nil? (map mk-gen (into peers parpeers))))))))
 
 (defmethod make-generator 'quote [_ _ arg]
   (gen/return arg))
@@ -776,7 +766,6 @@ of generators, not variadic"
          pars (remove nil? (map #(get-in tyinfo [:parents %]) bases))
          complements (set/difference (set (mapcat #(get-in tyinfo [:subtypes %]) pars))
                                      (conj nil (set bases))) ]
-     (println "SEM debug lits" lits)
      (if (empty? complements)
        (gen-error)
        (if (seq lits)
