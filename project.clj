@@ -8,6 +8,6 @@
                  [com.velisco/tagged "0.3.7"]
                  [org.clojure/math.combinatorics "0.1.1"]
                  ;; [org.clojure/test.check "0.7.0"]
-                 [org.clojure/test.check "0.8.0-alpha3"]
+                 [org.clojure/test.check "0.8.0-RC1"]
                  [squarepeg "0.6.1"]]  )
 
