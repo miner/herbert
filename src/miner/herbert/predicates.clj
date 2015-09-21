@@ -6,6 +6,10 @@
 
 ;; predicates should not depend on other files, except maybe util
 
+;; All Herbert predicates should be "universal" -- they take any value as the argument and
+;; return a boolean; they never throw an exception.  You might need to add a guard.
+;; For example:   (defn universal-even [n] (and (integer? n) (even? n)))
+
 (defn- numeric
   ([pred]
      (fn pnum

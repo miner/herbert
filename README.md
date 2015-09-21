@@ -375,6 +375,14 @@ a hack:
 ;=> true
 ```
 
+## Templates
+
+If you want to mix external data into a Herbert pattern, I suggest that you use the
+[backtick][bt] library's `template` function.
+
+[bt]: https://github.com/brandonbloom/backtick "Backtick"
+
+
 ## References
 
 * edn: http://edn-format.org
