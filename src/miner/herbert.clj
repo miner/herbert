@@ -5,6 +5,7 @@
             [squarepeg.core :as sp]
             [miner.herbert.canonical :as canonical]
             [miner.herbert.predicates :as pred]
+            [miner.herbert.util :refer :all]
             [miner.herbert.private :as internal :refer :all])
   (:import miner.tagged.TaggedValue))
 

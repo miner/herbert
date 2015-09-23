@@ -59,3 +59,8 @@ As with `case`, constants must be compile-time literals, and need not be quoted.
     (second expr)
     expr))
 
+(defn qsymbol? [x]
+  (and (symbol? x) (namespace x)))
+
+(defn grammar? [schema]
+  (and (seq? schema) (= (first schema) 'grammar)))

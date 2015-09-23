@@ -507,12 +507,6 @@ nil value also succeeds for an optional kw.  Does not consume anything."
            (literal? expr) (sp/mklit expr)
            :else (throw (ex-info "Unknown constraint form" {:con expr :extensions extensions})))))
 
-(defn qsymbol? [x]
-  (and (symbol? x) (namespace x)))
-
-(defn grammar? [schema]
-  (and (seq? schema) (= (first schema) 'grammar)))
-
 (defn mkrecursive [start exts rsym]
   ;; rsym is the symbol used for a recursive rule, in a := binding or grammar rule
   (if rsym

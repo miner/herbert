@@ -222,7 +222,7 @@ of generators, not variadic"
   ([lo hi] (gen/fmap #(if (odd? %) % (dec %)) (mk-int (inc lo) hi))))
 
 (defn mk-return [context name]
-  (gen/return (lookup context name)))
+  (gen/return (lookup-arg context name)))
 
 (defn mk-kvs [context allow-empty? key-schema val-schema]
   (let [kgen (if key-schema (mk-gen context key-schema) gen/any-printable)
@@ -799,25 +799,103 @@ of generators, not variadic"
   ([context _ schema] (mk-gen context schema)))
 
 
+;; SEM for testing
+#_ (def rp '(grammar rint rint (or int [rint])))
+;; canonical:    (grammar rint rint (or int (seq (+ rint))))
+#_ (hg/sample rp)
+
+
+;; assume canonical pattern
+;; return nil if it's not recursive in sym
+
+
+;; SEM FIXME
+;; wasteful to decend pattern multiple times as the nested OR will require special handling
+;; probably better to use walk anyway
+#_ (defn contains-sym? [sym pattern]
+  (if (seq? pattern)
+    (some #(contains-sym? sym %) pattern)
+    (= sym pattern)))
+      
+
+
+;; SEM consider mapcat vs. remove ::void. Actually using ::void marker so keep it.
+
+(defn recursive-base [rsym pattern]
+  (cond (= rsym pattern) ::void
+        (first= pattern 'or) (let [orps (remove #{::void} (map #(recursive-base rsym %)
+                                                               (rest pattern)))]
+                               (cond (next orps) (cons 'or orps)
+                                     (seq orps) (first orps)
+                                     :else ::void))
+        (seq? pattern)  (let [bps (map #(recursive-base rsym %) pattern)]
+                          (if (some #{::void} bps)
+                            ::void
+                            bps))
+        :else pattern))
+
+;; SEM FIXME -- need fully recursive
+(defn recursive-container-gen-fn [rsym pattern]
+  ;; HACKED TEMP
+  (fn [inner] (gen/one-of [(gen/list inner) (gen/vector inner)])))
+
+
+;;Not used
+#_ 
+(defn mk-inner-gen [context pattern]
+  (let [gen (mk-gen context pattern)]
+    (fn [inner]
+      (gen inner))))
+    
+  
+
+
+;; SEM BUG: INCOMPLETE
+
+(defn mk-recursive [context sym pattern]
+  (let [base (recursive-base sym pattern)
+        container-fn (recursive-container-gen-fn sym pattern)]
+    (when (= base ::void)
+      (throw (ex-info (str "Degenerate recursive pattern: " pattern)
+                      {:pattern pattern
+                       :recursive-symbol sym})))
+    (gen/recursive-gen container-fn (mk-gen context base))))
+
+
+
+;; gcon is map of {:generators? {sym* gen*}} with provision for future expansion
+(defn rules->gcon [context rules]
+  (reduce (fn [con [k v]] (assoc-in con [:generators k]
+                                    (mk-recursive con k v)))
+          context
+          (partition 2 rules)))
+
+;; should never happen
+(defmethod make-generator ::void [context _]
+  (throw (ex-info "Degenerate recursive pattern" {:context context})))
+
+(defmethod make-generator 'grammar
+  ([context _ pat & rules]
+   (make-generator (rules->gcon context rules) pat)))
+
 (defmethod make-generator :default [context sym]
-  (mk-return context sym))
+  #_ (println "DEBUG mkg :default" sym "\n" context)
+  (or (get-in context [:generators sym])
+      (mk-return context sym)))
 
 (defmethod make-not-generator :default [context sym]
   (mk-gen context (list 'not sym)))
 
 
-;; SEM FIXME: Is the (next schema) really useful?  Maybe not worth distinguishing
-
 (defn mk-gen
   ([schema] (mk-gen nil schema))
   ([context schema]
-       (cond (symbol? schema) (make-generator context schema)
-             (literal? schema) (gen/return schema)
-             (and (coll? schema) (empty? schema)) (gen/return schema)
-             (seq? schema) (if-let [args (next schema)]
-                             (apply make-generator context (first schema) args)
-                             (make-generator context (first schema)))
-             :else (throw (ex-info "Unhandled schema" {:schema schema})))))
+   (cond (symbol? schema) (make-generator context schema)
+         (literal? schema) (gen/return schema)
+         (and (coll? schema) (empty? schema)) (gen/return schema)
+         ;; (grammar? schema) (throw (ex-info "Unhandled schema" {:schema schema}))
+         (seq? schema) (apply make-generator context schema)
+         :else (throw (ex-info "Unhandled schema" {:schema schema})))))
 
 
 
@@ -852,6 +930,11 @@ of generators, not variadic"
     (walk root)))
 
 
+;; SEM BUG: doesn't handle recursive bindings
+;; needs to have context for bindings
+;; needs recursive-base generator
+;; probably should map over mk-recursive not mk-gen bexprs
+
 ;; SEM FIXME -- need scope (levels), not just once at the top
 ;; SEM FIXME -- need to pass context
 (defn binding-gen [bins]
@@ -859,7 +942,10 @@ of generators, not variadic"
     (let [bnames (map second bins)
           bexprs (map third bins)]
       (gen/fmap #(zipmap bnames %)
-                (apply gen/tuple (map mk-gen bexprs))))))
+                (apply gen/tuple (map #(mk-gen (recursive-base % %2)) bnames bexprs))))))
+
+;; SEM FIXME:  recursive-base is too limited, never does the recursive value
+
 
 (defn generator [schema]
   (let [canonical (hc/rewrite schema)

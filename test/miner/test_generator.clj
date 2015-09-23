@@ -95,6 +95,32 @@
   (defspec escaped-str-regexes 1000
     (hg/property (fn [s] (and (string? s) (re-matches re s))) (list 'str re))))
 
+
+(def test-recursive-schemas
+  '[
+    (grammar rint
+             rint (or int [rint]))
+    
+    (grammar [a b]
+             a (or :a [:av a])
+             b (or :b [:bv b]))
+    
+    (:= a (or :a [:b (+ a)]))
+
+    (:= a (or :a [:av a])) (:= b (or :b [:bv b]))
+
+    (:= a (or :a [:av a+])) (:= b (or :b [:bv b]))
+
+    ])
+
+
+(deftest recursive-schemas
+  (doseq [schema test-recursive-schemas]
+    ;;(println " testing" schema)
+    (gen-test schema)))
+
+
+
 (comment
 ;; some properties that should fail
 (def my-bad-prop (hg/property (fn [[a b]] (> a b)) '[int int]))
