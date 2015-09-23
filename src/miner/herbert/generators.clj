@@ -838,7 +838,8 @@ of generators, not variadic"
 
 (defn recursive-container-gen-fn [rsym pattern]
   ;; HACKED TEMP
-  (fn [inner] (gen/one-of [(gen/not-empty (gen/list inner)) (gen/not-empty (gen/vector inner))])))
+  (fn [inner]
+    (gen/one-of [inner (gen/not-empty (gen/list inner)) (gen/not-empty (gen/vector inner))])))
 
 
 
