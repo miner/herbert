@@ -908,6 +908,7 @@ of generators, not variadic"
 ;; SEM FIXME -- none of this is properly tested
 ;; Did the replacement of quantifiers, but not yet the expansion of OR terms
 
+;; SEM: Could use transducers!
 
 ;; O(n) but not bad
 (defn mapcatv [f & colls]
