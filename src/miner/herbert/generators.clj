@@ -835,19 +835,12 @@ of generators, not variadic"
         :else pattern))
 
 ;; SEM FIXME -- need fully recursive
+
 (defn recursive-container-gen-fn [rsym pattern]
   ;; HACKED TEMP
-  (fn [inner] (gen/one-of [(gen/list inner) (gen/vector inner)])))
+  (fn [inner] (gen/one-of [(gen/not-empty (gen/list inner)) (gen/not-empty (gen/vector inner))])))
 
 
-;;Not used
-#_ 
-(defn mk-inner-gen [context pattern]
-  (let [gen (mk-gen context pattern)]
-    (fn [inner]
-      (gen inner))))
-    
-  
 
 
 ;; SEM BUG: INCOMPLETE
@@ -876,7 +869,7 @@ of generators, not variadic"
 
 (defmethod make-generator 'grammar
   ([context _ pat & rules]
-   (make-generator (rules->gcon context rules) pat)))
+   (mk-gen (rules->gcon context rules) pat)))
 
 (defmethod make-generator :default [context sym]
   #_ (println "DEBUG mkg :default" sym "\n" context)
