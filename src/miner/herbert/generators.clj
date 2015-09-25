@@ -855,15 +855,23 @@ of generators, not variadic"
 
 ;; SEM BUG: INCOMPLETE
 
+(defn mk-gen-rec [context rsym pattern]
+  (fn [base]
+    (mk-gen (assoc-in context [:lookup rsym] base) pattern)))
+
 (defn mk-recursive [context sym pattern]
-  (let [base (recursive-base sym pattern)
-        container-fn (recursive-container-gen-fn sym pattern)]
+  (let [base (recursive-base sym pattern)]
     (when (= base ::void)
       (throw (ex-info (str "Degenerate recursive pattern: " pattern)
                       {:pattern pattern
                        :recursive-symbol sym})))
-    (gen/recursive-gen container-fn (mk-gen context base))))
-
+    (if-let [rec-part (recursive-part sym pattern)]
+      (gen/recursive-gen (fn [inner]
+                           (gen/one-of [inner (gen/bind inner
+                                                        (mk-gen-rec context sym
+                                                                    rec-part))]))
+                         (mk-gen context base))
+      (mk-gen context pattern))))
 
 
 ;; gcon is map of {:generators? {sym* gen*}} with provision for future expansion
