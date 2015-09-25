@@ -845,34 +845,25 @@ of generators, not variadic"
     (when (contains-sym? rsym pattern) pattern)))
 
 
-;; SEM FIXME -- need fully recursive
-
-(defn recursive-container-gen-fn [rsym pattern]
-  ;; HACKED TEMP
-  (fn [inner]
-    (gen/one-of [inner (gen/not-empty (gen/list inner)) (gen/not-empty (gen/vector inner))])))
-
-
-;; SEM BUG: INCOMPLETE
+;; SEM FIXME -- probably only works with OR recursion
+;; need fully to consider other possible recursive structures
 
 (defn mk-gen-rec [context rsym pattern]
   (fn [base]
     (mk-gen (assoc-in context [:lookup rsym] base) pattern)))
 
 (defn mk-recursive [context sym pattern]
-  (let [base (recursive-base sym pattern)]
-    (when (= base ::void)
-      (throw (ex-info (str "Degenerate recursive pattern: " pattern)
-                      {:pattern pattern
-                       :recursive-symbol sym})))
-    (if-let [rec-part (recursive-part sym pattern)]
+  (if-let [rec-part (recursive-part sym pattern)]
+    (let [base (recursive-base sym pattern)]
+      (when (= base ::void)
+        (throw (ex-info (str "Degenerate recursive pattern: " pattern)
+                        {:pattern pattern
+                         :recursive-symbol sym})))
       (gen/recursive-gen (fn [inner]
-                           (gen/one-of [inner (gen/bind inner
-                                                        (mk-gen-rec context sym
-                                                                    rec-part))]))
-                         (mk-gen context base))
-      (mk-gen context pattern))))
-
+                           (gen/one-of [inner (gen/bind inner (mk-gen-rec context sym
+                                                                          rec-part))]))
+                         (mk-gen context base)))
+    (mk-gen context pattern)))
 
 ;; gcon is map of {:generators? {sym* gen*}} with provision for future expansion
 (defn rules->gcon [context rules]
@@ -944,8 +935,6 @@ of generators, not variadic"
 
 ;; SEM BUG: doesn't handle recursive bindings
 ;; needs to have context for bindings
-;; needs recursive-base generator
-;; probably should map over mk-recursive not mk-gen bexprs
 
 ;; SEM FIXME -- need scope (levels), not just once at the top
 ;; SEM FIXME -- need to pass context
@@ -956,9 +945,6 @@ of generators, not variadic"
       (gen/fmap #(zipmap bnames %)
                 ;; SEM FIXME -- context should be nested with others (scoping again)
                 (apply gen/tuple (map #(mk-recursive {} % %2) bnames bexprs))))))
-
-;; SEM FIXME:  recursive-base is too limited, never does the recursive value
-
 
 (defn generator [schema]
   (let [canonical (hc/rewrite schema)
