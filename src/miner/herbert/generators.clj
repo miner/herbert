@@ -175,7 +175,7 @@ of generators, not variadic"
 
 (defn lookup [context name]
   ;;(println "SEM debug lookup" name context)
-  (get (:lookup context) name name))
+  (get (:lookup context) name [:missing name]))
 
 (defn lookup-arg [context x]
   (if (symbol? x)
@@ -809,15 +809,6 @@ of generators, not variadic"
 ;; return nil if it's not recursive in sym
 
 
-;; SEM FIXME
-;; wasteful to decend pattern multiple times as the nested OR will require special handling
-;; probably better to use walk anyway
-#_ (defn contains-sym? [sym pattern]
-  (if (seq? pattern)
-    (some #(contains-sym? sym %) pattern)
-    (= sym pattern)))
-      
-
 
 ;; SEM consider mapcat vs. remove ::void. Actually using ::void marker so keep it.
 
@@ -834,14 +825,32 @@ of generators, not variadic"
                             bps))
         :else pattern))
 
+
+
+
+;; SEM FIXME
+;; wasteful to decend pattern multiple times as the nested OR will require special handling
+;; probably better to use walk anyway
+(defn contains-sym? [sym pattern]
+  (if (seq? pattern)
+    (some #(contains-sym? sym %) pattern)
+    (= sym pattern)))
+      
+(defn recursive-part [rsym pattern]
+  (if (first= pattern 'or)
+    (let [orps (keep #(recursive-part rsym %) (rest pattern))]
+      (cond (next orps) (cons 'or orps)
+            (seq orps) (first orps)
+            :else nil))
+    (when (contains-sym? rsym pattern) pattern)))
+
+
 ;; SEM FIXME -- need fully recursive
 
 (defn recursive-container-gen-fn [rsym pattern]
   ;; HACKED TEMP
   (fn [inner]
     (gen/one-of [inner (gen/not-empty (gen/list inner)) (gen/not-empty (gen/vector inner))])))
-
-
 
 
 ;; SEM BUG: INCOMPLETE
@@ -937,7 +946,8 @@ of generators, not variadic"
     (let [bnames (map second bins)
           bexprs (map third bins)]
       (gen/fmap #(zipmap bnames %)
-                (apply gen/tuple (map #(mk-gen (recursive-base % %2)) bnames bexprs))))))
+                ;; SEM FIXME -- context should be nested with others (scoping again)
+                (apply gen/tuple (map #(mk-recursive {} % %2) bnames bexprs))))))
 
 ;; SEM FIXME:  recursive-base is too limited, never does the recursive value
 
