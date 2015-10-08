@@ -1,12 +1,13 @@
 (ns miner.herbert.predicates
   (:refer-clojure 
    :exclude [float? list? char? empty? map? seq? set? coll? even? odd? pos? neg? zero?])
-  (:require [miner.tagged :as tag]))
-
-;; Notice that we want some common fn vars defined in this ns, not clojure.core.  That
-;; allows us to take all the vars ending in "?" as Herbert predicates.
+  (:require [miner.herbert.util :refer :all]))
 
 ;; predicates should not depend on other files, except maybe util
+
+;; All Herbert predicates should be "universal" -- they take any value as the argument and
+;; return a boolean; they never throw an exception.  You might need to add a guard.
+;; For example:   (defn universal-even [n] (and (integer? n) (even? n)))
 
 (defn- numeric
   ([pred]
@@ -36,7 +37,6 @@
 (def seq? clojure.core/sequential?)
 (def coll? clojure.core/coll?)
 (def map? clojure.core/map?)
-(def keys? clojure.core/map?)
 (def set? clojure.core/set?)
 
 (defn bool? [x] (or (true? x) (false? x)))
@@ -53,9 +53,6 @@
   ([x] (and (number? x) (clojure.core/neg? x)))
   ([lo x] (neg? lo 0 x))
   ([lo hi x] (and (number? x) (clojure.core/neg? x) (<= lo x hi))))
-
-(defn literal? [x]
-  (or (keyword? x) (number? x) (string? x) (false? x) (true? x) (nil? x) (clojure.core/char? x)))
 
 (defn empty? [x]
   (or (nil? x)
@@ -121,3 +118,98 @@
         :else (some #(= % x) coll)))
 
 
+;; symbol to predicate fn
+(defmulti predicate identity)
+
+(defmethod predicate :default [_]
+  nil)
+
+(defmethod predicate 'str [_]
+  str?)
+
+(defmethod predicate 'num [_]
+  num?)
+
+(defmethod predicate 'int [_]
+  int?)
+
+(defmethod predicate 'list [_]
+  seq?)
+
+(defmethod predicate 'float [_]
+  float?)
+
+(defmethod predicate 'seq [_]
+  sequential?)
+
+(defmethod predicate 'mod [_]
+  mod?)
+
+(defmethod predicate 'vec [_]
+  vec?)
+
+(defmethod predicate 'coll [_]
+  coll?)
+
+(defmethod predicate 'map [_]
+  map?)
+
+(defmethod predicate 'set [_]
+  set?)
+
+(defmethod predicate 'bool [_]
+  bool?)
+
+(defmethod predicate 'even [_]
+  even?)
+
+(defmethod predicate 'odd [_]
+  odd?)
+
+(defmethod predicate 'pos [_]
+  pos?)
+
+(defmethod predicate 'zero [_]
+  zero?)
+
+(defmethod predicate 'neg [_]
+  neg?)
+
+(defmethod predicate 'literal [_]
+  literal?)
+
+(defmethod predicate 'empty [_]
+  empty?)
+
+(defmethod predicate 'any [_]
+  any?)
+
+(defmethod predicate 'char [_]
+  char?)
+
+(defmethod predicate 'sym [_]
+  sym?)
+
+(defmethod predicate 'kw [_]
+  kw?)
+
+(defmethod predicate 'step [_]
+  step?)
+
+(defmethod predicate 'iter [_]
+  iter?)
+
+(defmethod predicate 'indexed [_]
+  indexed?)
+
+(defmethod predicate 'cnt [_]
+  cnt?)
+
+(defmethod predicate 'in [_]
+  in?)
+
+
+;;; unfinished macro
+#_ (defmacro defpred [fname]
+  (let [sym (stripped fname)]
+  `(defmethod predicate '~sym [_] ~fname)))

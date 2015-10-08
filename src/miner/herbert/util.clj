@@ -24,3 +24,48 @@ As with `case`, constants must be compile-time literals, and need not be quoted.
 ;; works with strings and symbols
 (defn last-char [s]
   (str-last-char (name s)))
+
+(defn literal? [x]
+  (or (keyword? x) (number? x) (string? x) (false? x) (true? x) (nil? x) (char? x)))
+
+;; not the best thing to use on known vectors
+(defn first= [xs y]
+  (and (sequential? xs) (= (first xs) y)))
+
+
+;;;; project specific utilities
+
+;; SEM FIXME: what about & for inline?   I think not for now.
+
+(defn quantified? [expr]
+  (and (seq? expr) (case-of? (first expr) * + ?)))
+
+(defn as-quantified [expr]
+  (if (quantified? expr)
+    expr
+    (list '+ expr)))
+
+(defn literal-or-quoted? [expr]
+  (or (literal? expr)
+      (and (seq? expr) (= (first expr) 'quote))))
+
+(defn optional-literal? [expr]
+  (and (seq? expr)
+       (case-of? (first expr) ?)
+       (literal-or-quoted? (second expr))))
+
+(defn dequote [expr]
+  (if (and (seq? expr) (= (first expr) 'quote))
+    (second expr)
+    expr))
+
+(defn qsymbol? [x]
+  (and (symbol? x) (namespace x)))
+
+(defn grammar? [schema]
+  (and (seq? schema) (= (first schema) 'grammar)))
+
+(defn schema->grammar [schema]
+  (if (grammar? schema)
+    schema
+    (list 'grammar schema)))

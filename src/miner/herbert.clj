@@ -1,21 +1,15 @@
 (ns miner.herbert
-  (:require [clojure.string :as str]
-            [clojure.set :as set]
-            [miner.tagged :as tag]
-            [squarepeg.core :as sp]
+  (:require [squarepeg.core :as sp]
             [miner.herbert.canonical :as canonical]
-            [miner.herbert.private :as internal :refer :all])
+            [miner.herbert.util :refer :all]
+            [miner.herbert.private :as internal])
   (:import miner.tagged.TaggedValue))
 
 
 
 ;; SEM FIXME: needs documenation to explain usage
 ;; inherit some things from internal so that they are public in the main namespace
-(def reserved-ops internal-reserved-ops)
-
-(def ns->predicates internal-ns->predicates)
-
-(def default-predicates internal-default-predicates)
+(def reserved-ops internal/internal-reserved-ops)
 
 (def ^:dynamic *string-from-regex-generator*
   "When bound to a test.check generator, Herbert will use this generator internally for
@@ -27,27 +21,22 @@
   nil)
 
 
-(defn constraint-fn [schema]
+(defn- constraint-fn [schema]
   (let [schema (canonical/rewrite schema)
-        exts (schema->extensions schema)
-        start (schema->start schema)
+        exts (internal/schema->extensions schema)
+        start (internal/schema->start schema)
         ;;sp/mkmemo should be faster, need benchmarks
-        cfn (sp/mkmemo (mkconstraint start exts))]
+        cfn (sp/mkmemo (internal/mkconstraint start exts))]
        (fn ff
          ([item] (ff item {} {} {}))
          ([item context] (ff item context {} {}))
          ([item context bindings memo] (cfn (list item) context bindings memo)))))
 
 
-(defn schema->grammar [schema]
-  (if (grammar? schema)
-    schema
-    (list 'grammar schema)))
-
 ;; creates a fn that test for conformance to the schema
 (defn conform [schema] 
   (if (fn? schema) 
-    schema 
+              schema 
     (let [grammar (schema->grammar schema)
           con-fn (constraint-fn schema)]
        (fn 
@@ -56,7 +45,7 @@
                 (when (sp/success? res)
                   (with-meta (:b res) {::schema grammar}))))))))
 
-
+;; SEM finish this with real context
 (defn blame-fn [schema] 
   (let [grammar (schema->grammar schema)
         con-fn (constraint-fn schema)]

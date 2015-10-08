@@ -4,12 +4,9 @@
             [miner.tagged :as tag]
             [squarepeg.core :as sp]
             [miner.herbert.util :refer :all]
-            [miner.herbert.predicates :as predicates])
+            [miner.herbert.predicates :as pred])
   (:import miner.tagged.TaggedValue))
 
-
-
-(def internal-predicates-ns (the-ns 'miner.herbert.predicates))
 
 (def internal-reserved-ops '#{+ * ? & = == < > not= >= <= 
                               quote and or not when class pred
@@ -32,33 +29,6 @@
                (if (= (last-char k) \?) (assoc cm (symbol-without-last-char k) v) cm))
              {}
              (ns-publics (the-ns ns))))
-
-(def internal-default-predicates (internal-ns->predicates internal-predicates-ns))
-
-
-;;;; repeated in canonical
-(defn quantified? [expr]
-  (and (seq? expr) (case-of? (first expr) * + ?)))
-
-(defn as-quantified [expr]
-  (if (quantified? expr)
-    expr
-    (list '+ expr)))
-
-(defn literal-or-quoted? [expr]
-  (or (predicates/literal? expr)
-      (and (seq? expr) (= (first expr) 'quote))))
-
-(defn optional-literal? [expr]
-  (and (seq? expr)
-       (case-of? (first expr) ?)
-       (literal-or-quoted? (second expr))))
-
-(defn dequote [expr]
-  (if (and (seq? expr) (= (first expr) 'quote))
-    (second expr)
-    expr))
-;;;; END repeated in canonical
 
   
 ;; loosey-goosey get or just yourself, sort of an ersatz lexical binding
@@ -125,11 +95,6 @@ Returns the successful result of the last rule or the first to fail."
 (defn ext-rule [sym extensions]
   (get-in extensions [:terms sym]))
 
-;; SEM FIXME -- a bit of extra work to test pred as var but safer
-;; SEM FIXME -- no longer need extensions here
-(defn tcon-pred [tcon extensions]
-  (get internal-default-predicates tcon))
-
 (declare mkconstraint)
 (declare mkrecursive)
 
@@ -145,7 +110,7 @@ Returns the successful result of the last rule or the first to fail."
 ;; erule wins over built-in pred
 (defn mk-symbol-constraint [sym extensions]
   (or (ext-rule sym extensions)
-      (let [pred (tcon-pred sym extensions)]
+      (let [pred (pred/predicate sym)]
         (if pred (mkprb pred sym) (mk-lookup sym)))))
 
 ;; SEM FIXME: be careful about where the iterfn is resolved
@@ -169,11 +134,20 @@ Returns the successful result of the last rule or the first to fail."
       (let [[sym & args] lexpr
             ;; SEM FIXME erule ignores extra args
             rule (or (ext-rule sym extensions)
-                     (mkprb (tcon-pred sym extensions) sym args))]
+                     (mkprb (pred/predicate sym) sym args))]
       (if name
         (sp/mkbind rule name)
         rule)))))
 
+
+;; not actually used but probably should be for the non-binding case
+(defn mk-list-no-bind [lexpr extensions]
+  (if (empty? (rest lexpr))
+    (mkrecursive (first lexpr) extensions nil)
+    (let [[sym & args] lexpr]
+      ;; SEM FIXME erule ignores extra args
+      (or (ext-rule sym extensions)
+          (mkprb (pred/predicate sym) sym args)))))
 
 (defn mk-con-seq [cs extensions]
   (apply sp/mkseq (map #(mkconstraint % extensions) cs)))
@@ -262,9 +236,9 @@ Returns the successful result of the last rule or the first to fail."
   ;; allow nil value in reader map to defeat a tag
   (when (and val (symbol? tag) (literal-or-quoted? val))
     (let [reader-map (first (filter #(contains? % tag)
-                                 (list *herbert-readers* *data-readers*
-                                       default-data-readers)))]
-      (if-let [reader (and reader-map (get reader-map tag))]
+                                    (list *herbert-readers* *data-readers*
+                                          default-data-readers)))]
+      (if-let [reader (get reader-map tag)]
         (reader (dequote val))
         (let [default-reader (tag/some-tag-reader *herbert-default-tag-reader*
                                                   tag/record-tag-reader
@@ -336,8 +310,6 @@ Returns the successful result of the last rule or the first to fail."
       ;; SEM FIXME: apparently to support binding name in list (N)
       ;;   but do we need that with canonical form?  Yes, (in Ns)
       (mk-list-bind nil lexpr extensions))))
-
-
 
 
 ;; need to reduce the subrules and preserve the bindings
@@ -412,7 +384,7 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   ;; so symbols get treated as literals, appropriate for literal '{foo 1} maps
   (let [rule (mkconstraint con extensions)]
     (cond 
-          (or (predicates/literal? key) (symbol? key)) (mk-key key rule)
+          (or (literal? key) (symbol? key)) (mk-key key rule)
           (seq? key) (case (first key)
                        (quote +) (mk-key (second key) rule)
                        (? *) (mk-kw-opt (second key) rule)
@@ -516,7 +488,9 @@ nil value also succeeds for an optional kw.  Does not consume anything."
            (mkprb #(set/subset? litset %) sexpr) 
            (map #(mk-set-element % extensions) nonlits))))
 
-;; SEM FIXME: use a Protocol
+;; Canonical simplifies forms to the basics so we don't have to consider vector and map
+;; structures.  Basically, just symbols and lists and a few literals.
+
 (defn mkconstraint 
   ([expr] (mkconstraint expr {}))
   ([expr extensions]
@@ -530,14 +504,8 @@ nil value also succeeds for an optional kw.  Does not consume anything."
            ;; (map? expr) (mk-map-literal-constraint expr extensions)
            ;; keep optional-key? before literal? test
            ;; (optional-key? expr) (sp/mkopt (sp/mklit (simple-key expr)))
-           (predicates/literal? expr) (sp/mklit expr)
+           (literal? expr) (sp/mklit expr)
            :else (throw (ex-info "Unknown constraint form" {:con expr :extensions extensions})))))
-
-(defn qsymbol? [x]
-  (and (symbol? x) (namespace x)))
-
-(defn grammar? [schema]
-  (and (seq? schema) (= (first schema) 'grammar)))
 
 (defn mkrecursive [start exts rsym]
   ;; rsym is the symbol used for a recursive rule, in a := binding or grammar rule
@@ -561,4 +529,3 @@ nil value also succeeds for an optional kw.  Does not consume anything."
   (if (grammar? schema)
     (second schema)
     schema))
-
