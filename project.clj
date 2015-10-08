@@ -3,6 +3,7 @@
   :url "https://github.com/miner/herbert"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
+  :deploy-repositories {"releases" :clojars}
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [com.velisco/tagged "0.3.7"]
                  [org.clojure/math.combinatorics "0.1.1"]
