@@ -223,8 +223,10 @@ __int*__, __str\+__, __sym?__
   `clojure.core/default-data-readers`) have predefined tags as well.  The `edn-value` is
   typically a map for a record or the item itself for most other classes.  Custom records
   and Java classes can extend the `miner.tagged.EdnTag` protocol to participate in `tag`
-  pattern matching. <BR> `(tag my.ns/Rec {:a int})` -- matches an instance of the record
-  class `my.ns.Rec` with an integer value for the key `:a`. <BR> `(tag inst)` -- matches any
+  pattern matching. <BR> 
+`(tag my.ns/Rec {:a int})` -- matches an instance of the record
+  class `my.ns.Rec` with an integer value for the key `:a`. <BR> 
+`(tag inst)` -- matches any
   instance of java.util.Date, java.util.Calendar or java.sql.Timestamp
 
 [tagged]: https://github.com/miner/tagged "tagged"
@@ -406,6 +408,8 @@ different approaches to similar problems:
 * Strucjure: https://github.com/jamii/strucjure
 * Sequence Expressions (seqex): https://github.com/jclaggett/seqex
 * Regexp for Sequences (seqexp): https://github.com/cgrand/seqexp
+* Truss: https://github.com/ptaoussanis/truss
+* Structural Typing: https://github.com/marick/structural-typing/
 
 ## Star Trek: _The Way to Eden_  
 

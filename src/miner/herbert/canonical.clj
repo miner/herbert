@@ -170,9 +170,8 @@
         (map? schema) (hash-map-rewrite schema)
         (set? schema) (set-rewrite schema)
         (seq? schema) (seq-rewrite schema)
-        ;; strange case of providing a predicate, maybe not a good idea
-        (fn? schema) schema
-        :else (list 'UNIMPLEMENTED schema)))
+        :else (throw (ex-info (str "Unimplemented schema '" schema "'")
+                              {:unimplemented schema}))))
 
 #_
 (defn vc? [schema val]

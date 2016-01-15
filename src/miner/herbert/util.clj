@@ -25,8 +25,9 @@ As with `case`, constants must be compile-time literals, and need not be quoted.
 (defn last-char [s]
   (str-last-char (name s)))
 
+;; note Records satisfy coll?, strings do not
 (defn literal? [x]
-  (or (keyword? x) (number? x) (string? x) (false? x) (true? x) (nil? x) (char? x)))
+  (and (not (symbol? x)) (not (coll? x))))
 
 ;; not the best thing to use on known vectors
 (defn first= [xs y]

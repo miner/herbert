@@ -448,6 +448,9 @@ of generators, not variadic"
 ;; typely-not (completely different base types) to make it easier to
 ;; rewrite complicated AND/OR/NOT expressions.
 
+;; for extensible (inst TAG) generators
+(defmulti make-tag-generator (fn [context sym & args] sym))
+
 
 (defn make-complement-generator [context tag]
   (let [type-info (or (:type-info context) herbert-type-info)
@@ -529,7 +532,7 @@ of generators, not variadic"
                                    [(mk-int Long/MIN_VALUE (dec low))
                                     (mk-int (inc high) Long/MAX_VALUE)
                                     (mk-float (- Double/MAX_VALUE)
-                                              (Math/nextAfter low (- Double/MAX_VALUE)))
+                                              (Math/nextAfter (double low) (- Double/MAX_VALUE)))
                                     (mk-float (Math/nextUp (double high)) Double/MAX_VALUE)
                                     gen/string-ascii gen-symbol gen-kw]))))
 
@@ -797,6 +800,57 @@ of generators, not variadic"
 
 (defmethod make-not-generator 'not
   ([context _ schema] (mk-gen context schema)))
+
+
+;; SEM: should we memoize this
+;; see "tagged" project for similar code
+(defn record-factory [tag]
+  (let [nspace (namespace tag)
+        tagstr (name tag)]
+    ;; would be more correct to verify that tag actually refers to a record class
+    (when (Character/isUpperCase ^Character (first tagstr))
+      (when-let [factory-var (resolve (symbol (if nspace (str nspace "/map->" tagstr)
+                                                  (str "map->" tagstr))))]
+        (when (var? factory-var) @factory-var)))))
+
+
+(defmethod make-generator 'tag
+  ([context _ tag]
+   (make-tag-generator context tag))
+  ([context _ tag constraint]
+   (make-tag-generator context tag constraint)))
+
+(defmethod make-tag-generator :default
+  ([context tag]
+   (if-let [factory (record-factory tag)]
+     (gen/return (factory {}))
+     (throw (ex-info (str "make-tag-generator method not implemented for '" tag "'")
+                     {:tag tag}))))
+  ([context tag constraint]
+   (if-let [factory (record-factory tag)]
+     (gen/fmap factory (mk-gen context constraint))
+     (throw (ex-info (str "make-tag-generator method not implemented for '" tag "'")
+                     {:tag tag :constraint constraint})))))
+
+
+
+
+(defmethod make-tag-generator 'inst
+  ([context _] (gen/fmap #(java.util.Date. ^long %) gen/int))
+  ([context _ milli-constraint] (gen/fmap #(java.util.Date. ^long %)
+                                          (mk-gen context milli-constraint))))
+
+;; String format for UUID is x8-x4-x4-x4-x12 of hex digits
+;; Beware, the uuid-regex has literal hyphens requiring regex protection [-]
+(defmethod make-tag-generator 'uuid
+  ([context _] (gen/fmap (fn [[^long msb ^long lsb]] (java.util.UUID. msb lsb))
+                         (gen/vector gen-int 2)))
+  ([context _ uuid-regex-constraint]
+   (gen/fmap #(java.util.UUID/fromString %)
+             (mk-str context uuid-regex-constraint)))
+  ([context _ msb lsb] (gen/fmap (fn [[^long msb ^long lsb]] (java.util.UUID. msb lsb))
+                         (gen/tuple (mk-gen context msb) (mk-gen context lsb)))))
+
 
 
 ;; SEM for testing
