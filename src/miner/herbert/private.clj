@@ -231,19 +231,12 @@ Returns the successful result of the last rule or the first to fail."
   (and (re-matches (if (string? regex-or-str) (re-pattern regex-or-str) regex-or-str) (pr-str sym))
        true))
 
-(defn tag-reader-constant [tag val]
-  ;; returns the tagged literal constant or nil if not applicable
-  ;; allow nil value in reader map to defeat a tag
-  (when (and val (symbol? tag) (literal-or-quoted? val))
-    (let [reader-map (first (filter #(contains? % tag)
-                                    (list *herbert-readers* *data-readers*
-                                          default-data-readers)))]
-      (if-let [reader (get reader-map tag)]
-        (reader (dequote val))
-        (let [default-reader (tag/some-tag-reader *herbert-default-tag-reader*
-                                                  tag/record-tag-reader
-                                                  tag/->TaggedValue)]
-          (default-reader tag (dequote val)))))))
+(defn maybe-regex-pattern [pat]
+  ;; converts literal string or regex into (str regex) pattern
+  ;; others pass through
+  (cond (string? pat) (list 'str (re-pattern pat))
+        (instance? java.util.regex.Pattern pat) (list 'str pat)
+        :else pat))
 
 (defn mk-tag
   ;; tag could be a symbol (exact match) or a string/regex to match pr-str of item's actual tag
@@ -251,22 +244,21 @@ Returns the successful result of the last rule or the first to fail."
            (mkprb #(= (tag/edn-tag %) tag) (list 'tag tag))
            (mkprb #(regex-sym-match? tag (tag/edn-tag %)) (list 'tag tag))))
 
-  ([tag valpat extensions]
-   (if-let [data-constant (tag-reader-constant tag valpat)]
-     (sp/mklit data-constant)
-     (let [vrule (when valpat (mkconstraint valpat extensions))]
-       (fn [input bindings context memo]
-         (let [item (first input)
-               ival (tag/edn-value item)
-               itag (tag/edn-tag item)]
-           (if (if (symbol? tag) (= itag tag) (regex-sym-match? tag itag))
-             (if vrule
-               (let [res (vrule (list ival) bindings context memo)]
-                 (if (sp/failure? res)
-                   res
-                   (sp/succeed item [item] (rest input) (merge bindings (:b res)) memo)))
-               (sp/succeed item [item] (rest input) bindings memo))
-             (sp/fail (str "Not tagged " tag) memo))))))))
+  ([tag ednpat extensions]
+   (let [vrule (when ednpat (mkconstraint (maybe-regex-pattern ednpat) extensions))]
+     (fn [input bindings context memo]
+       (let [item (first input)
+             ival (tag/edn-value item)
+             itag (tag/edn-tag item)]
+         (if (if (symbol? tag) (= itag tag) (regex-sym-match? tag itag))
+           (if vrule
+             (let [res (vrule (list ival) bindings context memo)]
+               (if (sp/failure? res)
+                 res
+                 (sp/succeed item [item] (rest input) (merge bindings (:b res)) memo)))
+             (sp/succeed item [item] (rest input) bindings memo))
+           (sp/fail (str "Not tagged " tag) memo)))))))
+
 
 (declare mk-hash-map-constraint)
 (declare mk-set-constraint)

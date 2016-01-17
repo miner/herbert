@@ -33,6 +33,11 @@
     ;; good to try different symbols in first place (for such-that)
     (and pos int (not neg) (not odd) (not zero))
     (and float (not 0.0))
+    (tag inst)
+    (tag inst #"[12]\d\d\d[-]0[1-9][-]01T01:0\d:00[.]000[-]00:00")
+    (tag uuid)
+    ;; UUID format x8-x4-x4-x4-x12, prints with lowercase A-F so be careful with regex
+    (tag uuid #"[0-9A-Fa-f]2345678[-]1234[-]1234[-]1234[-]1234567890[Aa][Bb]")
     [(:= n int) n n]
     [(:= mmm {kw (int 0 10)}) (+ (in mmm))]
     [(:= mmm {(kw ":[a-z]") (neg -10)}) {(in mmm) (pos 20 30)}]

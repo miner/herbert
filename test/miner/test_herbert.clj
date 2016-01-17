@@ -383,7 +383,7 @@
 
 (deftest records-by-tag
   (is (conforms? '(tag miner.test-herbert/Foo) (->Foo 42)))
-  (is (conforms? '(tag miner.test-herbert/Foo '{:a 42}) (->Foo 42)))
+  ;(is (conforms? '(tag miner.test-herbert/Foo '{:a 42}) (->Foo 42)))
   (is (conforms? '(tag miner.test-herbert/Foo {:a 42}) (->Foo 42)))
   (is (conforms? '(tag "miner[.]test-.*/Foo") (->Foo 42)))
   (is (not (conforms? '(tag "miner/test-.*Foo") (->Foo 42))))
@@ -402,10 +402,10 @@
   (is (conforms? '(tag inst) (java.sql.Timestamp. 0)))
   (is (conforms? '(tag inst) (java.util.Calendar/getInstance)))
   (is (conforms? '(tag inst "1970-01-01T00:00:00.000-00:00") (java.util.Date. 0)))
-  (is (conforms? '(tag inst "1970") (java.util.Date. 0)))
-  (is (conforms? '(tag inst "1970") #inst "1970"))
-  (is (not (conforms? '(tag inst "1970") "1970")))
-  (is (not (conforms? '(tag inst "1980") #inst "1990"))))
+  (is (conforms? '(tag inst "1970.*") (java.util.Date. 0)))
+  (is (conforms? '(tag inst "1970.*") #inst "1970"))
+  (is (not (conforms? '(tag inst "1970.*") "1970")))
+  (is (not (conforms? '(tag inst "1980.*") #inst "1990"))))
 
 (deftest nested-inst-and-uuid
   (is (conforms? '[[:create-resource

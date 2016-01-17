@@ -68,7 +68,6 @@
           0)))))
 
 
-
 (defn standard-herbert-type-info []
   ;; pos/neg in both int and float
   ;; odd/even
@@ -833,12 +832,13 @@ of generators, not variadic"
                      {:tag tag :constraint constraint})))))
 
 
-
-
 (defmethod make-tag-generator 'inst
   ([context _] (gen/fmap #(java.util.Date. ^long %) gen/int))
-  ([context _ milli-constraint] (gen/fmap #(java.util.Date. ^long %)
-                                          (mk-gen context milli-constraint))))
+  ([context _ regex-constraint]
+   ;; 1970-01-01T00:00:01.835-00:00
+   (let [sdf (java.text.SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ss.SSSXXX")]
+     (gen/fmap #(.parse ^java.text.SimpleDateFormat sdf ^String %)
+               (mk-str context regex-constraint)))))
 
 ;; String format for UUID is x8-x4-x4-x4-x12 of hex digits
 ;; Beware, the uuid-regex has literal hyphens requiring regex protection [-]
@@ -850,18 +850,6 @@ of generators, not variadic"
              (mk-str context uuid-regex-constraint)))
   ([context _ msb lsb] (gen/fmap (fn [[^long msb ^long lsb]] (java.util.UUID. msb lsb))
                          (gen/tuple (mk-gen context msb) (mk-gen context lsb)))))
-
-
-
-;; SEM for testing
-#_ (def rp '(grammar rint rint (or int [rint])))
-;; canonical:    (grammar rint rint (or int (seq (+ rint))))
-#_ (hg/sample rp)
-
-
-;; assume canonical pattern
-;; return nil if it's not recursive in sym
-
 
 
 ;; SEM consider mapcat vs. remove ::void. Actually using ::void marker so keep it.
@@ -878,7 +866,6 @@ of generators, not variadic"
                             ::void
                             bps))
         :else pattern))
-
 
 
 
