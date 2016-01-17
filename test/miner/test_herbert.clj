@@ -383,7 +383,6 @@
 
 (deftest records-by-tag
   (is (conforms? '(tag miner.test-herbert/Foo) (->Foo 42)))
-  ;(is (conforms? '(tag miner.test-herbert/Foo '{:a 42}) (->Foo 42)))
   (is (conforms? '(tag miner.test-herbert/Foo {:a 42}) (->Foo 42)))
   (is (conforms? '(tag "miner[.]test-.*/Foo") (->Foo 42)))
   (is (not (conforms? '(tag "miner/test-.*Foo") (->Foo 42))))
