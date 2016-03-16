@@ -46,6 +46,12 @@ Quick example:
 (require '[miner.herbert :as h])
 (h/conforms? '{:a int :b [sym+] :c str} '{:a 42 :b [foo bar baz] :c "foo"})
 ;=> true
+
+;; For better performance, create a test function with `h/conform`.
+(def my-test (h/conform '{:a (:= A int) :b [sym+] :c str}))
+(my-test '{:a 42 :b [foo bar baz] :c "foo"})
+;=> {A 42}
+
 ```
 
 ## Test.Check integration
@@ -327,6 +333,14 @@ a hack:
 ; a very simple "grammar" with no rules, equivalent to the start pattern
 ;=> true
 
+(h/conforms? '(grammar {show numbers}, show str, numbers [int+]) '{"Lost" [4 8 15 16 23 42]})
+; target pattern can use named subpatterns defined by tail of name/pattern pairs
+;=> true
+
+(h/conforms? '(:= A (or :a [:b A])) [:b [:b [:b :a]]])
+; matches a recursive binding of `A`
+;=> true
+
 (h/conforms? '{:a int :b sym :c? [str*]} '{:a 1 :b foo :c ["foo" "bar" "baz"]})
 ;=> true
 
@@ -338,7 +352,7 @@ a hack:
 ;=> false
 
 (h/conforms? '{:a (:= A int) :b sym :c? [A+]} '{:a 1 :b foo :c [1 1 1]})
-; _A_ is bound to the int associated with :a, and then used again to define the values
+; `A` is bound to the int associated with :a, and then used again to define the values
 ; in the seq associated with :c.  
 ;=> true
 
@@ -410,6 +424,7 @@ different approaches to similar problems:
 * Regexp for Sequences (seqexp): https://github.com/cgrand/seqexp
 * Truss: https://github.com/ptaoussanis/truss
 * Structural Typing: https://github.com/marick/structural-typing/
+* Annotate: https://github.com/roomkey/annotate
 
 ## Star Trek: _The Way to Eden_  
 
