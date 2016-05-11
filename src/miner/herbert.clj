@@ -36,7 +36,7 @@
 ;; creates a fn that test for conformance to the schema
 (defn conform [schema] 
   (if (fn? schema) 
-              schema 
+    schema 
     (let [grammar (schema->grammar schema)
           con-fn (constraint-fn schema)]
        (fn 
@@ -58,8 +58,19 @@
 (defn blame [schema x]
   ((blame-fn schema) x))
 
-(defn conforms? [schema x] 
-  (boolean ((conform schema) x)))
+(def herbert-tmp-ns (create-ns 'miner.herbert.tmp))
+
+(defmacro conforms? [schema x]
+  (if (literal-or-quoted? schema)
+    ;; many schema expressions are constants that can be precompiled into a function
+    (let [schema (dequote schema)
+          cfv (intern herbert-tmp-ns
+                      (with-meta (gensym "Hfn-") {::schema schema})
+                      (comp boolean (conform schema)))]
+      `(~cfv ~x))
+    ;; in the general case, we have to compile the schema at runtime
+    `(boolean ((~'miner.herbert/conform ~schema) ~x))))
+
 
 (defn schema-merge
   "Makes one schema expression out of several, ignoring the 'start' expression from all but the
