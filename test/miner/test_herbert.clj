@@ -655,3 +655,18 @@
   (is (not (conforms? '{(? '[:foo "bar"]) str} '{[:foo "bar"] 13})))
   (is (not (conforms? '{(? '[:foo "bar"]) str} '{:a 10 [:foo "bar"] 13}))))
 
+;; need test for cache collisions in conforms?  Here are some strings that hash the same
+;; (apply = (map hash '("AaAaAa" "AaAaBB" "AaBBAa" "BBAaAa" "BBAaBB" "BBBBAa" "BBBBBB")))
+;; => true
+;; (= (hash "FB") (hash "Ea"))
+;; => true
+
+(deftest conform-vars
+  (let [colliding-strings '("AaAaAa" "AaAaBB" "AaBBAa" "BBAaAa" "BBAaBB" "BBBBAa"
+                            "BBBBBB")
+        matching-vars (map schema-conformance-var colliding-strings)]
+    (is (apply = (map hash colliding-strings)))
+    (is (= (hash "FB") (hash "Ea"))) ;; another example
+    (is (apply distinct? matching-vars))
+    (is (every? true? (map (fn [f x] (f x)) matching-vars colliding-strings)))))
+

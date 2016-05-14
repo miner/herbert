@@ -58,16 +58,34 @@
 (defn blame [schema x]
   ((blame-fn schema) x))
 
-(def herbert-tmp-ns (create-ns 'miner.herbert.tmp))
+(def tmp-ns (create-ns 'miner.herbert.tmp))
+
+(defn schema-conformance-var? [schema svar]
+  ;; check meta to avoid hash collision
+  (= (::schema (meta svar)) schema))
+
+(defn intern-schema-var [sym schema]
+  (intern tmp-ns (with-meta sym {::schema schema}) (comp boolean (conform schema))))
+
+(defn schema-conformance-var [schema]
+  (let [schema-hash (hash schema)]
+    (loop [prefs '("H" "Ha" "Hb" "Hc")]
+      (if (seq prefs)
+        (let [prefix (first prefs)
+              sym (symbol (str prefix schema-hash))
+              svar (ns-resolve tmp-ns sym)] 
+          (cond (nil? svar) (intern-schema-var sym schema)
+              (schema-conformance-var? schema svar) svar
+              :else (recur (rest prefs))))
+        (intern-schema-var (gensym "Hx") schema)))))
+
 
 (defmacro conforms? [schema x]
   (if (literal-or-quoted? schema)
     ;; many schema expressions are constants that can be precompiled into a function
     (let [schema (dequote schema)
-          cfv (intern herbert-tmp-ns
-                      (with-meta (gensym "Hfn-") {::schema schema})
-                      (comp boolean (conform schema)))]
-      `(~cfv ~x))
+          svar (schema-conformance-var schema)]
+      `(~svar ~x))
     ;; in the general case, we have to compile the schema at runtime
     `(boolean ((~'miner.herbert/conform ~schema) ~x))))
 
