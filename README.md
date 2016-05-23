@@ -1,3 +1,11 @@
+> We turn our backs on confusion and seek the beginning. 
+> -- *Sevrin* 
+	
+Note: Clojure 1.9 will introduce a new core library, known as [**clojure.spec**][spec], which makes
+*Herbert* obsolete.
+
+[spec]: http://blog.cognitect.com/blog/2016/5/23/introducing-clojurespec
+
 # Herbert
 
 A schema language for **edn** (Clojure data).
@@ -425,6 +433,10 @@ different approaches to similar problems:
 * Truss: https://github.com/ptaoussanis/truss
 * Structural Typing: https://github.com/marick/structural-typing/
 * Annotate: https://github.com/roomkey/annotate
+
+## Herbert is obsolete as of Clojure 1.9
+* clojure.spec: http://blog.cognitect.com/blog/2016/5/23/introducing-clojurespec
+
 
 ## Star Trek: _The Way to Eden_  
 
