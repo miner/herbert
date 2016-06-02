@@ -60,6 +60,7 @@
 
 (def tmp-ns (create-ns 'miner.herbert.tmp))
 
+;; maybe identical? test would be better
 (defn schema-conformance-var? [schema svar]
   ;; check meta to avoid hash collision
   (= (::schema (meta svar)) schema))
