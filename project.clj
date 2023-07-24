@@ -6,7 +6,7 @@
   :deploy-repositories {"releases" :clojars}
   :dependencies [[org.clojure/clojure "1.11.0-rc1"]
                  [com.velisco/tagged "0.5.0"]
-                 [org.clojure/math.combinatorics "0.1.6"]
+                 [org.clojure/math.combinatorics "0.2.0"]
                  [org.clojure/test.check "1.1.1"]
                  [squarepeg "0.6.1"]]  )
 
