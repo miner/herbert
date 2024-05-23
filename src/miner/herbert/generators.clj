@@ -836,7 +836,8 @@ of generators, not variadic"
   ([context _] (gen/fmap #(java.util.Date. ^long %) gen/int))
   ([context _ regex-constraint]
    ;; 1970-01-01T00:00:01.835-00:00
-   (let [sdf (java.text.SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ss.SSSXXX")]
+   (let [sdf (doto (java.text.SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
+               (.setTimeZone (java.util.TimeZone/getTimeZone "UTC")))]
      (gen/fmap #(.parse ^java.text.SimpleDateFormat sdf ^String %)
                (mk-str context regex-constraint)))))
 
@@ -870,7 +871,7 @@ of generators, not variadic"
 
 
 ;; SEM FIXME
-;; wasteful to decend pattern multiple times as the nested OR will require special handling
+;; wasteful to descend pattern multiple times as the nested OR will require special handling
 ;; probably better to use walk anyway
 (defn contains-sym? [sym pattern]
   (if (seq? pattern)
