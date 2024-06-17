@@ -5,6 +5,21 @@
             [miner.tagged :as tag]
             clojure.string))
 
+(deftest show-info
+  (testing "Show test info"
+    (println)
+    (println "  ** Test Info **")
+    (let [info (clojure.edn/read-string (slurp  "project.clj"))]
+      (println " " (second info) (nth info 2)))
+    (println "  Clojure" (clojure-version))
+    (println "  Java" (System/getProperty "java.version"))
+    (println "  vendor:" (or (System/getProperty "java.vendor.version")
+                             (System/getProperty "java.vendor")))
+    (println "  Java home:" (System/getProperty "java.home"))
+    (println)
+    true))
+
+
 (deftest basics
   (is (conforms? 'int 10))
   (is (conforms? 'str "foo"))
