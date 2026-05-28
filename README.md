@@ -10,7 +10,7 @@ Note: Clojure 1.9 will introduce a new core library, known as [**clojure.spec**]
 
 A schema language for **edn** (Clojure data).
 
-[![Way to Eden](./img/way-to-eden.png)](#star-trek-reference)
+[![Way to Eden](https://github.com/miner/herbert/blob/master/img/way-to-eden.png)](#star-trek-reference)
 
 https://github.com/[username]/[reponame]/blob/[branch]/image.jpg?raw=true
 
@@ -452,7 +452,7 @@ stardate 5832.3
 
 video clip:  http://www.youtube.com/watch?v=PQONBf9xMss
 
-[![Way to Eden](./img/way-to-eden2.jpg)](http://www.youtube.com/watch?v=PQONBf9xMss)
+[![Way to Eden](https://github.com/miner/herbert/blob/master/img/way-to-eden2.jpg)](http://www.youtube.com/watch?v=PQONBf9xMss)
 
 ## Copyright and License
 
