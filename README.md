@@ -12,6 +12,8 @@ A schema language for **edn** (Clojure data).
 
 [![Way to Eden](./img/way-to-eden.png)](#star-trek-reference)
 
+https://github.com/[username]/[reponame]/blob/[branch]/image.jpg?raw=true
+
 The _extensible data notation_ **(edn)** defines a useful subset of Clojure data types.  As
 described on [edn-format.org](http://edn-format.org):
 
@@ -438,7 +440,9 @@ different approaches to similar problems:
 * clojure.spec: http://blog.cognitect.com/blog/2016/5/23/introducing-clojurespec
 
 
-## Star Trek: _The Way to Eden_  
+## Star Trek Reference
+
+_The Way to Eden_  
 
 stardate 5832.3
 
