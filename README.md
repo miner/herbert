@@ -4,15 +4,13 @@
 Note: Clojure 1.9 will introduce a new core library, known as [**clojure.spec**][spec], which makes
 *Herbert* obsolete.
 
-[spec]: http://blog.cognitect.com/blog/2016/5/23/introducing-clojurespec
+[spec]: https://blog.cognitect.com/blog/2016/5/23/introducing-clojurespec
 
 # Herbert
 
 A schema language for **edn** (Clojure data).
 
-![Way to Eden](img/way-to-eden.png)
-
-[![Way to Eden](https://github.com/miner/herbert/blob/master/img/way-to-eden.png)](#star-trek-reference)
+[![Way to Eden](img/way-to-eden.png)](#star-trek-reference)
 
 The _extensible data notation_ **(edn)** defines a useful subset of Clojure data types.  As
 described on [edn-format.org](http://edn-format.org):
@@ -450,9 +448,9 @@ stardate 5832.3
 **Spock**: "Herbert was a minor official notorious for his rigid and limited patterns of thought."  
 **Kirk**: "Well, I shall try to be less rigid in my thinking."  
 
-video clip:  http://www.youtube.com/watch?v=PQONBf9xMss
+video clip:  https://www.youtube.com/watch?v=PQONBf9xMss
 
-[![Way to Eden](https://github.com/miner/herbert/blob/master/img/way-to-eden2.jpg)](http://www.youtube.com/watch?v=PQONBf9xMss)
+[![Way to Eden](img/way-to-eden2.jpg)](https://www.youtube.com/watch?v=PQONBf9xMss)
 
 ## Copyright and License
 
